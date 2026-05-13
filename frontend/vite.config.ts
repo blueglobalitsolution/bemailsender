@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => {
        allowedHosts: true,
        proxy: {
          '/api': {
-           target: 'http://backend:8000',
+           target: 'http://localhost:9090',
            changeOrigin: true,
          },
        },
