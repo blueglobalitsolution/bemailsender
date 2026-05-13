@@ -43,9 +43,9 @@ services:
     # No public ports for backend, accessed via frontend/nginx proxy
       
     expose:
-      - "8000"
+      - "9090"
     ports:
-      - "3435:8000"
+      - "9090:9090"
     volumes:
       - ./backend/staticfiles:/app/staticfiles
       - ./backend/media:/app/media
@@ -64,7 +64,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8000/api/health/ || exit 1" ]
+      test: [ "CMD-SHELL", "curl -f http://localhost:9090/api/health/ || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
