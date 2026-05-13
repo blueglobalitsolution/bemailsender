@@ -97,6 +97,10 @@ else:
         }
     }
 
+# Use PyMySQL as the MySQL client
+import pymysql
+pymysql.install_as_MySQLdb()
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
