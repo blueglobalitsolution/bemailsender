@@ -27,8 +27,8 @@ fi
 # Check if we should use gunicorn or runserver (addressing Issue #23 as a bonus)
 if [ "$DEBUG" = "False" ]; then
     echo "Running in PRODUCTION mode (Gunicorn)"
-    exec gunicorn bemailsender.wsgi:application --bind 0.0.0.0:3435
+    exec gunicorn bemailsender.wsgi:application --bind 0.0.0.0:9090
 else
     echo "Running in DEVELOPMENT mode (Runserver)"
-    exec python manage.py runserver 0.0.0.0:3435
+    exec python manage.py runserver 0.0.0.0:9090
 fi

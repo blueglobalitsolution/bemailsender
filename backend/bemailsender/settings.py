@@ -5,6 +5,10 @@ Django settings for BEmailSender project.
 from pathlib import Path
 import os
 from datetime import timedelta
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -67,23 +71,31 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "bemailsender.wsgi.application"
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.mysql",
-        "NAME": os.environ.get("DB_NAME", "bemailerdb"),
-        "USER": os.environ.get("DB_USER", "bemailuser"),
-        "PASSWORD": os.environ.get("DB_PASSWORD", "befullfill786"),
-        "HOST": os.environ.get("DB_HOST", "localhost"),
-        "PORT": os.environ.get("DB_PORT", "3306"),
-        "CONN_MAX_AGE": 60,
-        "CONN_HEALTH_CHECKS": True,
-        "OPTIONS": {
-            "charset": "utf8mb4",
-            "init_command": "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci",
-            "connect_timeout": 5,
-        },
+if os.environ.get("USE_SQLITE", "False") == "True":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.mysql",
+            "NAME": os.environ.get("DB_NAME", "bemailerdb"),
+            "USER": os.environ.get("DB_USER", "bemailuser"),
+            "PASSWORD": os.environ.get("DB_PASSWORD", "befullfill786"),
+            "HOST": os.environ.get("DB_HOST", "localhost"),
+            "PORT": os.environ.get("DB_PORT", "3306"),
+            "CONN_MAX_AGE": 60,
+            "CONN_HEALTH_CHECKS": True,
+            "OPTIONS": {
+                "charset": "utf8mb4",
+                "init_command": "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci",
+                "connect_timeout": 5,
+            },
+        }
+    }
 
 LOGGING = {
     "version": 1,
