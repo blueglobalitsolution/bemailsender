@@ -1,0 +1,134 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3437:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backups/mysql:/backups
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${MYSQL_USER}", "--password=${MYSQL_PASSWORD}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  db_backup:
+    image: fradelg/mysql-cron-backup
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - MYSQL_HOST=${DB_HOST}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MAX_BACKUPS=7
+      - INIT_BACKUP=0
+      - CRON_TIME=0 0 * * *
+    volumes:
+      - ./backups/mysql:/backup
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    # No public ports for backend, accessed via frontend/nginx proxy
+      
+    expose:
+      - "8000"
+    ports:
+      - "3435:8000"
+    volumes:
+      - ./backend/staticfiles:/app/staticfiles
+      - ./backend/media:/app/media
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=${DEBUG}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - WHATSAPP_SERVICE_URL=${WHATSAPP_SERVICE_URL}
+      - WHATSAPP_API_KEY=${WHATSAPP_API_KEY}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8000/api/health/ || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3434:80"
+    volumes:
+      - ./backend/staticfiles:/app/staticfiles
+      - ./backend/media:/app/media
+    environment:
+      - VITE_API_URL=/api
+    depends_on:
+      backend:
+        condition: service_healthy
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=${DEBUG}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - WHATSAPP_SERVICE_URL=${WHATSAPP_SERVICE_URL}
+      - WHATSAPP_API_KEY=${WHATSAPP_API_KEY}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "python manage.py check || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    command: [ "python", "manage.py", "process_campaigns" ]
+
+  whatsapp:
+    build:
+      context: .
+      dockerfile: Dockerfile.whatsapp
+    ports:
+      - "3436:3001"
+    volumes:
+      - whatsapp_sessions:/app/.whatsapp-web-jssdk
+    environment:
+      - PORT=${PORT}
+      - WHATSAPP_API_KEY=${WHATSAPP_API_KEY}
+      - DJANGO_URL=${DJANGO_URL}
+      - SECRET_KEY=${SECRET_KEY}
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3001/" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mysql_data:
+  whatsapp_sessions:

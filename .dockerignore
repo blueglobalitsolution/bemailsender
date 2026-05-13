@@ -1,0 +1,68 @@
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+**/venv/
+**/env/
+**/.venv/
+*.egg-info/
+.eggs/
+**/*.sqlite3
+
+# Node.js
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.vite/
+frontend/.vite/
+whatsapp-service/node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Build artifacts
+dist/
+build/
+*.log
+
+# Test and cache
+**/__pycache__/
+.ruff_cache/
+.coverage/
+htmlcov/
+
+# Media files
+*.mp4
+*.mov
+*.avi
+
+# Database and media
+mysql_data/
+whatsapp_sessions/
+**/.wwebjs_auth/
+**/.wwebjs_cache/
+
+# Backup and data
+backups/
+*.sql
+*.sqlite3
+*.bak
+
+# Large files
+*.zip
+*.tar
+*.gz
+
+# Local development
+.env.local
+.env.*.local
