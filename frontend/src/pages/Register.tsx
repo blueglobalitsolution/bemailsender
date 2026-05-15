@@ -17,6 +17,7 @@ export default function Register({ setAuth }: { setAuth: (auth: boolean) => void
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, password_confirm: password }),
+        credentials: "include",
       });
       const data = await res.json();
       if (res.ok) {

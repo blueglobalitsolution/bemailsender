@@ -7,7 +7,7 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
+    localStorage.removeItem("access_token");
     setAuth(false);
     navigate("/login");
   };

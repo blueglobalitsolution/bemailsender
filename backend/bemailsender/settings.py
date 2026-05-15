@@ -171,9 +171,19 @@ if DEBUG:
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:80",
+        "http://mailer.blueglobaltechnology.com",
+        "https://mailer.blueglobaltechnology.com",
     ]
 else:
-    CORS_ALLOWED_ORIGINS = os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")
+    cors_origins = os.environ.get("CORS_ALLOWED_ORIGINS", "")
+    if cors_origins:
+        CORS_ALLOWED_ORIGINS = cors_origins.split(",")
+    else:
+        # Default production origins
+        CORS_ALLOWED_ORIGINS = [
+            "http://mailer.blueglobaltechnology.com",
+            "https://mailer.blueglobaltechnology.com",
+        ]
 
 CORS_ALLOW_CREDENTIALS = True
 
