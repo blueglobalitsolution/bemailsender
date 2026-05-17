@@ -34,7 +34,6 @@ export default function App() {
           <Route path="templates" element={<Templates />} />
           <Route path="identities" element={<Identities />} />
           <Route path="whatsapp" element={<WhatsApp />} />
-          <Route path="logs" element={<CampaignLogs />} />
         </Route>
       ) : (
         <Route path="*" element={<Navigate to="/login" replace />} />

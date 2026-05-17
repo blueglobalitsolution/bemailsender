@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Mail, Lock, ArrowRight, UserPlus } from "lucide-react";
 import { getApiUrl } from "../lib/api";
 
@@ -96,9 +96,6 @@ export default function Register({ setAuth }: { setAuth: (auth: boolean) => void
           </button>
         </form>
 
-        <p className="mt-8 text-center text-sm text-gray-500 font-bold">
-          Already have an account? <Link to="/login" className="text-gray-900 hover:underline skeuo-text">Sign in</Link>
-        </p>
       </div>
     </div>
   );

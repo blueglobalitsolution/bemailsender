@@ -15,6 +15,7 @@ class UserSerializer(serializers.ModelSerializer):
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, validators=[validate_password])
     password_confirm = serializers.CharField(write_only=True)
+    username = serializers.CharField(required=False)
 
     class Meta:
         model = User
@@ -28,6 +29,8 @@ class RegisterSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        if "username" not in validated_data or not validated_data["username"]:
+            validated_data["username"] = validated_data["email"].split("@")[0]
         return User.objects.create_user(**validated_data)
 
 
