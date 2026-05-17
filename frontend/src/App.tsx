@@ -13,11 +13,15 @@ import WhatsApp from "./pages/WhatsApp";
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authLoaded, setAuthLoaded] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (token) setIsAuthenticated(true);
+    setAuthLoaded(true);
   }, []);
+
+  if (!authLoaded) return null;
 
   return (
     <Routes>
