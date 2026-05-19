@@ -92,7 +92,7 @@ class Campaign(models.Model):
     name = models.CharField(max_length=255)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="draft")
     type = models.CharField(max_length=20, choices=TYPE_CHOICES, default="email")
-    delay_ms = models.IntegerField(default=1000)
+    delay_ms = models.IntegerField(default=45000)
     use_gemini = models.BooleanField(default=False)
     schedule_days = models.JSONField(blank=True, null=True)
     schedule_start_time = models.TimeField(blank=True, null=True)

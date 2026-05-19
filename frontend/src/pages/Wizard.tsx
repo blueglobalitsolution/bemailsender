@@ -16,7 +16,7 @@ export default function Wizard() {
   const [identityId, setIdentityId] = useState("");
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [templateId, setTemplateId] = useState("");
-  const [delayMs, setDelayMs] = useState("1000");
+  const delayMs = "45000";
   const [isScheduled, setIsScheduled] = useState(false);
   const [scheduleDays, setScheduleDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [startTime, setStartTime] = useState("09:00");
@@ -284,15 +284,7 @@ export default function Wizard() {
             <div className="skeuo-inset-box p-6">
               <h4 className="font-bold text-lg mb-4 skeuo-text">Traffic Control</h4>
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Inter-Message Latency (ms)</label>
-                <input
-                  type="number"
-                  value={delayMs}
-                  onChange={(e) => setDelayMs(e.target.value)}
-                  className="w-full md:w-1/2 skeuo-input py-3 px-4"
-                  placeholder="1000"
-                />
-                <p className="text-xs text-gray-500 mt-2 font-medium">Delay between sending each {campaignType === 'email' ? 'email' : 'message'} to prevent spam flagging (1000ms = 1s).</p>
+                <p className="text-xs font-medium text-gray-500">Sending delay is fixed at 45 seconds between each {campaignType === 'email' ? 'email' : 'message'} to prevent spam flagging.</p>
               </div>
             </div>
 

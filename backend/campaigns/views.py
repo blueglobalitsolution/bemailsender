@@ -172,7 +172,7 @@ class CampaignViewSet(viewsets.ModelViewSet):
         template_id = request.data.get("templateId")
         identity_id = request.data.get("identityId")
         campaign_type = request.data.get("type", "email")
-        delay_ms = request.data.get("delayMs", 1000)
+        delay_ms = request.data.get("delayMs", 45000)
         use_gemini = request.data.get("useGemini") == "true"
         schedule_days = request.data.get("scheduleDays")
         start_time = request.data.get("startTime")
@@ -220,7 +220,7 @@ class CampaignViewSet(viewsets.ModelViewSet):
             template_id=template_id,
             identity_id=identity_id if identity_id else None,
             type=campaign_type,
-            delay_ms=int(delay_ms) if delay_ms else 1000,
+            delay_ms=int(delay_ms) if delay_ms else 45000,
             use_gemini=use_gemini,
             status="scheduled",
             schedule_days=schedule_days,
