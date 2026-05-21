@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { FileText, Plus, Save, Trash2, Edit3, Mail, MessageSquare } from "lucide-react";
+import { FileText, Plus, Save, Trash2, Edit3, Mail, MessageSquare, Shield, ShieldCheck, ShieldAlert, Loader2, AlertTriangle, CheckCircle, Info } from "lucide-react";
 import EmailEditor, { EditorRef } from "react-email-editor";
 import { apiFetch, getApiUrl } from "../lib/api";
 
@@ -12,8 +12,16 @@ interface Template {
   design?: any;
 }
 
+interface Identity {
+  id: number;
+  name: string;
+  smtp_user: string;
+  host: string;
+}
+
 export default function Templates() {
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [identities, setIdentities] = useState<Identity[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -21,6 +29,9 @@ export default function Templates() {
   const [newTemplate, setNewTemplate] = useState<{ name: string, subject: string, body: string, type: 'email' | 'whatsapp', design?: any }>({
     name: "", subject: "", body: "", type: 'email'
   });
+  const [spamCheckIdentity, setSpamCheckIdentity] = useState("");
+  const [spamScore, setSpamScore] = useState<{ score: number; report: string } | null>(null);
+  const [spamChecking, setSpamChecking] = useState(false);
 
   const emailEditorRef = useRef<EditorRef>(null);
 
@@ -38,8 +49,21 @@ export default function Templates() {
     }
   };
 
+  const fetchIdentities = async () => {
+    try {
+      const res = await apiFetch("/api/identities/");
+      if (res.ok) {
+        const data = await res.json();
+        setIdentities(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchTemplates();
+    fetchIdentities();
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -100,6 +124,41 @@ export default function Templates() {
   const onReady = () => {
     if (newTemplate.design && emailEditorRef.current?.editor) {
       emailEditorRef.current.editor.loadDesign(newTemplate.design);
+    }
+  };
+
+  const checkSpamScore = async () => {
+    if (!editingId && !newTemplate.body) return;
+    setSpamChecking(true);
+    setSpamScore(null);
+    try {
+      const body = newTemplate.body;
+      const templateId = editingId;
+      if (!templateId) {
+        alert("Save the template first before checking spam score");
+        setSpamChecking(false);
+        return;
+      }
+      const res = await apiFetch("/api/templates/check-spam/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          template_id: templateId,
+          identity_id: spamCheckIdentity || undefined,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSpamScore(data);
+      } else {
+        const err = await res.json();
+        alert(err.error || "Spam check failed");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Spam check failed");
+    } finally {
+      setSpamChecking(false);
     }
   };
 
@@ -236,12 +295,82 @@ export default function Templates() {
               </div>
             )}
 
+            {newTemplate.type === 'email' && (
+              <div className="border-t border-gray-100 pt-4">
+                <div className="flex items-end gap-4">
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Test Sender Identity</label>
+                    <select
+                      value={spamCheckIdentity}
+                      onChange={(e) => { setSpamCheckIdentity(e.target.value); setSpamScore(null); }}
+                      className="w-full skeuo-input py-2 px-4"
+                    >
+                      <option value="">No identity (plain email)</option>
+                      {identities.map((id) => (
+                        <option key={id.id} value={id.id}>
+                          {id.name} ({id.smtp_user})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={checkSpamScore}
+                    disabled={spamChecking || !editingId}
+                    className="skeuo-btn px-4 py-2 text-sm font-bold flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {spamChecking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                    {spamChecking ? "Checking..." : "Check Spam Score"}
+                  </button>
+                </div>
+
+                {spamScore !== null && (
+                  <div className="mt-4 skeuo-inset-box p-4">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0">
+                        {spamScore.score <= 3 ? (
+                          <ShieldCheck className="w-10 h-10 text-green-500" />
+                        ) : spamScore.score <= 6 ? (
+                          <AlertTriangle className="w-10 h-10 text-orange-500" />
+                        ) : (
+                          <ShieldAlert className="w-10 h-10 text-red-500" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="text-lg font-bold">
+                            Spam Score: <span className={spamScore.score <= 3 ? "text-green-600" : spamScore.score <= 6 ? "text-orange-600" : "text-red-600"}>{spamScore.score.toFixed(1)} / 10</span>
+                          </span>
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${spamScore.score <= 3 ? "bg-green-100 text-green-700" : spamScore.score <= 6 ? "bg-orange-100 text-orange-700" : "bg-red-100 text-red-700"}`}>
+                            {spamScore.score <= 3 ? "Good" : spamScore.score <= 6 ? "Fair" : "Poor"}
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
+                          <div
+                            className={`h-2 rounded-full transition-all ${spamScore.score <= 3 ? "bg-green-500" : spamScore.score <= 6 ? "bg-orange-500" : "bg-red-500"}`}
+                            style={{ width: `${Math.min(spamScore.score * 10, 100)}%` }}
+                          />
+                        </div>
+                        {spamScore.report && (
+                          <details>
+                            <summary className="text-xs font-bold text-gray-500 cursor-pointer hover:text-gray-700">View detailed report</summary>
+                            <pre className="mt-2 text-xs text-gray-600 whitespace-pre-wrap font-mono bg-white p-3 rounded max-h-48 overflow-y-auto">{spamScore.report}</pre>
+                          </details>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex justify-end gap-4 pt-4 border-t border-gray-100">
               <button
                 type="button"
                 onClick={() => {
                   setIsCreating(false);
                   setEditingId(null);
+                  setSpamScore(null);
                   setNewTemplate({ name: "", subject: "", body: "", type: 'email', design: undefined });
                 }}
                 className="skeuo-btn px-6 py-2 text-sm font-bold"

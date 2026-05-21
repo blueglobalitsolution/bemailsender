@@ -1,3 +1,6 @@
+import re
+import html as html_module
+import requests as http_requests
 from rest_framework import status, generics, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
@@ -294,3 +297,90 @@ class LogViewSet(viewsets.ModelViewSet):
         if request.user.is_authenticated:
             return super().create(request, *args, **kwargs)
         return Response({"error": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED)
+
+
+POSTMARK_SPAMCHECK_URL = "https://spamcheck.postmarkapp.com/filter"
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def check_spam_score(request):
+    template_id = request.data.get("template_id")
+    identity_id = request.data.get("identity_id")
+
+    if not template_id:
+        return Response({"error": "template_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        template = Template.objects.get(id=template_id, user=request.user)
+    except Template.DoesNotExist:
+        return Response({"error": "Template not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    identity = None
+    sender = request.user.email
+    if identity_id:
+        try:
+            identity = Identity.objects.get(id=identity_id, user=request.user)
+            sender = identity.smtp_user
+            if identity.smtp_from_name:
+                sender = f"{identity.smtp_from_name} <{identity.smtp_user}>"
+        except Identity.DoesNotExist:
+            pass
+
+    # Build email body (same as process_campaigns does)
+    body = template.body or ""
+    subject = template.subject or ""
+
+    # Generate plain text version
+    plain_text = re.sub(r"<[^>]+>", "", body)
+    plain_text = html_module.unescape(plain_text)
+    plain_text = re.sub(r"\n\s*\n", "\n\n", plain_text.strip())
+    plain_text = plain_text.replace("&nbsp;", " ").replace("&amp;", "&")
+
+    # Construct raw email
+    boundary = "boundary_123456789"
+    raw_email = (
+        f"From: {sender}\n"
+        f"To: test@example.com\n"
+        f"Subject: {subject}\n"
+        f"MIME-Version: 1.0\n"
+        f'Content-Type: multipart/alternative; boundary="{boundary}"\n'
+        f"List-Unsubscribe: <mailto:test@example.com?subject=unsubscribe>\n"
+        f"Reply-To: test@example.com\n"
+        f"\n"
+        f"--{boundary}\n"
+        f"Content-Type: text/plain; charset=utf-8\n"
+        f"Content-Transfer-Encoding: 7bit\n"
+        f"\n"
+        f"{plain_text}\n"
+        f"\n"
+        f"--{boundary}\n"
+        f"Content-Type: text/html; charset=utf-8\n"
+        f"Content-Transfer-Encoding: 7bit\n"
+        f"\n"
+        f"{body}\n"
+        f"\n"
+        f"--{boundary}--"
+    )
+
+    try:
+        response = http_requests.post(
+            POSTMARK_SPAMCHECK_URL,
+            json={"email": raw_email, "options": "long"},
+            timeout=30,
+        )
+
+        if response.status_code == 200:
+            data = response.json()
+            score = data.get("score", 0)
+            report = data.get("report", "")
+            return Response({"score": score, "report": report})
+        else:
+            return Response(
+                {"error": "Spam check service unavailable", "detail": response.text},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+    except Exception as e:
+        return Response(
+            {"error": str(e)}, status=status.HTTP_502_BAD_GATEWAY
+        )
