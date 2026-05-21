@@ -1,6 +1,8 @@
 import time
 import json
 import datetime
+import re
+import html as html_module
 import requests
 from django.core.management.base import BaseCommand
 from django.conf import settings
@@ -152,14 +154,25 @@ class Command(BaseCommand):
         if identity.smtp_from_name:
             sender = f"{identity.smtp_from_name} <{identity.smtp_user}>"
 
+        # Generate plain text version from HTML
+        plain_text = re.sub(r"<[^>]+>", "", body)
+        plain_text = html_module.unescape(plain_text)
+        plain_text = re.sub(r"\n\s*\n", "\n\n", plain_text.strip())
+        # Decode common HTML entities for plain text
+        plain_text = plain_text.replace("&nbsp;", " ").replace("&amp;", "&")
+
         email = EmailMessage(
             subject=subject,
-            body=body,
+            body=plain_text,
             from_email=sender,
             to=[contact.recipient],
             connection=connection,
+            headers={
+                "List-Unsubscribe": f"<mailto:{identity.smtp_user}?subject=unsubscribe>",
+                "Reply-To": identity.smtp_user,
+            },
         )
-        email.content_subtype = "html"
+        email.attach_alternative(body, "text/html")
         email.send()
         
         contact.status = 'sent'
