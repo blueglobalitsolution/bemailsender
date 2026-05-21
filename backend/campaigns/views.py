@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.conf import settings
+from django.http import HttpResponse
 from django.db import transaction
 import json
 import csv
@@ -14,7 +15,7 @@ import io
 import datetime
 from django.core.mail import get_connection, EmailMessage
 
-from .models import Template, Identity, Campaign, CampaignContact, Log
+from .models import Template, Identity, Campaign, CampaignContact, Log, TrackedOpen
 from .serializers import (
     TemplateSerializer,
     IdentitySerializer,
@@ -165,7 +166,16 @@ class CampaignViewSet(viewsets.ModelViewSet):
         campaign = self.get_object()
         logs = campaign.logs.all()
         serializer = LogSerializer(logs, many=True)
-        return Response(serializer.data)
+        total_sent = campaign.logs.filter(status="success").count()
+        total_opens = campaign.opens.count()
+        return Response({
+            "logs": serializer.data,
+            "stats": {
+                "sent": total_sent,
+                "opens": total_opens,
+                "open_rate": round(total_opens / total_sent * 100, 1) if total_sent > 0 else 0,
+            },
+        })
 
     @action(
         detail=False, methods=["post"], parser_classes=[MultiPartParser, FormParser]
@@ -388,3 +398,29 @@ def check_spam_score(request):
         return Response(
             {"error": str(e)}, status=status.HTTP_502_BAD_GATEWAY
         )
+
+
+# 1x1 transparent GIF pixel
+TRANSPARENT_GIF = (
+    b"GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00"
+    b"!\xf9\x04\x00\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00"
+    b"\x00\x02\x02D\x01\x00;"
+)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def track_open(request, campaign_id, recipient):
+    try:
+        recipient = recipient.replace("%40", "@")
+        campaign = Campaign.objects.get(id=campaign_id)
+        TrackedOpen.objects.create(
+            campaign=campaign,
+            recipient=recipient,
+            ip_address=request.META.get("REMOTE_ADDR"),
+            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+        )
+    except Exception:
+        pass
+
+    return HttpResponse(TRANSPARENT_GIF, content_type="image/gif")

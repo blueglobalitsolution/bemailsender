@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, CheckCircle, XCircle, Terminal } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, Terminal, Eye, Mail } from "lucide-react";
 import { apiFetch } from "../lib/api";
 
 interface Log {
@@ -11,9 +11,16 @@ interface Log {
   created_at: string;
 }
 
+interface Stats {
+  sent: number;
+  opens: number;
+  open_rate: number;
+}
+
 export default function CampaignLogs() {
   const { id } = useParams();
   const [logs, setLogs] = useState<Log[]>([]);
+  const [stats, setStats] = useState<Stats>({ sent: 0, opens: 0, open_rate: 0 });
   const [loading, setLoading] = useState(true);
 
   const fetchLogs = async () => {
@@ -21,7 +28,8 @@ export default function CampaignLogs() {
       const res = await apiFetch(`/api/campaigns/${id}/logs/`);
       if (res.ok) {
         const data = await res.json();
-        setLogs(data);
+        setLogs(data.logs || data);
+        setStats(data.stats || { sent: 0, opens: 0, open_rate: 0 });
       }
     } catch (err) {
       console.error(err);
@@ -49,6 +57,26 @@ export default function CampaignLogs() {
         </h2>
       </div>
 
+      {/* Stats cards */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="skeuo-card p-4 text-center">
+          <Mail className="w-5 h-5 text-blue-500 mx-auto mb-1 drop-shadow-sm" />
+          <div className="text-2xl font-bold skeuo-text">{stats.sent}</div>
+          <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Sent</div>
+        </div>
+        <div className="skeuo-card p-4 text-center">
+          <Eye className="w-5 h-5 text-green-500 mx-auto mb-1 drop-shadow-sm" />
+          <div className="text-2xl font-bold skeuo-text">{stats.opens}</div>
+          <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Opened</div>
+        </div>
+        <div className="skeuo-card p-4 text-center">
+          <div className={`text-2xl font-bold ${stats.open_rate >= 50 ? 'text-green-600' : stats.open_rate > 0 ? 'text-orange-600' : 'text-gray-400'}`}>
+            {stats.open_rate}%
+          </div>
+          <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Open Rate</div>
+        </div>
+      </div>
+
       <div className="skeuo-panel rounded-2xl overflow-hidden">
         <div className="p-4 border-b border-gray-900 bg-gradient-to-b from-gray-800 to-gray-900 flex items-center gap-2 shadow-[0_1px_0_rgba(255,255,255,0.1)]">
           <div className="w-3 h-3 rounded-full bg-red-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_1px_2px_rgba(0,0,0,0.5)] border border-red-700" />
@@ -57,7 +85,7 @@ export default function CampaignLogs() {
           <span className="ml-4 font-mono text-xs text-gray-400 font-bold text-shadow-[0_-1px_0_rgba(0,0,0,0.5)]">Live Stream</span>
         </div>
 
-        <div className="p-6 h-[600px] overflow-y-auto font-mono text-sm space-y-2 bg-gray-900 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
+        <div className="p-6 h-[500px] overflow-y-auto font-mono text-sm space-y-2 bg-gray-900 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
           {logs.length === 0 ? (
             <div className="text-center text-gray-500 py-12 font-bold">No logs yet...</div>
           ) : (

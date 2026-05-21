@@ -175,6 +175,14 @@ class Command(BaseCommand):
                 "Reply-To": identity.smtp_user,
             },
         )
+        # Append tracking pixel
+        base_url = getattr(settings, "FRONTEND_URL", "http://localhost:5173")
+        pixel_url = f"{base_url}/api/track/open/{campaign.id}/{contact.recipient}/"
+        pixel_tag = f'<img src="{pixel_url}" width="1" height="1" alt="" style="display:none"/>'
+        if "</body>" in body:
+            body = body.replace("</body>", pixel_tag + "\n</body>")
+        else:
+            body += pixel_tag
         email.attach_alternative(body, "text/html")
         email.send()
         

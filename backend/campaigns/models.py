@@ -130,6 +130,22 @@ class CampaignContact(models.Model):
         ]
 
 
+class TrackedOpen(models.Model):
+    campaign = models.ForeignKey(
+        Campaign, on_delete=models.CASCADE, related_name="opens"
+    )
+    recipient = models.CharField(max_length=255)
+    opened_at = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    user_agent = models.TextField(blank=True, null=True)
+
+    class Meta:
+        db_table = "tracked_opens"
+        indexes = [
+            models.Index(fields=["campaign", "recipient"]),
+        ]
+
+
 class Log(models.Model):
     STATUS_CHOICES = [
         ("success", "Success"),

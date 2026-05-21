@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import TemplateViewSet, IdentityViewSet, CampaignViewSet, LogViewSet, health_check, check_spam_score
+from .views import TemplateViewSet, IdentityViewSet, CampaignViewSet, LogViewSet, health_check, check_spam_score, track_open
 
 router = DefaultRouter()
 router.register(r"templates", TemplateViewSet, basename="template")
@@ -11,5 +11,6 @@ router.register(r"logs", LogViewSet, basename="log")
 urlpatterns = [
     path("health/", health_check, name="health_check"),
     path("templates/check-spam/", check_spam_score, name="check-spam"),
+    path("track/open/<int:campaign_id>/<str:recipient>/", track_open, name="track-open"),
     path("", include(router.urls)),
 ]
