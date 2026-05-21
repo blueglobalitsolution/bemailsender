@@ -338,11 +338,15 @@ def check_spam_score(request):
     plain_text = plain_text.replace("&nbsp;", " ").replace("&amp;", "&")
 
     # Construct raw email
+    now_str = datetime.datetime.now(datetime.timezone.utc).strftime("%a, %d %b %Y %H:%M:%S %z")
+    msg_id = f"<check.{int(datetime.datetime.now().timestamp())}@bemailsender>"
     boundary = "boundary_123456789"
     raw_email = (
         f"From: {sender}\n"
         f"To: test@example.com\n"
         f"Subject: {subject}\n"
+        f"Date: {now_str}\n"
+        f"Message-ID: {msg_id}\n"
         f"MIME-Version: 1.0\n"
         f'Content-Type: multipart/alternative; boundary="{boundary}"\n'
         f"List-Unsubscribe: <mailto:test@example.com?subject=unsubscribe>\n"

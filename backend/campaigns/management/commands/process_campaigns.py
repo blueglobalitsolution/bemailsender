@@ -161,6 +161,7 @@ class Command(BaseCommand):
         # Decode common HTML entities for plain text
         plain_text = plain_text.replace("&nbsp;", " ").replace("&amp;", "&")
 
+        from django.utils import timezone as tz_util
         email = EmailMessage(
             subject=subject,
             body=plain_text,
@@ -168,6 +169,8 @@ class Command(BaseCommand):
             to=[contact.recipient],
             connection=connection,
             headers={
+                "Date": tz_util.now().strftime("%a, %d %b %Y %H:%M:%S %z"),
+                "Message-ID": f"<{campaign.id}.{contact.id}.{int(time.time())}@bemailsender>",
                 "List-Unsubscribe": f"<mailto:{identity.smtp_user}?subject=unsubscribe>",
                 "Reply-To": identity.smtp_user,
             },
