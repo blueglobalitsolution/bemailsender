@@ -149,7 +149,7 @@ export default function Templates() {
       });
       if (res.ok) {
         const data = await res.json();
-        setSpamScore(data);
+        setSpamScore({ score: parseFloat(data.score), report: data.report || "" });
       } else {
         const err = await res.json();
         alert(err.error || "Spam check failed");
