@@ -284,6 +284,52 @@ class CampaignViewSet(viewsets.ModelViewSet):
 
         return Response({"message": "Campaign scheduled", "campaignId": campaign.id})
 
+    @action(detail=True, methods=["post"])
+    def rerun(self, request, pk=None):
+        original = self.get_object()
+        new_campaign = Campaign.objects.create(
+            user=request.user,
+            name=f"{original.name} (2)",
+            template=original.template,
+            identity=original.identity,
+            type=original.type,
+            delay_ms=original.delay_ms,
+            use_gemini=original.use_gemini,
+            status="scheduled",
+        )
+        contacts = CampaignContact.objects.filter(campaign=original)
+        new_contacts = [
+            CampaignContact(campaign=new_campaign, recipient=c.recipient, data=c.data)
+            for c in contacts
+        ]
+        CampaignContact.objects.bulk_create(new_contacts, batch_size=500)
+        return Response({"message": "Campaign re-scheduled", "campaignId": new_campaign.id})
+
+    @action(detail=True, methods=["get", "put"])
+    def contacts(self, request, pk=None):
+        campaign = self.get_object()
+        if request.method == "GET":
+            qs = CampaignContact.objects.filter(campaign=campaign)
+            serializer = CampaignContactSerializer(qs, many=True)
+            return Response(serializer.data)
+        else:
+            data = request.data
+            if isinstance(data, str):
+                data = json.loads(data)
+            if not isinstance(data, list):
+                return Response({"error": "Expected a list of contacts"}, status=status.HTTP_400_BAD_REQUEST)
+            CampaignContact.objects.filter(campaign=campaign).delete()
+            contacts = []
+            for item in data:
+                recipient = item.get("recipient") or item.get("email") or ""
+                contacts.append(
+                    CampaignContact(campaign=campaign, recipient=recipient, data=json.dumps(item))
+                )
+            CampaignContact.objects.bulk_create(contacts, batch_size=500)
+            campaign.status = "scheduled"
+            campaign.save()
+            return Response({"message": f"{len(contacts)} contacts updated", "campaignId": campaign.id})
+
 
 class LogViewSet(viewsets.ModelViewSet):
     serializer_class = LogSerializer

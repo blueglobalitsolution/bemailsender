@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, CheckCircle, XCircle, Terminal, Eye, Mail } from "lucide-react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { ArrowLeft, CheckCircle, XCircle, Terminal, Eye, Mail, RefreshCw, Edit3, Plus, Trash2, Save, X, Loader2 } from "lucide-react";
 import { apiFetch } from "../lib/api";
 
 interface Log {
@@ -17,11 +17,23 @@ interface Stats {
   open_rate: number;
 }
 
+interface Contact {
+  id: number;
+  recipient: string;
+  data: string;
+}
+
 export default function CampaignLogs() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [logs, setLogs] = useState<Log[]>([]);
   const [stats, setStats] = useState<Stats>({ sent: 0, opens: 0, open_rate: 0 });
   const [loading, setLoading] = useState(true);
+  const [rerunning, setRerunning] = useState(false);
+  const [showEditor, setShowEditor] = useState(false);
+  const [contacts, setContacts] = useState<Record<string, string>[]>([]);
+  const [contactKeys, setContactKeys] = useState<string[]>([]);
+  const [savingContacts, setSavingContacts] = useState(false);
 
   const fetchLogs = async () => {
     try {
@@ -44,17 +56,102 @@ export default function CampaignLogs() {
     return () => clearInterval(interval);
   }, [id]);
 
+  const handleRerun = async () => {
+    if (!confirm("Duplicate this campaign and re-run it?")) return;
+    setRerunning(true);
+    try {
+      const res = await apiFetch(`/api/campaigns/${id}/rerun/`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        navigate(`/campaigns/${data.campaignId}/logs`);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setRerunning(false);
+    }
+  };
+
+  const openEditor = async () => {
+    try {
+      const res = await apiFetch(`/api/campaigns/${id}/contacts/`);
+      if (res.ok) {
+        const data: Contact[] = await res.json();
+        const rows = data.map((c) => {
+          try { return { ...JSON.parse(c.data), recipient: c.recipient }; }
+          catch { return { recipient: c.recipient }; }
+        });
+        const keys = rows.length > 0 ? [...new Set(rows.flatMap(Object.keys))] : ["recipient"];
+        setContacts(rows);
+        setContactKeys(keys);
+        setShowEditor(true);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const addContactRow = () => {
+    const empty: Record<string, string> = {};
+    contactKeys.forEach((k) => (empty[k] = ""));
+    setContacts([...contacts, empty]);
+  };
+
+  const removeContactRow = (idx: number) => {
+    setContacts(contacts.filter((_, i) => i !== idx));
+  };
+
+  const updateContactField = (idx: number, key: string, value: string) => {
+    const updated = contacts.map((row, i) =>
+      i === idx ? { ...row, [key]: value } : row
+    );
+    setContacts(updated);
+  };
+
+  const saveContacts = async () => {
+    setSavingContacts(true);
+    try {
+      const payload = contacts.map((row) => ({ ...row, email: row.recipient }));
+      const res = await apiFetch(`/api/campaigns/${id}/contacts/`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        setShowEditor(false);
+        fetchLogs();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSavingContacts(false);
+    }
+  };
+
   if (loading) return <div className="text-center py-12 text-gray-500">Loading logs...</div>;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <Link to="/campaigns" className="inline-flex items-center text-sm font-bold text-gray-500 hover:text-gray-800 transition-colors skeuo-text">
           <ArrowLeft className="w-4 h-4 mr-2" /> Back to Campaigns
         </Link>
-        <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2 skeuo-text">
-          <Terminal className="w-6 h-6 text-gray-700 drop-shadow-sm" /> Campaign Logs
-        </h2>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={openEditor}
+            className="skeuo-btn px-4 py-2 text-sm font-bold flex items-center gap-2"
+          >
+            <Edit3 className="w-4 h-4" /> Edit CSV
+          </button>
+          <button
+            onClick={handleRerun}
+            disabled={rerunning}
+            className="bg-gradient-to-b from-orange-400 to-orange-600 border border-orange-700 border-bottom-orange-800 shadow-[0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.4)] text-white text-shadow-[0_-1px_0_rgba(0,0,0,0.3)] hover:from-orange-500 hover:to-orange-700 active:from-orange-600 active:to-orange-400 active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)] px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-50"
+          >
+            {rerunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {rerunning ? "Re-running..." : "Re-run Campaign"}
+          </button>
+        </div>
       </div>
 
       {/* Stats cards */}
@@ -110,6 +207,75 @@ export default function CampaignLogs() {
           )}
         </div>
       </div>
+
+      {/* Edit CSV Modal */}
+      {showEditor && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="skeuo-card p-6 w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold skeuo-text flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-blue-600" /> Edit Contacts
+              </h3>
+              <button onClick={() => setShowEditor(false)} className="p-2 skeuo-btn">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto mb-4">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-gray-50">
+                    {contactKeys.map((key) => (
+                      <th key={key} className="p-2 text-left text-xs font-bold uppercase tracking-wider text-gray-500 border-b skeuo-text">{key}</th>
+                    ))}
+                    <th className="p-2 text-center border-b w-12"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {contacts.map((row, idx) => (
+                    <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                      {contactKeys.map((key) => (
+                        <td key={key} className="p-1">
+                          <input
+                            type="text"
+                            value={row[key] || ""}
+                            onChange={(e) => updateContactField(idx, key, e.target.value)}
+                            className="w-full skeuo-input py-1.5 px-2 text-xs"
+                          />
+                        </td>
+                      ))}
+                      <td className="p-1 text-center">
+                        <button onClick={() => removeContactRow(idx)} className="p-1.5 skeuo-btn-danger text-red-500">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+              <button onClick={addContactRow} className="skeuo-btn px-4 py-2 text-sm font-bold flex items-center gap-2">
+                <Plus className="w-4 h-4" /> Add Row
+              </button>
+              <div className="flex items-center gap-3">
+                <button onClick={() => setShowEditor(false)} className="skeuo-btn px-6 py-2 text-sm font-bold">
+                  Cancel
+                </button>
+                <button
+                  onClick={saveContacts}
+                  disabled={savingContacts}
+                  className="bg-gradient-to-b from-orange-400 to-orange-600 border border-orange-700 border-bottom-orange-800 shadow-[0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.4)] text-white text-shadow-[0_-1px_0_rgba(0,0,0,0.3)] hover:from-orange-500 hover:to-orange-700 active:from-orange-600 active:to-orange-400 active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)] px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  {savingContacts ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {savingContacts ? "Saving..." : "Save Contacts"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
