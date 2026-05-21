@@ -230,20 +230,36 @@ class CampaignViewSet(viewsets.ModelViewSet):
 
         raw_data = csv_file.read()
         try:
-            decoded = raw_data.decode("utf-8")
+            decoded = raw_data.decode("utf-8-sig")
         except UnicodeDecodeError:
             decoded = raw_data.decode("latin-1")
         reader = csv.DictReader(io.StringIO(decoded))
 
-        contacts_to_create = []
+        # Normalize column names: strip whitespace, lowercase
+        normalized = []
         for row in reader:
-            email = (
-                row.get("email")
-                or row.get("Email")
-                or row.get("phone")
-                or row.get("Phone")
-                or row.get("recipient")
-            )
+            cleaned = {k.strip().lower(): v.strip() if v else v for k, v in row.items()}
+            normalized.append(cleaned)
+
+        contacts_to_create = []
+        for row in normalized:
+            email = None
+            # Try common email column patterns
+            for col in ("email", "e-mail", "email_address", "emailaddress", "mail", "recipient"):
+                if col in row:
+                    email = row[col]
+                    break
+            # Fallback: find first column containing "email" or look for phone columns
+            if not email:
+                for col in row:
+                    if "email" in col:
+                        email = row[col]
+                        break
+            if not email:
+                for col in ("phone", "mobile", "phone_number", "phonenumber"):
+                    if col in row:
+                        email = row[col]
+                        break
             if email:
                 contacts_to_create.append(
                     CampaignContact(
