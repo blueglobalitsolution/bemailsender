@@ -102,9 +102,14 @@ export default function Templates() {
         setEditingId(null);
         setNewTemplate({ name: "", subject: "", body: "", type: 'email', design: undefined });
         fetchTemplates();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        const errMsg = typeof errData === 'string' ? errData : 
+          Object.values(errData).flat().join('. ') || `Error ${res.status}`;
+        alert(errMsg);
       }
     } catch (err) {
-      console.error(err);
+      alert(err instanceof Error ? err.message : "Failed to save template");
     }
   };
 

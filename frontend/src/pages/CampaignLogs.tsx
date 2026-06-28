@@ -13,6 +13,7 @@ interface Log {
 
 interface Stats {
   sent: number;
+  failed: number;
   opens: number;
   open_rate: number;
 }
@@ -27,9 +28,10 @@ export default function CampaignLogs() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [logs, setLogs] = useState<Log[]>([]);
-  const [stats, setStats] = useState<Stats>({ sent: 0, opens: 0, open_rate: 0 });
+  const [stats, setStats] = useState<Stats>({ sent: 0, failed: 0, opens: 0, open_rate: 0 });
   const [loading, setLoading] = useState(true);
   const [rerunning, setRerunning] = useState(false);
+  const [retryingFailed, setRetryingFailed] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
   const [contacts, setContacts] = useState<Record<string, string>[]>([]);
   const [contactKeys, setContactKeys] = useState<string[]>([]);
@@ -41,7 +43,7 @@ export default function CampaignLogs() {
       if (res.ok) {
         const data = await res.json();
         setLogs(data.logs || data);
-        setStats(data.stats || { sent: 0, opens: 0, open_rate: 0 });
+        setStats(data.stats || { sent: 0, failed: 0, opens: 0, open_rate: 0 });
       }
     } catch (err) {
       console.error(err);
@@ -69,6 +71,22 @@ export default function CampaignLogs() {
       console.error(err);
     } finally {
       setRerunning(false);
+    }
+  };
+
+  const handleRetryFailed = async () => {
+    if (!confirm("Create a new campaign with only the failed contacts?")) return;
+    setRetryingFailed(true);
+    try {
+      const res = await apiFetch(`/api/campaigns/${id}/retry_failed/`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        navigate(`/campaigns/${data.campaignId}/logs`);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setRetryingFailed(false);
     }
   };
 
@@ -151,15 +169,28 @@ export default function CampaignLogs() {
             {rerunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             {rerunning ? "Re-running..." : "Re-run Campaign"}
           </button>
+          <button
+            onClick={handleRetryFailed}
+            disabled={retryingFailed || stats.failed === 0}
+            className="bg-gradient-to-b from-red-400 to-red-600 border border-red-700 border-bottom-red-800 shadow-[0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.4)] text-white text-shadow-[0_-1px_0_rgba(0,0,0,0.3)] hover:from-red-500 hover:to-red-700 active:from-red-600 active:to-red-400 active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)] px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-50"
+          >
+            {retryingFailed ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {retryingFailed ? "Retrying..." : "Retry Failed"} {stats.failed > 0 && `(${stats.failed})`}
+          </button>
         </div>
       </div>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <div className="skeuo-card p-4 text-center">
           <Mail className="w-5 h-5 text-blue-500 mx-auto mb-1 drop-shadow-sm" />
           <div className="text-2xl font-bold skeuo-text">{stats.sent}</div>
           <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Sent</div>
+        </div>
+        <div className="skeuo-card p-4 text-center">
+          <XCircle className="w-5 h-5 text-red-500 mx-auto mb-1 drop-shadow-sm" />
+          <div className="text-2xl font-bold text-red-600">{stats.failed}</div>
+          <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Failed</div>
         </div>
         <div className="skeuo-card p-4 text-center">
           <Eye className="w-5 h-5 text-green-500 mx-auto mb-1 drop-shadow-sm" />

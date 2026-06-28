@@ -6,9 +6,9 @@ import html as html_module
 import requests
 from django.core.management.base import BaseCommand
 from django.conf import settings
-from django.core.mail import get_connection, EmailMessage
+from django.core.mail import get_connection, EmailMultiAlternatives
 from django.utils import timezone
-from django.db import models
+from django.db import models, close_old_connections
 from campaigns.models import Campaign, CampaignContact, Log, Identity, Template
 
 class Command(BaseCommand):
@@ -19,6 +19,7 @@ class Command(BaseCommand):
         
         while True:
             try:
+                close_old_connections()
                 now = timezone.now()
                 # 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
                 python_day = now.weekday()
@@ -32,6 +33,13 @@ class Command(BaseCommand):
                 any_work_done = False
 
                 for campaign in campaigns:
+                    # Auto batch: wait 2 hours after every 100 successful sends
+                    if campaign.total_sent > 0 and campaign.total_sent % 100 == 0:
+                        gap_seconds = 2 * 60 * 60
+                        elapsed = (timezone.now() - campaign.updated_at).total_seconds()
+                        if elapsed < gap_seconds:
+                            continue
+
                     is_within_window = True
                     
                     # Check schedule if days are specified
@@ -89,8 +97,12 @@ class Command(BaseCommand):
         ).first()
         
         if not contact:
-            # Check if all contacts are done
-            if not CampaignContact.objects.filter(campaign=campaign, status='pending').exists():
+            # Check if all contacts are done (no pending and no failed)
+            remaining = CampaignContact.objects.filter(
+                campaign=campaign,
+                status__in=['pending', 'failed']
+            ).count()
+            if remaining == 0:
                 campaign.status = 'completed'
                 campaign.save()
                 self.stdout.write(self.style.SUCCESS(f"Campaign completed: {campaign.name}"))
@@ -129,10 +141,14 @@ class Command(BaseCommand):
             Log.objects.create(campaign=campaign, recipient=contact.recipient, status='error', message=str(e))
             campaign.total_failed += 1
             campaign.save()
+            # Don't sleep on failure, try next contact immediately
+            return True
 
-        # Apply delay if specified
+        # Apply delay if specified (only after successful send)
         if campaign.delay_ms > 0:
             time.sleep(campaign.delay_ms / 1000.0)
+
+        return True
 
     def send_email(self, campaign, contact, subject, body):
         identity = campaign.identity
@@ -162,7 +178,7 @@ class Command(BaseCommand):
         plain_text = plain_text.replace("&nbsp;", " ").replace("&amp;", "&")
 
         from django.utils import timezone as tz_util
-        email = EmailMessage(
+        email = EmailMultiAlternatives(
             subject=subject,
             body=plain_text,
             from_email=sender,
@@ -175,14 +191,20 @@ class Command(BaseCommand):
                 "Reply-To": identity.smtp_user,
             },
         )
-        # Append tracking pixel
-        base_url = getattr(settings, "FRONTEND_URL", "http://localhost:5173")
+        # Append unsubscribe link and tracking pixel
+        base_url = settings.FRONTEND_URL
         pixel_url = f"{base_url}/api/track/open/{campaign.id}/{contact.recipient}/"
         pixel_tag = f'<img src="{pixel_url}" width="1" height="1" alt="" style="display:none"/>'
+        unsubscribe_html = (
+            '<p style="font-size:12px;color:#999;text-align:center;margin-top:20px;">'
+            f'<a href="mailto:{identity.smtp_user}?subject=unsubscribe" style="color:#999;">Unsubscribe</a>'
+            '</p>'
+        )
+        footer_html = unsubscribe_html + "\n" + pixel_tag
         if "</body>" in body:
-            body = body.replace("</body>", pixel_tag + "\n</body>")
+            body = body.replace("</body>", footer_html + "\n</body>")
         else:
-            body += pixel_tag
+            body += footer_html
         email.attach_alternative(body, "text/html")
         email.send()
         

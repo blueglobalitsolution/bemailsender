@@ -13,6 +13,7 @@ import json
 import csv
 import io
 import datetime
+import dns.resolver
 from django.core.mail import get_connection, EmailMessage
 
 from .models import Template, Identity, Campaign, CampaignContact, Log, TrackedOpen
@@ -172,6 +173,7 @@ class CampaignViewSet(viewsets.ModelViewSet):
             "logs": serializer.data,
             "stats": {
                 "sent": total_sent,
+                "failed": campaign.contacts.filter(status="failed").count(),
                 "opens": total_opens,
                 "open_rate": round(total_opens / total_sent * 100, 1) if total_sent > 0 else 0,
             },
@@ -284,6 +286,27 @@ class CampaignViewSet(viewsets.ModelViewSet):
 
         return Response({"message": "Campaign scheduled", "campaignId": campaign.id})
 
+    @action(detail=True, methods=["get"])
+    def progress(self, request, pk=None):
+        campaign = self.get_object()
+        contacts = CampaignContact.objects.filter(campaign=campaign)
+        total = contacts.count()
+        sent = contacts.filter(status="sent").count()
+        failed = contacts.filter(status="failed").count()
+        pending = contacts.filter(status="pending").count()
+        recent_logs = Log.objects.filter(campaign=campaign).order_by("-created_at")[:20]
+        from .serializers import LogSerializer as LogSer
+        log_data = LogSer(recent_logs, many=True).data
+        return Response({
+            "total": total,
+            "sent": sent,
+            "failed": failed,
+            "pending": pending,
+            "status": campaign.status,
+            "delay_ms": campaign.delay_ms,
+            "logs": log_data,
+        })
+
     @action(detail=True, methods=["post"])
     def rerun(self, request, pk=None):
         original = self.get_object()
@@ -304,6 +327,30 @@ class CampaignViewSet(viewsets.ModelViewSet):
         ]
         CampaignContact.objects.bulk_create(new_contacts, batch_size=500)
         return Response({"message": "Campaign re-scheduled", "campaignId": new_campaign.id})
+
+    @action(detail=True, methods=["post"])
+    def retry_failed(self, request, pk=None):
+        original = self.get_object()
+        failed_contacts = CampaignContact.objects.filter(campaign=original, status='failed')
+        count = failed_contacts.count()
+        if count == 0:
+            return Response({"error": "No failed contacts to retry"}, status=status.HTTP_400_BAD_REQUEST)
+        new_campaign = Campaign.objects.create(
+            user=request.user,
+            name=f"{original.name} (Retry Failed)",
+            template=original.template,
+            identity=original.identity,
+            type=original.type,
+            delay_ms=original.delay_ms,
+            use_gemini=original.use_gemini,
+            status="scheduled",
+        )
+        new_contacts = [
+            CampaignContact(campaign=new_campaign, recipient=c.recipient, data=c.data)
+            for c in failed_contacts
+        ]
+        CampaignContact.objects.bulk_create(new_contacts, batch_size=500)
+        return Response({"message": f"{count} failed contacts re-scheduled", "campaignId": new_campaign.id, "count": count})
 
     @action(detail=True, methods=["get", "put"])
     def contacts(self, request, pk=None):
@@ -446,12 +493,276 @@ def check_spam_score(request):
         )
 
 
-# 1x1 transparent GIF pixel
-TRANSPARENT_GIF = (
-    b"GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00"
-    b"!\xf9\x04\x00\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00"
-    b"\x00\x02\x02D\x01\x00;"
-)
+# Common disposable email domains
+DISPOSABLE_DOMAINS = {
+    "10minutemail.com", "10minutemail.net", "10minutemail.org",
+    "mailinator.com", "mailinator.net",
+    "guerrillamail.com", "guerrillamail.net", "guerrillamail.org",
+    "tempmail.com", "tempmail.net", "tempmail.org",
+    "throwaway.email", "throwawaymail.com",
+    "yopmail.com", "yopmail.net",
+    "sharklasers.com", "spam4.me",
+    "trashmail.com", "trashmail.net",
+    "temp-mail.org", "temp-mail.net",
+    "fakeinbox.com", "fake-mail.com",
+    "mailnator.com", "mailexpire.com",
+    "getnada.com", "dropmail.me",
+    "dispostable.com", "maildrop.cc",
+    "emailondeck.com", "spambox.us",
+    "mailmetrash.com", "thankyou2010.com",
+    "trash2009.com", "mt2009.com",
+    "trashymail.com", "trash2009.com",
+    "tempinbox.com", "tempemail.net",
+    "sogetthis.com", "pookmail.com",
+}
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def verify_emails(request):
+    csv_file = request.FILES.get("csv")
+    if not csv_file:
+        return Response({"error": "CSV file is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    raw_data = csv_file.read()
+    try:
+        decoded = raw_data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        decoded = raw_data.decode("latin-1")
+
+    reader = csv.DictReader(io.StringIO(decoded))
+    emails = []
+    for row in reader:
+        cleaned = {k.strip().lower(): v.strip() if v else v for k, v in row.items()}
+        email = None
+        for col in ("email", "e-mail", "email_address", "emailaddress", "mail", "recipient"):
+            if col in cleaned:
+                email = cleaned[col]
+                break
+        if not email:
+            for col in cleaned:
+                if "email" in col:
+                    email = cleaned[col]
+                    break
+        if email:
+            emails.append(email)
+
+    if not emails:
+        return Response({"error": "No email addresses found in CSV"}, status=status.HTTP_400_BAD_REQUEST)
+
+    results = []
+    email_regex = re.compile(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$')
+    for email in emails:
+        result = {"email": email, "valid": False, "reason": None}
+
+        if not email_regex.match(email):
+            result["reason"] = "Invalid email format"
+            results.append(result)
+            continue
+
+        domain = email.split("@")[1].lower()
+
+        if domain in DISPOSABLE_DOMAINS:
+            result["valid"] = True
+            result["warning"] = "Disposable email address"
+            results.append(result)
+            continue
+
+        try:
+            resolver = dns.resolver.Resolver()
+            resolver.timeout = 3
+            resolver.lifetime = 3
+            resolver.resolve(domain, "MX")
+            result["valid"] = True
+            result["reason"] = "Domain verified"
+        except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.resolver.LifetimeTimeout):
+            result["reason"] = "Domain does not accept email"
+        except Exception:
+            result["reason"] = "Could not verify domain"
+
+        results.append(result)
+
+    valid_count = sum(1 for r in results if r["valid"])
+    invalid_count = sum(1 for r in results if not r["valid"])
+    warning_count = sum(1 for r in results if r.get("warning"))
+
+    return Response({
+        "results": results,
+        "stats": {
+            "total": len(results),
+            "valid": valid_count,
+            "invalid": invalid_count,
+            "warnings": warning_count,
+        }
+    })
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def check_bounces(request):
+    csv_file = request.FILES.get("csv")
+    if not csv_file:
+        return Response({"error": "CSV file is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    raw_data = csv_file.read()
+    try:
+        decoded = raw_data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        decoded = raw_data.decode("latin-1")
+
+    reader = csv.DictReader(io.StringIO(decoded))
+    csv_emails = []
+    for row in reader:
+        cleaned = {k.strip().lower(): v.strip() if v else v for k, v in row.items()}
+        email = None
+        for col in ("email", "e-mail", "email_address", "emailaddress", "mail", "recipient"):
+            if col in cleaned:
+                email = cleaned[col]
+                break
+        if not email:
+            for col in cleaned:
+                if "email" in col:
+                    email = cleaned[col]
+                    break
+        if email:
+            csv_emails.append(email)
+
+    if not csv_emails:
+        return Response({"error": "No email addresses found in CSV"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Find previously failed emails from this user's campaigns
+    failed_emails = set()
+    user_campaigns = Campaign.objects.filter(user=request.user)
+    failed_logs = Log.objects.filter(
+        campaign__in=user_campaigns,
+        status="error"
+    ).values_list("recipient", flat=True).distinct().order_by()
+    all_failed = set(failed_logs)
+
+    # Count how many times each bounced and find which are in the CSV
+    bounce_details = []
+    for email in csv_emails:
+        email_lower = email.lower().strip()
+        if email_lower in {e.lower().strip() for e in all_failed}:
+            bounce_count = Log.objects.filter(
+                campaign__in=user_campaigns,
+                status="error",
+                recipient__iexact=email
+            ).count()
+            bounce_details.append({"email": email, "bounce_count": bounce_count})
+
+    return Response({
+        "bounced": bounce_details,
+        "stats": {
+            "total_in_csv": len(csv_emails),
+            "previously_bounced": len(bounce_details),
+        }
+    })
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def scan_csv(request):
+    csv_file = request.FILES.get("csv")
+    if not csv_file:
+        return Response({"error": "CSV file is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    raw_data = csv_file.read()
+    try:
+        decoded = raw_data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        decoded = raw_data.decode("latin-1")
+
+    reader = csv.DictReader(io.StringIO(decoded))
+    csv_emails = []
+    for row in reader:
+        cleaned = {k.strip().lower(): v.strip() if v else v for k, v in row.items()}
+        email = None
+        for col in ("email", "e-mail", "email_address", "emailaddress", "mail", "recipient"):
+            if col in cleaned:
+                email = cleaned[col]
+                break
+        if not email:
+            for col in cleaned:
+                if "email" in col:
+                    email = cleaned[col]
+                    break
+        if email:
+            csv_emails.append(email)
+
+    if not csv_emails:
+        return Response({"error": "No email addresses found in CSV"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Get all previously failed emails for this user
+    user_campaigns = Campaign.objects.filter(user=request.user)
+    failed_logs = Log.objects.filter(
+        campaign__in=user_campaigns,
+        status="error"
+    ).values_list("recipient", flat=True).distinct().order_by()
+    all_failed = set(failed_logs)
+    failed_lower = {e.lower().strip() for e in all_failed}
+
+    # Scan each email
+    email_regex = re.compile(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$')
+    results = []
+    for email in csv_emails:
+        entry = {"email": email, "valid": True, "flags": []}
+
+        # Check syntax
+        if not email_regex.match(email):
+            entry["valid"] = False
+            entry["flags"].append("invalid_format")
+            entry["reason"] = "Invalid format"
+            results.append(entry)
+            continue
+
+        domain = email.split("@")[1].lower()
+
+        # Check bounce history
+        email_lower = email.lower().strip()
+        if email_lower in failed_lower:
+            bounce_count = Log.objects.filter(
+                campaign__in=user_campaigns,
+                status="error",
+                recipient__iexact=email
+            ).count()
+            entry["flags"].append("bounced")
+            entry["bounce_count"] = bounce_count
+
+        # Check disposable
+        if domain in DISPOSABLE_DOMAINS:
+            entry["flags"].append("disposable")
+            entry["warning"] = "Disposable email"
+
+        # Check MX record with timeout
+        try:
+            resolver = dns.resolver.Resolver()
+            resolver.timeout = 3
+            resolver.lifetime = 3
+            resolver.resolve(domain, "MX")
+        except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.resolver.LifetimeTimeout):
+            entry["valid"] = False
+            entry["flags"].append("invalid_domain")
+            entry["reason"] = "Domain does not accept email"
+        except Exception:
+            entry["valid"] = False
+            entry["flags"].append("invalid_domain")
+            entry["reason"] = "Could not verify domain"
+
+        if entry["valid"] and not entry["flags"]:
+            entry["reason"] = "OK"
+
+        results.append(entry)
+
+    stats = {
+        "total": len(results),
+        "valid": sum(1 for r in results if r["valid"] and not r["flags"]),
+        "disposable": sum(1 for r in results if "disposable" in r["flags"]),
+        "bounced": sum(1 for r in results if "bounced" in r["flags"]),
+        "invalid": sum(1 for r in results if not r["valid"]),
+    }
+
+    return Response({"results": results, "stats": stats})
 
 
 @api_view(["GET"])
