@@ -426,9 +426,13 @@ export default function Templates() {
 
               <div className="flex-1 skeuo-inset-box p-4 overflow-hidden relative group">
                 <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Content Preview</p>
-                <div className="text-xs font-mono text-gray-600 line-clamp-6 whitespace-pre-wrap">
-                  {template.body.replace(/<[^>]*>?/gm, '').substring(0, 150)}...
-                </div>
+                <iframe
+                  srcDoc={template.body}
+                  className="w-full h-[250px] rounded border-0 bg-white"
+                  sandbox="allow-same-origin"
+                  title="Email Preview"
+                  style={{ pointerEvents: 'none' }}
+                />
               </div>
             </div>
           ))}

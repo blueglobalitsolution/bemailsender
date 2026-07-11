@@ -8,13 +8,19 @@ export default function Wizard() {
   const navigate = useNavigate();
   const [templates, setTemplates] = useState<any[]>([]);
   const [identities, setIdentities] = useState<any[]>([]);
+  const [identityGroups, setIdentityGroups] = useState<any[]>([]);
+  const [savedCsvs, setSavedCsvs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Form State
   const [campaignName, setCampaignName] = useState("");
   const [campaignType, setCampaignType] = useState<'email' | 'whatsapp'>('email');
   const [identityId, setIdentityId] = useState("");
+  const [identityGroupId, setIdentityGroupId] = useState("");
+  const [senderMode, setSenderMode] = useState<'single' | 'group'>('single');
   const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [savedCsvId, setSavedCsvId] = useState("");
+  const [showSavedList, setShowSavedList] = useState(false);
   const [templateId, setTemplateId] = useState("");
   const delayMs = "45000";
   const [isScheduled, setIsScheduled] = useState(false);
@@ -30,6 +36,7 @@ export default function Wizard() {
 
   // CSV scan results
   const [scanning, setScanning] = useState(false);
+  const [checkGravatar, setCheckGravatar] = useState(false);
   const [scanData, setScanData] = useState<{
     results: { email: string; valid: boolean; flags: string[]; reason?: string; warning?: string; bounce_count?: number }[];
     stats: { total: number; valid: number; disposable: number; bounced: number; invalid: number };
@@ -54,7 +61,14 @@ export default function Wizard() {
       apiFetch("/api/identities/")
         .then((res) => res.json())
         .then((data) => setIdentities(data));
-    } else {
+      apiFetch("/api/identity-groups/")
+        .then((res) => res.json())
+        .then((data) => setIdentityGroups(data));
+    }
+    apiFetch("/api/saved-csvs/")
+      .then((res) => res.json())
+      .then((data) => setSavedCsvs(data));
+    if (campaignType === 'whatsapp') {
       whatsappFetch("/api/whatsapp/status")
         .then((res) => res.json())
         .then((data) => setWhatsappStatus(data.status));
@@ -95,22 +109,37 @@ export default function Wizard() {
   };
 
   const handleScan = async () => {
-    if (!csvFile) return;
+    if (!csvFile && !savedCsvId) return;
     setScanning(true);
     setScanData(null);
     setRemovedEmails([]);
     try {
-      const formData = new FormData();
-      formData.append("csv", csvFile);
-      const res = await apiFetch("/api/campaigns/scan-csv/", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setScanData(data);
-      } else {
-        alert(data.error || "Scan failed");
+      if (savedCsvId) {
+        const res = await apiFetch("/api/campaigns/scan-csv/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ savedCsvId, gravatar: checkGravatar }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setScanData(data);
+        } else {
+          alert(data.error || "Scan failed");
+        }
+      } else if (csvFile) {
+        const formData = new FormData();
+        formData.append("csv", csvFile);
+        if (checkGravatar) formData.append("gravatar", "true");
+        const res = await apiFetch("/api/campaigns/scan-csv/", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setScanData(data);
+        } else {
+          alert(data.error || "Scan failed");
+        }
       }
     } catch (err) {
       alert("Scan failed");
@@ -136,7 +165,7 @@ export default function Wizard() {
   };
 
   const handleSubmit = async () => {
-    if (!csvFile || !templateId || (campaignType === 'email' && !identityId)) {
+    if ((!csvFile && !savedCsvId) || !templateId || (campaignType === 'email' && !identityId && !identityGroupId)) {
       alert("Please fill all required fields");
       return;
     }
@@ -153,6 +182,7 @@ export default function Wizard() {
     formData.append("templateId", templateId);
     if (campaignType === 'email') {
       formData.append("identityId", identityId);
+      formData.append("identityGroupId", identityGroupId);
     }
     formData.append("delayMs", delayMs);
     formData.append("scheduleDays", isScheduled ? JSON.stringify(scheduleDays) : "[]");
@@ -165,10 +195,13 @@ export default function Wizard() {
         const csvString = headerLine + remainingRows.map((row) => csvHeaders.map((h) => row[h] || "").join(",")).join("\n");
         formData.append("csv", new Blob([csvString], { type: "text/csv" }), csvFile?.name || "campaign.csv");
       } else {
-        formData.append("csv", csvFile);
+        formData.append("csv", csvFile || new Blob());
       }
-    } else {
+    } else if (csvFile) {
       formData.append("csv", csvFile);
+    }
+    if (savedCsvId) {
+      formData.append("savedCsvId", savedCsvId);
     }
 
     try {
@@ -298,32 +331,82 @@ export default function Wizard() {
 
               {campaignType === 'email' ? (
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Select Sender Identity</label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {identities.length === 0 ? (
-                      <div className="col-span-full text-center py-8 text-gray-500 skeuo-inset-box">
-                        No identities found. <a href="/identities" className="text-blue-600 hover:underline font-bold">Add one here</a>.
-                      </div>
-                    ) : (
-                      identities.map((identity) => (
-                        <div
-                          key={identity.id}
-                          onClick={() => setIdentityId(identity.id.toString())}
-                          className={`p-4 rounded-xl cursor-pointer transition-all ${identityId === identity.id.toString()
-                            ? 'bg-blue-50 border-2 border-blue-400 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_4px_rgba(0,0,0,0.1)]'
-                            : 'skeuo-btn'
-                            }`}
-                        >
-                          <div className="flex justify-between items-start mb-2">
-                            <h4 className="font-bold text-lg skeuo-text">{identity.name}</h4>
-                            {identityId === identity.id.toString() && <CheckCircle className="w-5 h-5 text-blue-600 drop-shadow-sm" />}
-                          </div>
-                          <p className="text-sm text-gray-600 font-medium">{identity.smtp_user}</p>
-                          <p className="text-xs text-gray-500 mt-1 font-mono">{identity.host}:{identity.port}</p>
-                        </div>
-                      ))
-                    )}
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Select Sender</label>
+                  <div className="flex gap-2 mb-4">
+                    <button
+                      type="button"
+                      onClick={() => { setSenderMode('single'); setIdentityGroupId(""); }}
+                      className={`px-4 py-2 text-sm font-bold rounded-lg transition-all flex-1 ${senderMode === 'single' ? 'skeuo-btn-primary' : 'skeuo-btn'}`}
+                    >
+                      Single Identity
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setSenderMode('group'); setIdentityId(""); }}
+                      className={`px-4 py-2 text-sm font-bold rounded-lg transition-all flex-1 ${senderMode === 'group' ? 'skeuo-btn-primary' : 'skeuo-btn'}`}
+                    >
+                      Identity Group
+                    </button>
                   </div>
+
+                  {senderMode !== 'group' ? (
+                    <>
+                      <p className="text-sm text-gray-500 mb-3 font-medium">Choose a single sender identity.</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {identities.length === 0 ? (
+                          <div className="col-span-full text-center py-8 text-gray-500 skeuo-inset-box">
+                            No identities found. <a href="/identities" className="text-blue-600 hover:underline font-bold">Add one here</a>.
+                          </div>
+                        ) : (
+                          identities.map((identity) => (
+                            <div
+                              key={identity.id}
+                              onClick={() => { setSenderMode('single'); setIdentityId(identity.id.toString()); setIdentityGroupId(""); }}
+                              className={`p-4 rounded-xl cursor-pointer transition-all ${identityId === identity.id.toString()
+                                ? 'bg-blue-50 border-2 border-blue-400 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_4px_rgba(0,0,0,0.1)]'
+                                : 'skeuo-btn'
+                                }`}
+                            >
+                              <div className="flex justify-between items-start mb-2">
+                                <h4 className="font-bold text-lg skeuo-text">{identity.name}</h4>
+                                {identityId === identity.id.toString() && <CheckCircle className="w-5 h-5 text-blue-600 drop-shadow-sm" />}
+                              </div>
+                              <p className="text-sm text-gray-600 font-medium">{identity.smtp_user}</p>
+                              <p className="text-xs text-gray-500 mt-1 font-mono">{identity.host}:{identity.port}</p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-gray-500 mb-3 font-medium">Choose an identity group for automatic rotation across multiple senders.</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {identityGroups.length === 0 ? (
+                          <div className="col-span-full text-center py-8 text-gray-500 skeuo-inset-box">
+                            No identity groups found. <a href="/identity-groups" className="text-blue-600 hover:underline font-bold">Create one here</a>.
+                          </div>
+                        ) : (
+                          identityGroups.map((group) => (
+                            <div
+                              key={group.id}
+                              onClick={() => { setSenderMode('group'); setIdentityGroupId(group.id.toString()); setIdentityId(""); }}
+                              className={`p-4 rounded-xl cursor-pointer transition-all ${identityGroupId === group.id.toString()
+                                ? 'bg-blue-50 border-2 border-blue-400 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_4px_rgba(0,0,0,0.1)]'
+                                : 'skeuo-btn'
+                                }`}
+                            >
+                              <div className="flex justify-between items-start mb-2">
+                                <h4 className="font-bold text-lg skeuo-text">{group.name}</h4>
+                                {identityGroupId === group.id.toString() && <CheckCircle className="w-5 h-5 text-blue-600 drop-shadow-sm" />}
+                              </div>
+                              <p className="text-sm text-gray-600 font-medium">{group.identities?.length || 0} identities</p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className="skeuo-inset-box p-6">
@@ -348,55 +431,121 @@ export default function Wizard() {
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div>
               <h3 className="text-xl font-bold mb-2 skeuo-text">Import Audience</h3>
-              <p className="text-gray-500 text-sm mb-6">Upload a CSV file containing your contacts. Must include an '{campaignType === 'email' ? 'email' : 'phone'}' column.</p>
+              <p className="text-gray-500 text-sm mb-6">Upload a CSV file or select a previously saved one.</p>
             </div>
 
-            <div className="skeuo-inset-box p-12 text-center hover:bg-gray-200 transition-colors cursor-pointer relative border-dashed border-2">
-              <input
-                type="file"
-                accept=".csv"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] || null;
-                  setCsvFile(file);
-                  setScanData(null);
-                  setRemovedEmails([]);
-                  setCsvRows([]);
-                  setCsvHeaders([]);
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                      const text = ev.target?.result as string;
-                      const lines = text.split("\n").filter((l) => l.trim());
-                      if (lines.length > 0) {
-                        const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
-                        setCsvHeaders(headers);
-                        const rows = lines.slice(1).map((line) => {
-                          const vals = line.split(",").map((v) => v.trim());
-                          const row: Record<string, string> = {};
-                          headers.forEach((h, i) => { row[h] = vals[i] || ""; });
-                          return row;
-                        }).filter((r) => r["email"] || r["recipient"] || Object.values(r).some((v) => v.includes("@")));
-                        setCsvRows(rows);
-                      }
-                    };
-                    reader.readAsText(file);
-                  }
-                }}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              />
-              <Upload className="w-12 h-12 text-gray-500 mx-auto mb-4 drop-shadow-sm" />
-              <h4 className="text-lg font-bold mb-1 skeuo-text">Click to upload or drag and drop</h4>
-              <p className="text-sm text-gray-500 font-medium">CSV files only</p>
-
-              {csvFile && (
-                <div className="mt-6 inline-flex items-center gap-2 bg-gradient-to-b from-green-50 to-green-100 text-green-700 px-4 py-2 rounded-lg text-sm font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.1)] border border-green-200">
-                  <CheckCircle className="w-4 h-4" /> {csvFile.name} ({csvRows.length} contacts)
-                </div>
-              )}
+            <div className="flex gap-2 mb-4">
+              <button
+                type="button"
+                onClick={() => { setSavedCsvId(""); setShowSavedList(false); setCsvFile(null); setScanData(null); setCsvRows([]); }}
+                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all flex-1 ${!showSavedList ? 'skeuo-btn-primary' : 'skeuo-btn'}`}
+              >
+                Upload CSV
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowSavedList(true); setCsvFile(null); setScanData(null); setCsvRows([]); }}
+                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all flex-1 ${showSavedList ? 'skeuo-btn-primary' : 'skeuo-btn'}`}
+              >
+                Saved CSV
+              </button>
             </div>
 
-            {csvFile && campaignType === 'email' && (
+            {!showSavedList ? (
+              <div className="skeuo-inset-box p-12 text-center hover:bg-gray-200 transition-colors cursor-pointer relative border-dashed border-2">
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setCsvFile(file);
+                    setScanData(null);
+                    setRemovedEmails([]);
+                    setCsvRows([]);
+                    setCsvHeaders([]);
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        const text = ev.target?.result as string;
+                        const lines = text.split("\n").filter((l) => l.trim());
+                        if (lines.length > 0) {
+                          const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+                          setCsvHeaders(headers);
+                          const rows = lines.slice(1).map((line) => {
+                            const vals = line.split(",").map((v) => v.trim());
+                            const row: Record<string, string> = {};
+                            headers.forEach((h, i) => { row[h] = vals[i] || ""; });
+                            return row;
+                          }).filter((r) => r["email"] || r["recipient"] || Object.values(r).some((v) => v.includes("@")));
+                          setCsvRows(rows);
+                        }
+                      };
+                      reader.readAsText(file);
+                    }
+                  }}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                <Upload className="w-12 h-12 text-gray-500 mx-auto mb-4 drop-shadow-sm" />
+                <h4 className="text-lg font-bold mb-1 skeuo-text">Click to upload or drag and drop</h4>
+                <p className="text-sm text-gray-500 font-medium">CSV files only</p>
+
+                {csvFile && (
+                  <div className="mt-6 inline-flex items-center gap-2 bg-gradient-to-b from-green-50 to-green-100 text-green-700 px-4 py-2 rounded-lg text-sm font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.1)] border border-green-200">
+                    <CheckCircle className="w-4 h-4" /> {csvFile.name} ({csvRows.length} contacts)
+                  </div>
+                )}
+              </div>
+            ) : (
               <div className="space-y-4">
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Select Saved CSV</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {savedCsvs.length === 0 ? (
+                    <div className="col-span-full text-center py-8 text-gray-500 skeuo-inset-box">
+                      No saved CSVs found. <a href="/saved-csvs" className="text-blue-600 hover:underline font-bold">Upload one here</a>.
+                    </div>
+                  ) : (
+                    savedCsvs.map((scsv) => (
+                      <div
+                        key={scsv.id}
+                        onClick={() => {
+                          setSavedCsvId(scsv.id.toString());
+                          setScanData(null);
+                          setRemovedEmails([]);
+                          setCsvHeaders(scsv.columns || []);
+                          setCsvRows([]);
+                        }}
+                        className={`p-4 rounded-xl cursor-pointer transition-all ${savedCsvId === scsv.id.toString()
+                          ? 'bg-blue-50 border-2 border-blue-400 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_4px_rgba(0,0,0,0.1)]'
+                          : 'skeuo-btn'
+                          }`}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-bold text-lg skeuo-text">{scsv.name}</h4>
+                          {savedCsvId === scsv.id.toString() && <CheckCircle className="w-5 h-5 text-blue-600 drop-shadow-sm" />}
+                        </div>
+                        <p className="text-sm text-gray-600 font-medium">{scsv.row_count} contacts</p>
+                        <p className="text-xs text-gray-500 mt-1 font-mono">Uploaded {new Date(scsv.created_at).toLocaleDateString()}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {(csvFile || (showSavedList && savedCsvId)) && campaignType === 'email' && (
+              <div className="space-y-4">
+                <div className="flex gap-4 skeuo-inset-box p-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={checkGravatar}
+                      onChange={(e) => setCheckGravatar(e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-bold text-gray-700 skeuo-text">Check Gravatar profile</span>
+                  </label>
+                </div>
+
                 <button
                   onClick={handleScan}
                   disabled={scanning}
@@ -413,6 +562,11 @@ export default function Wizard() {
                       <span className="flex items-center gap-1 text-green-700">
                         <CheckCircle className="w-4 h-4" /> {scanData.stats.valid} Safe
                       </span>
+                      {scanData.stats.gravatar > 0 && (
+                        <span className="flex items-center gap-1 text-purple-600">
+                          <CheckCircle className="w-4 h-4" /> {scanData.stats.gravatar} Gravatar
+                        </span>
+                      )}
                       {scanData.stats.disposable > 0 && (
                         <span className="flex items-center gap-1 text-orange-600">
                           <AlertCircle className="w-4 h-4" /> {scanData.stats.disposable} Disposable

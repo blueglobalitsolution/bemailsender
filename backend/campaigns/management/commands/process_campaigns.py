@@ -9,7 +9,8 @@ from django.conf import settings
 from django.core.mail import get_connection, EmailMultiAlternatives
 from django.utils import timezone
 from django.db import models, close_old_connections
-from campaigns.models import Campaign, CampaignContact, Log, Identity, Template
+from django.db.models import Q
+from campaigns.models import Campaign, CampaignContact, Log, Identity, IdentityGroup, Template
 
 class Command(BaseCommand):
     help = 'Processes scheduled and running campaigns'
@@ -20,6 +21,7 @@ class Command(BaseCommand):
         while True:
             try:
                 close_old_connections()
+                self.reset_daily_counters()
                 now = timezone.now()
                 # 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
                 python_day = now.weekday()
@@ -87,6 +89,27 @@ class Command(BaseCommand):
             # If we did work, don't wait long. If idle, sleep longer.
             time.sleep(1 if any_work_done else 5)
 
+    def reset_daily_counters(self):
+        today = timezone.localdate()
+        Identity.objects.filter(
+            Q(daily_date__isnull=True) | ~Q(daily_date=today)
+        ).update(daily_sent=0, daily_date=today)
+
+    def get_identity_for_send(self, campaign):
+        if campaign.identity_group:
+            group = campaign.identity_group
+            available = group.identities.filter(
+                daily_sent__lt=models.F("daily_limit")
+            ).first()
+            if not available:
+                raise Exception(
+                    f"All identities in group '{group.name}' exhausted for today"
+                )
+            return available
+        if campaign.identity:
+            return campaign.identity
+        raise Exception("No sender identity assigned")
+
     def process_next_contact(self, campaign):
         # Query for pending contacts or failed contacts that were last tried more than 1 hour ago
         one_hour_ago = timezone.now() - datetime.timedelta(hours=1)
@@ -151,9 +174,7 @@ class Command(BaseCommand):
         return True
 
     def send_email(self, campaign, contact, subject, body):
-        identity = campaign.identity
-        if not identity:
-            raise Exception("Sender identity missing for email campaign")
+        identity = self.get_identity_for_send(campaign)
 
         connection = get_connection(
             backend="django.core.mail.backends.smtp.EmailBackend",
@@ -166,9 +187,10 @@ class Command(BaseCommand):
             timeout=30,
         )
 
-        sender = identity.smtp_user
+        from_email = identity.smtp_from_email or identity.smtp_user
+        sender = from_email
         if identity.smtp_from_name:
-            sender = f"{identity.smtp_from_name} <{identity.smtp_user}>"
+            sender = f"{identity.smtp_from_name} <{from_email}>"
 
         # Generate plain text version from HTML
         plain_text = re.sub(r"<[^>]+>", "", body)
@@ -207,6 +229,9 @@ class Command(BaseCommand):
             body += footer_html
         email.attach_alternative(body, "text/html")
         email.send()
+
+        identity.daily_sent = models.F("daily_sent") + 1
+        identity.save(update_fields=["daily_sent"])
         
         contact.status = 'sent'
         contact.save()

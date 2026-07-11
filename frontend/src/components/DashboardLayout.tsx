@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, MessageSquare, History } from "lucide-react";
+import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, MessageSquare } from "lucide-react";
 import { cn } from "../lib/utils";
 
 export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) => void }) {
@@ -18,7 +18,7 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
     { name: "WhatsApp Connect", path: "/whatsapp", icon: MessageSquare },
     { name: "Script Architect", path: "/templates", icon: FileText },
     { name: "Sender Identities", path: "/identities", icon: UserCircle },
-    { name: "Campaign Logs", path: "/logs", icon: History },
+    { name: "Saved CSVs", path: "/saved-csvs", icon: Database },
   ];
 
   return (

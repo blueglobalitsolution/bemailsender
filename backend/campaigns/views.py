@@ -1,5 +1,7 @@
 import re
 import html as html_module
+import hashlib
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests as http_requests
 from rest_framework import status, generics, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
@@ -16,10 +18,12 @@ import datetime
 import dns.resolver
 from django.core.mail import get_connection, EmailMessage
 
-from .models import Template, Identity, Campaign, CampaignContact, Log, TrackedOpen
+from .models import Template, Identity, IdentityGroup, Campaign, CampaignContact, SavedCsv, Log, TrackedOpen
 from .serializers import (
     TemplateSerializer,
     IdentitySerializer,
+    IdentityGroupSerializer,
+    SavedCsvSerializer,
     CampaignSerializer,
     CampaignListSerializer,
     CampaignContactSerializer,
@@ -138,6 +142,72 @@ class IdentityViewSet(viewsets.ModelViewSet):
             )
 
 
+class IdentityGroupViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = IdentityGroupSerializer
+
+    def get_queryset(self):
+        return IdentityGroup.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class SavedCsvViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = SavedCsvSerializer
+
+    def get_queryset(self):
+        return SavedCsv.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=["post"])
+    def clean(self, request, pk=None):
+        saved_csv = self.get_object()
+        remove_emails = request.data.get("remove_emails", [])
+        remove_set = {e.strip().lower() for e in remove_emails}
+
+        reader = csv.DictReader(io.StringIO(saved_csv.csv_content))
+        fieldnames = reader.fieldnames
+        if not fieldnames:
+            return Response({"error": "CSV has no columns"}, status=400)
+
+        email_col = None
+        for col in fieldnames:
+            if col.strip().lower() in ("email", "e-mail", "email_address", "emailaddress", "mail", "recipient"):
+                email_col = col
+                break
+        if not email_col:
+            for col in fieldnames:
+                if "email" in col.lower():
+                    email_col = col
+                    break
+        if not email_col:
+            return Response({"error": "No email column found"}, status=400)
+
+        kept = []
+        removed = 0
+        for row in reader:
+            val = row.get(email_col, "").strip().lower()
+            if val in remove_set:
+                removed += 1
+            else:
+                kept.append(row)
+
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(kept)
+
+        saved_csv.csv_content = output.getvalue()
+        saved_csv.row_count = len(kept)
+        saved_csv.save()
+
+        return Response({"removed": removed, "remaining": len(kept)})
+
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def health_check(req):
@@ -186,6 +256,8 @@ class CampaignViewSet(viewsets.ModelViewSet):
         name = request.data.get("name")
         template_id = request.data.get("templateId")
         identity_id = request.data.get("identityId")
+        identity_group_id = request.data.get("identityGroupId")
+        saved_csv_id = request.data.get("savedCsvId")
         campaign_type = request.data.get("type", "email")
         delay_ms = request.data.get("delayMs", 45000)
         use_gemini = request.data.get("useGemini") == "true"
@@ -194,9 +266,9 @@ class CampaignViewSet(viewsets.ModelViewSet):
         end_time = request.data.get("endTime")
 
         csv_file = request.FILES.get("csv")
-        if not csv_file:
+        if not csv_file and not saved_csv_id:
             return Response(
-                {"error": "CSV file is required"}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "CSV file or saved CSV is required"}, status=status.HTTP_400_BAD_REQUEST
             )
         
         if not template_id:
@@ -204,9 +276,9 @@ class CampaignViewSet(viewsets.ModelViewSet):
                 {"error": "Template is required"}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        if campaign_type == "email" and not identity_id:
+        if campaign_type == "email" and not identity_id and not identity_group_id:
             return Response(
-                {"error": "Identity is required for email campaigns"},
+                {"error": "Identity or Identity Group is required for email campaigns"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -234,6 +306,7 @@ class CampaignViewSet(viewsets.ModelViewSet):
             name=name,
             template_id=template_id,
             identity_id=identity_id if identity_id else None,
+            identity_group_id=identity_group_id if identity_group_id else None,
             type=campaign_type,
             delay_ms=int(delay_ms) if delay_ms else 45000,
             use_gemini=use_gemini,
@@ -243,11 +316,15 @@ class CampaignViewSet(viewsets.ModelViewSet):
             schedule_end_time=parsed_end,
         )
 
-        raw_data = csv_file.read()
-        try:
-            decoded = raw_data.decode("utf-8-sig")
-        except UnicodeDecodeError:
-            decoded = raw_data.decode("latin-1")
+        if saved_csv_id:
+            saved_csv = SavedCsv.objects.get(id=saved_csv_id, user=request.user)
+            decoded = saved_csv.csv_content
+        else:
+            raw_data = csv_file.read()
+            try:
+                decoded = raw_data.decode("utf-8-sig")
+            except UnicodeDecodeError:
+                decoded = raw_data.decode("latin-1")
         reader = csv.DictReader(io.StringIO(decoded))
 
         # Normalize column names: strip whitespace, lowercase
@@ -663,15 +740,31 @@ def check_bounces(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def scan_csv(request):
-    csv_file = request.FILES.get("csv")
-    if not csv_file:
-        return Response({"error": "CSV file is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-    raw_data = csv_file.read()
     try:
-        decoded = raw_data.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        decoded = raw_data.decode("latin-1")
+        return _scan_csv(request)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response({"error": f"Scan failed: {str(e)}"}, status=500)
+
+
+def _scan_csv(request):
+    saved_csv_id = request.data.get("savedCsvId") or request.POST.get("savedCsvId")
+    csv_file = request.FILES.get("csv")
+    check_gravatar_flag = request.data.get("gravatar") in ("true", "True", True, "1")
+
+    if not csv_file and not saved_csv_id:
+        return Response({"error": "CSV file or saved CSV is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    if saved_csv_id:
+        saved_csv = SavedCsv.objects.get(id=saved_csv_id, user=request.user)
+        decoded = saved_csv.csv_content
+    else:
+        raw_data = csv_file.read()
+        try:
+            decoded = raw_data.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            decoded = raw_data.decode("latin-1")
 
     reader = csv.DictReader(io.StringIO(decoded))
     csv_emails = []
@@ -704,6 +797,7 @@ def scan_csv(request):
 
     # Scan each email
     email_regex = re.compile(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$')
+    mx_cache = {}
     results = []
     for email in csv_emails:
         entry = {"email": email, "valid": True, "flags": []}
@@ -734,25 +828,41 @@ def scan_csv(request):
             entry["flags"].append("disposable")
             entry["warning"] = "Disposable email"
 
-        # Check MX record with timeout
-        try:
-            resolver = dns.resolver.Resolver()
-            resolver.timeout = 3
-            resolver.lifetime = 3
-            resolver.resolve(domain, "MX")
-        except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.resolver.LifetimeTimeout):
+        # Check MX record (cached per domain)
+        if domain not in mx_cache:
+            try:
+                resolver = dns.resolver.Resolver()
+                resolver.timeout = 3
+                resolver.lifetime = 3
+                resolver.resolve(domain, "MX")
+                mx_cache[domain] = "ok"
+            except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.resolver.LifetimeTimeout):
+                mx_cache[domain] = "invalid"
+            except Exception:
+                mx_cache[domain] = "error"
+        if mx_cache[domain] != "ok":
             entry["valid"] = False
             entry["flags"].append("invalid_domain")
-            entry["reason"] = "Domain does not accept email"
-        except Exception:
-            entry["valid"] = False
-            entry["flags"].append("invalid_domain")
-            entry["reason"] = "Could not verify domain"
+            entry["reason"] = "Domain does not accept email" if mx_cache[domain] == "invalid" else "Could not verify domain"
 
         if entry["valid"] and not entry["flags"]:
             entry["reason"] = "OK"
 
         results.append(entry)
+
+    # Gravatar check (parallel)
+    if check_gravatar_flag:
+        valid_entries = [e for e in results if e["valid"]]
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            fut_map = {executor.submit(_check_gravatar, e["email"]): e for e in valid_entries}
+            for fut in as_completed(fut_map):
+                entry = fut_map[fut]
+                try:
+                    if fut.result():
+                        entry["flags"].append("has_gravatar")
+                        entry["reason"] = "Has Gravatar profile"
+                except:
+                    pass
 
     stats = {
         "total": len(results),
@@ -760,9 +870,20 @@ def scan_csv(request):
         "disposable": sum(1 for r in results if "disposable" in r["flags"]),
         "bounced": sum(1 for r in results if "bounced" in r["flags"]),
         "invalid": sum(1 for r in results if not r["valid"]),
+        "gravatar": sum(1 for r in results if "has_gravatar" in r["flags"]),
     }
 
     return Response({"results": results, "stats": stats})
+
+
+def _check_gravatar(email):
+    email_hash = hashlib.md5(email.lower().strip().encode()).hexdigest()
+    url = f"https://www.gravatar.com/avatar/{email_hash}?d=404&s=1"
+    try:
+        resp = http_requests.get(url, timeout=5)
+        return resp.status_code == 200
+    except:
+        return False
 
 
 @api_view(["GET"])

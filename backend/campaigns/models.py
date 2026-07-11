@@ -40,9 +40,13 @@ class Identity(models.Model):
     smtp_user = models.EmailField(max_length=255)
     smtp_pass = models.CharField(max_length=500)  # Stores encrypted password
     smtp_from_name = models.CharField(max_length=255, blank=True, null=True)
+    smtp_from_email = models.EmailField(max_length=255, blank=True, null=True)
     use_tls = models.BooleanField(default=True)
     use_ssl = models.BooleanField(default=False)
     last_verified_at = models.DateTimeField(null=True, blank=True)
+    daily_limit = models.IntegerField(default=295)
+    daily_sent = models.IntegerField(default=0)
+    daily_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def get_decrypted_password(self):
@@ -67,6 +71,20 @@ class Identity(models.Model):
         unique_together = ("user", "name")
 
 
+class IdentityGroup(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="identity_groups"
+    )
+    name = models.CharField(max_length=255)
+    identities = models.ManyToManyField(Identity)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "identity_groups"
+        unique_together = ("user", "name")
+        ordering = ["-created_at"]
+
+
 class Campaign(models.Model):
     STATUS_CHOICES = [
         ("draft", "Draft"),
@@ -88,6 +106,9 @@ class Campaign(models.Model):
     )
     identity = models.ForeignKey(
         Identity, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    identity_group = models.ForeignKey(
+        IdentityGroup, on_delete=models.SET_NULL, null=True, blank=True
     )
     name = models.CharField(max_length=255)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="draft")
@@ -144,6 +165,22 @@ class TrackedOpen(models.Model):
         indexes = [
             models.Index(fields=["campaign", "recipient"]),
         ]
+
+
+class SavedCsv(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="saved_csvs"
+    )
+    name = models.CharField(max_length=255)
+    csv_content = models.TextField()
+    columns = models.JSONField(default=list)
+    row_count = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "saved_csvs"
+        unique_together = ("user", "name")
+        ordering = ["-created_at"]
 
 
 class Log(models.Model):

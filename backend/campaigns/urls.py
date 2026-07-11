@@ -1,10 +1,12 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import TemplateViewSet, IdentityViewSet, CampaignViewSet, LogViewSet, health_check, check_spam_score, track_open, verify_emails, check_bounces, scan_csv
+from .views import TemplateViewSet, IdentityViewSet, IdentityGroupViewSet, SavedCsvViewSet, CampaignViewSet, LogViewSet, health_check, check_spam_score, track_open, verify_emails, check_bounces, scan_csv
 
 router = DefaultRouter()
 router.register(r"templates", TemplateViewSet, basename="template")
 router.register(r"identities", IdentityViewSet, basename="identity")
+router.register(r"identity-groups", IdentityGroupViewSet, basename="identitygroup")
+router.register(r"saved-csvs", SavedCsvViewSet, basename="savedcsv")
 router.register(r"campaigns", CampaignViewSet, basename="campaign")
 router.register(r"logs", LogViewSet, basename="log")
 

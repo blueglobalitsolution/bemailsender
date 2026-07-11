@@ -9,6 +9,7 @@ import Wizard from "./pages/Wizard";
 import Templates from "./pages/Templates";
 import CampaignLogs from "./pages/CampaignLogs";
 import Identities from "./pages/Identities";
+import SavedCSVs from "./pages/SavedCSVs";
 import WhatsApp from "./pages/WhatsApp";
 
 export default function App() {
@@ -37,6 +38,7 @@ export default function App() {
           <Route path="wizard" element={<Wizard />} />
           <Route path="templates" element={<Templates />} />
           <Route path="identities" element={<Identities />} />
+          <Route path="saved-csvs" element={<SavedCSVs />} />
           <Route path="whatsapp" element={<WhatsApp />} />
         </Route>
       ) : (
