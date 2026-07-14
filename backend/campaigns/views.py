@@ -886,6 +886,14 @@ def _check_gravatar(email):
         return False
 
 
+# 1x1 transparent GIF pixel
+TRANSPARENT_GIF = (
+    b"GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00"
+    b"!\xf9\x04\x00\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00"
+    b"\x00\x02\x02D\x01\x00;"
+)
+
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def track_open(request, campaign_id, recipient):
