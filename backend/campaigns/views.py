@@ -10,7 +10,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.conf import settings
 from django.http import HttpResponse
-from django.db import transaction
+from django.db import models, transaction
 import json
 import csv
 import io
@@ -71,9 +71,13 @@ class IdentityViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
     def perform_destroy(self, instance):
-        if Campaign.objects.filter(identity=instance).exists():
+        if Campaign.objects.filter(
+            models.Q(identity=instance) | models.Q(identity_group__identities=instance),
+            status__in=["scheduled", "running"]
+        ).exists():
             from rest_framework import serializers
-            raise serializers.ValidationError("This identity is used by campaigns and cannot be deleted.")
+            raise serializers.ValidationError("This identity is used by active campaigns and cannot be deleted.")
+        instance.identitygroup_set.clear()
         instance.delete()
 
     @action(detail=True, methods=["post"])
