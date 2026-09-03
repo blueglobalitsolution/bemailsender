@@ -28,7 +28,7 @@ export default function App() {
     <ToastProvider>
       <Routes>
         <Route path="/login" element={<Login setAuth={setIsAuthenticated} />} />
-        <Route path="/register" element={<Register setAuth={setIsAuthenticated} />} />
+        <Route path="/register" element={<Navigate to="/login" replace />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
 
         {isAuthenticated ? (

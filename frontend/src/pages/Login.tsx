@@ -70,8 +70,7 @@ export default function Login({ setAuth }: { setAuth: (auth: boolean) => void })
 
       <div className="w-full max-w-md bg-[#000000]/90 backdrop-blur-xl border border-[#1a1a1a] rounded-none p-10 shadow-[0_16px_48px_rgba(0,0,0,0.9)] z-10">
         <div className="mb-8 text-center">
-          <h1 className="text-4xl font-serif text-white tracking-tight mb-2">BEmailSender</h1>
-          <p className="text-[#888888] text-sm">Sign in to your dashboard</p>
+          <h1 className="text-4xl font-serif text-white tracking-tight">BEmailSender</h1>
         </div>
 
         {error && (
@@ -121,10 +120,6 @@ export default function Login({ setAuth }: { setAuth: (auth: boolean) => void })
             Sign In <ArrowRight className="w-4 h-4" />
           </button>
         </form>
-
-        <p className="mt-8 text-center text-sm text-[#777777]">
-          Don't have an account? <Link to="/register" className="text-[#00ffff] hover:underline ml-1 font-medium">Create one</Link>
-        </p>
       </div>
     </div>
   );
