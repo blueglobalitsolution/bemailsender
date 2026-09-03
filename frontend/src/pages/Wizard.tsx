@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Wand2, User, Users, FileText, Settings, ArrowRight, ArrowLeft, Upload, CheckCircle, Loader2, X, Clock, AlertCircle, Shield, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Wand2, User, Users, FileText, Settings, ArrowRight, ArrowLeft, Upload, CheckCircle, Loader2, X, Clock, AlertCircle, Shield, ShieldCheck, ShieldAlert, Globe, Calendar, Shuffle, Target, Sparkles } from "lucide-react";
 import { apiFetch, getApiUrl } from "../lib/api";
 import { useToast } from "../components/Toast";
 
@@ -24,11 +24,19 @@ export default function Wizard() {
   const [savedCsvId, setSavedCsvId] = useState("");
   const [showSavedList, setShowSavedList] = useState(false);
   const [templateId, setTemplateId] = useState("");
-  const delayMs = "45000";
+  const [delaySeconds, setDelaySeconds] = useState(45);
+  const delayMs = (delaySeconds * 1000).toString();
+  
+  // Advanced Scheduling State
   const [isScheduled, setIsScheduled] = useState(false);
   const [scheduleDays, setScheduleDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("17:00");
+  const [timezone, setTimezone] = useState("UTC+05:30 (Asia/Kolkata - IST)");
+  const [humanJitter, setHumanJitter] = useState(true);
+  const [dailyLimit, setDailyLimit] = useState(250);
+  const [enableDailyLimit, setEnableDailyLimit] = useState(false);
+  const [launchDate, setLaunchDate] = useState("");
 
   // CSV rows state (parsed client-side)
   const [csvRows, setCsvRows] = useState<Record<string, string>[]>([]);
@@ -175,6 +183,12 @@ export default function Wizard() {
     formData.append("scheduleDays", isScheduled ? JSON.stringify(scheduleDays) : "[]");
     formData.append("startTime", isScheduled ? startTime : "");
     formData.append("endTime", isScheduled ? endTime : "");
+    if (isScheduled) {
+      formData.append("timezone", timezone);
+      formData.append("humanJitter", humanJitter ? "true" : "false");
+      if (enableDailyLimit) formData.append("dailyLimit", dailyLimit.toString());
+      if (launchDate) formData.append("launchDate", launchDate);
+    }
     if (csvRows.length > 0 && removedEmails.length > 0) {
       const remainingRows = csvRows.filter((row) => !removedEmails.includes(row["email"] || row["recipient"] || ""));
       if (remainingRows.length > 0 && remainingRows.length < csvRows.length) {
@@ -684,18 +698,73 @@ export default function Wizard() {
               <h3 className="text-xl font-bold mb-2 skeuo-text">Governance & Control</h3>
               <p className="text-gray-500 text-sm mb-6">Set delivery rules and scheduling.</p>
             </div>
-            <div className="skeuo-inset-box p-6">
-              <h4 className="font-bold text-lg mb-4 skeuo-text">Traffic Control</h4>
-              <div>
-                <p className="text-xs font-medium text-gray-500">Sending delay is fixed at 45 seconds between each {campaignType === 'email' ? 'email' : 'message'} to prevent spam flagging.</p>
+            <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-none p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h4 className="font-serif text-lg text-white">Traffic Control</h4>
+                  <p className="text-xs text-[#777777]">Set custom delay between consecutive emails to control delivery speed & prevent spam flagging.</p>
+                </div>
+                <div className="flex items-center gap-2 bg-[#111111] border border-[#222222] px-3 py-1.5 rounded-none">
+                  <span className="font-mono text-base font-bold text-[#19b3d2]">{delaySeconds}</span>
+                  <span className="text-[11px] font-mono text-[#777777]">seconds</span>
+                </div>
+              </div>
+
+              {/* Slider & Quick Presets */}
+              <div className="space-y-4 pt-2">
+                <input
+                  type="range"
+                  min="5"
+                  max="180"
+                  step="5"
+                  value={delaySeconds}
+                  onChange={(e) => setDelaySeconds(Number(e.target.value))}
+                  className="w-full accent-[#19b3d2] cursor-pointer h-1.5 bg-[#1a1a1a] rounded-none"
+                />
+
+                <div className="flex items-center justify-between flex-wrap gap-2 pt-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] uppercase tracking-wider text-[#666666]">Quick Presets:</span>
+                    {[
+                      { label: "15s (Fast)", val: 15 },
+                      { label: "30s (Balanced)", val: 30 },
+                      { label: "45s (Recommended)", val: 45 },
+                      { label: "60s (Safe)", val: 60 },
+                      { label: "90s (High Safety)", val: 90 },
+                    ].map((preset) => (
+                      <button
+                        key={preset.val}
+                        type="button"
+                        onClick={() => setDelaySeconds(preset.val)}
+                        className={`px-2.5 py-1 text-[11px] font-mono rounded-none transition-all cursor-pointer border ${
+                          delaySeconds === preset.val
+                            ? "bg-[#19b3d2]/15 border-[#19b3d2] text-[#19b3d2]"
+                            : "bg-[#111111] border-[#222222] text-[#888888] hover:text-white"
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="text-[11px] font-mono text-[#666666]">
+                    {delaySeconds < 25 ? (
+                      <span className="text-amber-400">⚡ Faster speed (high-volume accounts)</span>
+                    ) : (
+                      <span className="text-emerald-400">🛡️ Optimal inbox deliverability</span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="skeuo-inset-box p-6">
+            <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-none p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h4 className="font-bold text-lg skeuo-text">Campaign Schedule</h4>
-                  <p className="text-sm text-gray-600 mt-1 font-medium">Enable to set specific days and times for this campaign to run.</p>
+                  <h4 className="font-serif text-lg text-white flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-[#19b3d2]" /> Campaign Schedule
+                  </h4>
+                  <p className="text-xs text-[#777777] mt-1">Automate delivery windows, timezones, and daily throttling limits.</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -704,12 +773,93 @@ export default function Wizard() {
                     checked={isScheduled}
                     onChange={(e) => setIsScheduled(e.target.checked)}
                   />
-                  <div className="w-12 h-6 bg-[#1a1a1a] border border-[#2a2a2a] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-6 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00ffff] peer-checked:after:bg-black peer-checked:shadow-[0_0_16px_rgba(0,255,255,0.4)]"></div>
+                  <div className="w-12 h-6 bg-[#1a1a1a] border border-[#2a2a2a] peer-focus:outline-none rounded-none peer peer-checked:after:translate-x-6 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-none after:h-5 after:w-5 after:transition-all peer-checked:bg-[#19b3d2] peer-checked:after:bg-black"></div>
                 </label>
               </div>
 
               {isScheduled && (
-                <div className="space-y-6 pt-4 border-t border-[#1a1a1a] animate-in fade-in duration-300">
+                <div className="space-y-6 pt-5 border-t border-[#1a1a1a] animate-in fade-in duration-300">
+                  {/* 1. Timezone Selector */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs uppercase tracking-widest text-[#777777] mb-2 font-medium flex items-center gap-1.5">
+                        <Globe className="w-3.5 h-3.5 text-[#19b3d2]" /> Target Timezone
+                      </label>
+                      <select
+                        value={timezone}
+                        onChange={(e) => setTimezone(e.target.value)}
+                        className="w-full bg-[#111111] border border-[#222222] rounded-none py-2.5 px-3 text-xs text-white focus:outline-none focus:border-[#19b3d2] font-mono cursor-pointer"
+                      >
+                        <option value="UTC+05:30 (Asia/Kolkata - IST)">UTC+05:30 (Asia/Kolkata - IST)</option>
+                        <option value="UTC-05:00 (America/New_York - EST)">UTC-05:00 (America/New_York - EST)</option>
+                        <option value="UTC-08:00 (America/Los_Angeles - PST)">UTC-08:00 (America/Los_Angeles - PST)</option>
+                        <option value="UTC-06:00 (America/Chicago - CST)">UTC-06:00 (America/Chicago - CST)</option>
+                        <option value="UTC+00:00 (Europe/London - GMT)">UTC+00:00 (Europe/London - GMT)</option>
+                        <option value="UTC+01:00 (Europe/Paris - CET)">UTC+01:00 (Europe/Paris - CET)</option>
+                        <option value="UTC+04:00 (Asia/Dubai - GST)">UTC+04:00 (Asia/Dubai - GST)</option>
+                        <option value="UTC+08:00 (Asia/Singapore - SGT)">UTC+08:00 (Asia/Singapore - SGT)</option>
+                        <option value="UTC+10:00 (Australia/Sydney - AEST)">UTC+10:00 (Australia/Sydney - AEST)</option>
+                      </select>
+                    </div>
+
+                    {/* 5. Launch Date Picker ("Schedule for Later") */}
+                    <div>
+                      <label className="block text-xs uppercase tracking-widest text-[#777777] mb-2 font-medium flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-[#19b3d2]" /> Launch Date (Optional)
+                      </label>
+                      <input
+                        type="date"
+                        value={launchDate}
+                        onChange={(e) => setLaunchDate(e.target.value)}
+                        min={new Date().toISOString().split("T")[0]}
+                        className="w-full bg-[#111111] border border-[#222222] rounded-none py-2 px-3 text-xs text-white focus:outline-none focus:border-[#19b3d2] font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 2. Pre-Configured Business Hour Presets */}
+                  <div>
+                    <label className="block text-xs uppercase tracking-widest text-[#777777] mb-2 font-medium flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-[#19b3d2]" /> Schedule Presets
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setScheduleDays([1, 2, 3, 4, 5]);
+                          setStartTime("09:00");
+                          setEndTime("17:00");
+                        }}
+                        className="px-3 py-1.5 text-xs font-mono rounded-none border border-[#222222] bg-[#111111] hover:bg-[#1a1a1a] text-[#cccccc] hover:text-white transition-all cursor-pointer flex items-center gap-1.5"
+                      >
+                        💼 Standard Business (Mon-Fri 9AM-5PM)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setScheduleDays([1, 2, 3, 4]);
+                          setStartTime("08:00");
+                          setEndTime("11:30");
+                        }}
+                        className="px-3 py-1.5 text-xs font-mono rounded-none border border-[#222222] bg-[#111111] hover:bg-[#1a1a1a] text-[#cccccc] hover:text-white transition-all cursor-pointer flex items-center gap-1.5"
+                      >
+                        ⚡ Morning Outreach Peak (Mon-Thu 8AM-11:30AM)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setScheduleDays([0, 1, 2, 3, 4, 5, 6]);
+                          setStartTime("00:00");
+                          setEndTime("23:59");
+                        }}
+                        className="px-3 py-1.5 text-xs font-mono rounded-none border border-[#222222] bg-[#111111] hover:bg-[#1a1a1a] text-[#cccccc] hover:text-white transition-all cursor-pointer flex items-center gap-1.5"
+                      >
+                        🌐 24/7 Continuous
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Active Days Selection */}
                   <div>
                     <label className="block text-xs uppercase tracking-widest text-[#777777] mb-2 font-medium">Active Days</label>
                     <div className="flex flex-wrap gap-2">
@@ -724,10 +874,11 @@ export default function Wizard() {
                               setScheduleDays([...scheduleDays, index]);
                             }
                           }}
-                          className={`px-4 py-2 text-xs font-semibold rounded-full transition-all cursor-pointer ${scheduleDays.includes(index)
-                            ? 'bg-[#00ffff] text-black shadow-[0_0_16px_rgba(0,255,255,0.3)]'
-                            : 'bg-[#111111] text-[#888888] hover:text-white border border-[#222222]'
-                            }`}
+                          className={`px-4 py-2 text-xs font-semibold rounded-none transition-all cursor-pointer border ${
+                            scheduleDays.includes(index)
+                              ? 'bg-[#19b3d2] text-black border-[#1499b4]'
+                              : 'bg-[#111111] text-[#888888] hover:text-white border-[#222222]'
+                          }`}
                         >
                           {day}
                         </button>
@@ -735,6 +886,7 @@ export default function Wizard() {
                     </div>
                   </div>
 
+                  {/* Start and End Time */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs uppercase tracking-widest text-[#777777] mb-2 font-medium">Start Time</label>
@@ -742,7 +894,7 @@ export default function Wizard() {
                         type="time"
                         value={startTime}
                         onChange={(e) => setStartTime(e.target.value)}
-                        className="w-full bg-[#0a0a0a] border border-[#1e1e1e] rounded-full py-2 px-4 text-white"
+                        className="w-full bg-[#111111] border border-[#222222] rounded-none py-2 px-4 text-white text-xs font-mono focus:outline-none focus:border-[#19b3d2]"
                       />
                     </div>
                     <div>
@@ -751,8 +903,66 @@ export default function Wizard() {
                         type="time"
                         value={endTime}
                         onChange={(e) => setEndTime(e.target.value)}
-                        className="w-full bg-[#0a0a0a] border border-[#1e1e1e] rounded-full py-2 px-4 text-white"
+                        className="w-full bg-[#111111] border border-[#222222] rounded-none py-2 px-4 text-white text-xs font-mono focus:outline-none focus:border-[#19b3d2]"
                       />
+                    </div>
+                  </div>
+
+                  {/* 4. Random Humanized Jitter + 3. Daily Sending Limit */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                    {/* Humanized Jitter */}
+                    <div className="bg-[#111111] border border-[#222222] p-4 rounded-none flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <Shuffle className="w-3.5 h-3.5 text-[#19b3d2]" />
+                          <span className="text-xs font-semibold text-white">Humanized Jitter</span>
+                        </div>
+                        <p className="text-[11px] text-[#777777] mt-0.5">Adds ±5 to 15s natural variance between emails to simulate human typing.</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer ml-3 shrink-0">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={humanJitter}
+                          onChange={(e) => setHumanJitter(e.target.checked)}
+                        />
+                        <div className="w-10 h-5 bg-[#1a1a1a] border border-[#2a2a2a] peer-focus:outline-none rounded-none peer peer-checked:after:translate-x-5 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-none after:h-4 after:w-4 after:transition-all peer-checked:bg-[#19b3d2] peer-checked:after:bg-black"></div>
+                      </label>
+                    </div>
+
+                    {/* Daily Sending Limit */}
+                    <div className="bg-[#111111] border border-[#222222] p-4 rounded-none">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1.5">
+                          <Target className="w-3.5 h-3.5 text-[#19b3d2]" />
+                          <span className="text-xs font-semibold text-white">Daily Sending Cap</span>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={enableDailyLimit}
+                            onChange={(e) => setEnableDailyLimit(e.target.checked)}
+                          />
+                          <div className="w-10 h-5 bg-[#1a1a1a] border border-[#2a2a2a] peer-focus:outline-none rounded-none peer peer-checked:after:translate-x-5 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-none after:h-4 after:w-4 after:transition-all peer-checked:bg-[#19b3d2] peer-checked:after:bg-black"></div>
+                        </label>
+                      </div>
+                      {enableDailyLimit ? (
+                        <div className="flex items-center gap-2 mt-2">
+                          <input
+                            type="number"
+                            min="10"
+                            max="5000"
+                            step="10"
+                            value={dailyLimit}
+                            onChange={(e) => setDailyLimit(Number(e.target.value))}
+                            className="w-28 bg-[#0a0a0a] border border-[#222222] px-2.5 py-1 text-xs text-white font-mono rounded-none focus:outline-none focus:border-[#19b3d2]"
+                          />
+                          <span className="text-[11px] text-[#777777]">max emails per day</span>
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-[#777777]">Automatically pauses once limit is reached and resumes next day.</p>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, Menu, X } from "lucide-react";
 import { cn } from "../lib/utils";
+import Beams from "./Beams";
 
 export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) => void }) {
   const location = useLocation();
@@ -63,7 +64,7 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
                 className={cn(
                   "flex items-center gap-3 px-4 py-3 rounded-none text-sm font-medium transition-all",
                   isActive 
-                    ? "bg-[#00ffff] text-black font-semibold shadow-[0_0_16px_rgba(0,255,255,0.25)]" 
+                    ? "bg-[#19b3d2] text-black font-semibold" 
                     : "text-[#888888] hover:text-white hover:bg-[#111111]"
                 )}
               >
@@ -85,23 +86,37 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-[#0a0a0a] min-w-0">
-        <header className="h-16 border-b border-[#161616] flex items-center justify-between px-4 sm:px-8 bg-[#000000]/60 backdrop-blur-md shrink-0">
+      {/* Main Content with Blurred Dynamic Beams Background */}
+      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-[#0a0a0a] min-w-0 relative">
+        {/* Blurred Beams Background Canvas */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 filter blur-[40px] opacity-40">
+          <Beams 
+            lightColor="#19b3d2"
+            beamNumber={30}
+            beamWidth={4.7}
+            beamHeight={30}
+            speed={4.5}
+            noiseIntensity={1.4}
+            scale={0.15}
+            rotation={-31}
+          />
+        </div>
+
+        <header className="h-16 border-b border-[#161616] flex items-center justify-between px-4 sm:px-8 bg-[#000000]/70 backdrop-blur-xl shrink-0 z-10">
           <div className="flex items-center gap-3">
             <button 
               onClick={() => setMobileOpen(true)}
               className="md:hidden p-2 -ml-2 text-[#cccccc] hover:text-white hover:bg-[#111111] transition-colors cursor-pointer"
               title="Open Menu"
             >
-              <Menu className="w-5 h-5 text-[#00ffff]" />
+              <Menu className="w-5 h-5 text-[#19b3d2]" />
             </button>
             <h2 className="text-xl sm:text-2xl font-serif text-white capitalize tracking-wide truncate">
               {location.pathname.split("/")[1] ? location.pathname.split("/")[1].replace("-", " ") : "Dashboard"}
             </h2>
           </div>
         </header>
-        <div className="flex-1 overflow-auto p-4 sm:p-6 md:p-8">
+        <div className="flex-1 overflow-auto p-4 sm:p-6 md:p-8 relative z-10">
           <Outlet />
         </div>
       </main>
