@@ -1,12 +1,7 @@
 const API_BASE = import.meta.env.VITE_API_URL || '';
-const WHATSAPP_BASE = import.meta.env.VITE_WHATSAPP_SERVICE_URL || '/whatsapp/';
 
 export function getApiUrl(path: string): string {
   return `${API_BASE}${path}`;
-}
-
-export function getWhatsAppUrl(path: string): string {
-  return `${WHATSAPP_BASE}${path}`;
 }
 
 export const apiFetch = async (path: string, options?: RequestInit) => {
@@ -60,41 +55,4 @@ export const apiFetch = async (path: string, options?: RequestInit) => {
   }
 
   return response;
-};
-
-export const whatsappFetch = async (path: string, options?: RequestInit) => {
-  const url = new URL(getWhatsAppUrl(path));
-  const token = localStorage.getItem('access_token');
-
-  const headers: HeadersInit = {
-    ...options?.headers,
-    'Content-Type': 'application/json',
-    'x-api-key': import.meta.env.VITE_WHATSAPP_API_KEY || 'whatsapp-secret-key-change-in-production'
-  };
-
-  if (token) {
-    try {
-      // Decode JWT to get userId with padding safety
-      const base64Url = token.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const pad = base64.length % 4;
-      const padded = pad ? base64 + '='.repeat(4 - pad) : base64;
-      const payload = JSON.parse(atob(padded));
-      const userId = payload.user_id || payload.id;
-
-      if (userId) {
-        if (options?.method === 'POST') {
-          const body = JSON.parse((options?.body as string) || '{}');
-          body.userId = userId;
-          options.body = JSON.stringify(body);
-        } else {
-          url.searchParams.append('userId', userId.toString());
-        }
-      }
-    } catch (e) {
-      console.error("Error decoding token for WhatsApp service", e);
-    }
-  }
-
-  return fetch(url.toString(), { ...options, headers });
 };

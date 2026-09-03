@@ -10,7 +10,7 @@ import Templates from "./pages/Templates";
 import CampaignLogs from "./pages/CampaignLogs";
 import Identities from "./pages/Identities";
 import SavedCSVs from "./pages/SavedCSVs";
-import WhatsApp from "./pages/WhatsApp";
+import { ToastProvider } from "./components/Toast";
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -25,25 +25,26 @@ export default function App() {
   if (!authLoaded) return null;
 
   return (
-    <Routes>
-      <Route path="/login" element={<Login setAuth={setIsAuthenticated} />} />
-      <Route path="/register" element={<Register setAuth={setIsAuthenticated} />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
+    <ToastProvider>
+      <Routes>
+        <Route path="/login" element={<Login setAuth={setIsAuthenticated} />} />
+        <Route path="/register" element={<Register setAuth={setIsAuthenticated} />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
-      {isAuthenticated ? (
-        <Route path="/" element={<DashboardLayout setAuth={setIsAuthenticated} />}>
-          <Route index element={<Navigate to="/campaigns" replace />} />
-          <Route path="campaigns" element={<Campaigns />} />
-          <Route path="campaigns/:id/logs" element={<CampaignLogs />} />
-          <Route path="wizard" element={<Wizard />} />
-          <Route path="templates" element={<Templates />} />
-          <Route path="identities" element={<Identities />} />
-          <Route path="saved-csvs" element={<SavedCSVs />} />
-          <Route path="whatsapp" element={<WhatsApp />} />
-        </Route>
-      ) : (
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      )}
-    </Routes>
+        {isAuthenticated ? (
+          <Route path="/" element={<DashboardLayout setAuth={setIsAuthenticated} />}>
+            <Route index element={<Navigate to="/campaigns" replace />} />
+            <Route path="campaigns" element={<Campaigns />} />
+            <Route path="campaigns/:id/logs" element={<CampaignLogs />} />
+            <Route path="wizard" element={<Wizard />} />
+            <Route path="templates" element={<Templates />} />
+            <Route path="identities" element={<Identities />} />
+            <Route path="saved-csvs" element={<SavedCSVs />} />
+          </Route>
+        ) : (
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        )}
+      </Routes>
+    </ToastProvider>
   );
 }

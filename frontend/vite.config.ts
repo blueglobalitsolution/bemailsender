@@ -15,15 +15,15 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, '.'),
       },
     },
-     server: {
-       port: 5173,
-       allowedHosts: true,
-       proxy: {
-         '/api': {
-           target: 'http://localhost:9090',
-           changeOrigin: true,
-         },
-       },
-     },
+server: {
+        port: 3010,
+        allowedHosts: true,
+        proxy: {
+          '/api': {
+            target: 'http://localhost:8010',
+            changeOrigin: true,
+          },
+        },
+      },
   };
 });

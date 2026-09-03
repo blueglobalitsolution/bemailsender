@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
-import { FileText, Plus, Save, Trash2, Edit3, Mail, MessageSquare, Shield, ShieldCheck, ShieldAlert, Loader2, AlertTriangle, CheckCircle, Info } from "lucide-react";
+import { FileText, Plus, Save, Trash2, Edit3, Mail, Shield, ShieldCheck, ShieldAlert, Loader2, AlertTriangle, CheckCircle, Info } from "lucide-react";
 import EmailEditor, { EditorRef } from "react-email-editor";
 import { apiFetch, getApiUrl } from "../lib/api";
+import { useToast } from "../components/Toast";
 
 interface Template {
   id: number;
   name: string;
   subject: string;
   body: string;
-  type: 'email' | 'whatsapp';
+  type: string;
   design?: any;
 }
 
@@ -20,13 +21,13 @@ interface Identity {
 }
 
 export default function Templates() {
+  const toast = useToast();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [identities, setIdentities] = useState<Identity[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [filterType, setFilterType] = useState<'all' | 'email' | 'whatsapp'>('all');
-  const [newTemplate, setNewTemplate] = useState<{ name: string, subject: string, body: string, type: 'email' | 'whatsapp', design?: any }>({
+  const [newTemplate, setNewTemplate] = useState<{ name: string, subject: string, body: string, type: string, design?: any }>({
     name: "", subject: "", body: "", type: 'email'
   });
   const [spamCheckIdentity, setSpamCheckIdentity] = useState("");
@@ -140,7 +141,7 @@ export default function Templates() {
       const body = newTemplate.body;
       const templateId = editingId;
       if (!templateId) {
-        alert("Save the template first before checking spam score");
+        toast.info("Save the template first before checking spam score");
         setSpamChecking(false);
         return;
       }
@@ -155,13 +156,14 @@ export default function Templates() {
       if (res.ok) {
         const data = await res.json();
         setSpamScore({ score: parseFloat(data.score), report: data.report || "" });
+        toast.success("Spam check completed");
       } else {
         const err = await res.json();
-        alert(err.error || "Spam check failed");
+        toast.error(err.error || "Spam check failed");
       }
     } catch (err) {
       console.error(err);
-      alert("Spam check failed");
+      toast.error("Spam check failed");
     } finally {
       setSpamChecking(false);
     }
@@ -186,39 +188,19 @@ export default function Templates() {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2 skeuo-text">
-          <FileText className="w-6 h-6 text-blue-600 drop-shadow-sm" /> Script Architect
+        <h2 className="text-3xl font-serif text-white flex items-center gap-3">
+          <FileText className="w-6 h-6 text-[#00ffff]" /> Script Architect
         </h2>
         <div className="flex items-center gap-4">
-          <div className="flex skeuo-inset-box p-1">
-            <button
-              onClick={() => setFilterType('all')}
-              className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${filterType === 'all' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500'}`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setFilterType('email')}
-              className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${filterType === 'email' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500'}`}
-            >
-              Email
-            </button>
-            <button
-              onClick={() => setFilterType('whatsapp')}
-              className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${filterType === 'whatsapp' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500'}`}
-            >
-              WhatsApp
-            </button>
-          </div>
           <button
             onClick={() => {
               setNewTemplate({ name: "", subject: "", body: "", type: 'email', design: undefined });
               setEditingId(null);
               setIsCreating(true);
             }}
-            className="skeuo-btn-primary px-4 py-2 text-sm font-bold flex items-center gap-2"
+            className="bg-[#19b3d2] hover:bg-[#20c4e6] text-black font-semibold rounded-none px-5 py-2.5 text-xs flex items-center gap-2 transition-all cursor-pointer border border-[#1499b4]"
           >
-            <Plus className="w-4 h-4" /> New Template
+            <Plus className="w-3.5 h-3.5" /> New Template
           </button>
         </div>
       </div>
@@ -227,149 +209,110 @@ export default function Templates() {
         <div className="skeuo-card p-6">
           <h3 className="text-lg font-bold mb-4 skeuo-text">{editingId ? "Edit Template" : "Create New Template"}</h3>
           <form onSubmit={handleSave} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Template Name</label>
+              <input
+                type="text"
+                value={newTemplate.name}
+                onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
+                className="w-full skeuo-input py-2 px-4"
+                required
+              />
+            </div>
+
+            <div className="space-y-6">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Template Type</label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setNewTemplate({ ...newTemplate, type: 'email' })}
-                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${newTemplate.type === 'email' ? 'skeuo-btn-primary' : 'skeuo-btn'
-                      }`}
-                  >
-                    <Mail className="w-4 h-4" /> Email
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewTemplate({ ...newTemplate, type: 'whatsapp' })}
-                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${newTemplate.type === 'whatsapp' ? 'skeuo-btn-primary' : 'skeuo-btn'
-                      }`}
-                  >
-                    <MessageSquare className="w-4 h-4" /> WhatsApp
-                  </button>
-                </div>
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Template Name</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Email Subject</label>
                 <input
                   type="text"
-                  value={newTemplate.name}
-                  onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
+                  value={newTemplate.subject}
+                  onChange={(e) => setNewTemplate({ ...newTemplate, subject: e.target.value })}
                   className="w-full skeuo-input py-2 px-4"
                   required
                 />
               </div>
-            </div>
-
-            {newTemplate.type === 'email' ? (
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Email Subject</label>
-                  <input
-                    type="text"
-                    value={newTemplate.subject}
-                    onChange={(e) => setNewTemplate({ ...newTemplate, subject: e.target.value })}
-                    className="w-full skeuo-input py-2 px-4"
-                    required
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Email Design</label>
+                <p className="text-xs text-gray-500 mb-2 font-medium">Use {'{{variable_name}}'} for dynamic content (e.g., {'{{first_name}}'})</p>
+                <div className="w-full h-[600px] border border-gray-300 rounded-lg overflow-hidden shadow-inner">
+                  <EmailEditor
+                    key={editingId || 'new'}
+                    ref={emailEditorRef}
+                    onReady={onReady}
+                    minHeight={600}
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Email Design</label>
-                  <p className="text-xs text-gray-500 mb-2 font-medium">Use {'{{variable_name}}'} for dynamic content (e.g., {'{{first_name}}'})</p>
-                  <div className="w-full h-[600px] border border-gray-300 rounded-lg overflow-hidden shadow-inner">
-                    <EmailEditor
-                      key={editingId || 'new'}
-                      ref={emailEditorRef}
-                      onReady={onReady}
-                      minHeight={600}
-                    />
-                  </div>
-                </div>
               </div>
-            ) : (
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">WhatsApp Message</label>
-                <p className="text-xs text-gray-500 mb-2 font-medium">Use {'{{variable_name}}'} for dynamic content (e.g., {'{{first_name}}'})</p>
-                <textarea
-                  value={newTemplate.body}
-                  onChange={(e) => setNewTemplate({ ...newTemplate, body: e.target.value })}
-                  className="w-full skeuo-input py-4 px-4 h-64 font-mono text-sm"
-                  placeholder="Hello {{first_name}}, this is a message from..."
-                  required
-                />
-              </div>
-            )}
+            </div>
 
-            {newTemplate.type === 'email' && (
-              <div className="border-t border-gray-100 pt-4">
-                <div className="flex items-end gap-4">
-                  <div className="flex-1">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Test Sender Identity</label>
-                    <select
-                      value={spamCheckIdentity}
-                      onChange={(e) => { setSpamCheckIdentity(e.target.value); setSpamScore(null); }}
-                      className="w-full skeuo-input py-2 px-4"
-                    >
-                      <option value="">No identity (plain email)</option>
-                      {identities.map((id) => (
-                        <option key={id.id} value={id.id}>
-                          {id.name} ({id.smtp_user})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={checkSpamScore}
-                    disabled={spamChecking || !editingId}
-                    className="skeuo-btn px-4 py-2 text-sm font-bold flex items-center gap-2 disabled:opacity-50"
+            <div className="border-t border-gray-100 pt-4">
+              <div className="flex items-end gap-4">
+                <div className="flex-1">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Test Sender Identity</label>
+                  <select
+                    value={spamCheckIdentity}
+                    onChange={(e) => { setSpamCheckIdentity(e.target.value); setSpamScore(null); }}
+                    className="w-full skeuo-input py-2 px-4"
                   >
-                    {spamChecking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
-                    {spamChecking ? "Checking..." : "Check Spam Score"}
-                  </button>
+                    <option value="">No identity (plain email)</option>
+                    {identities.map((id) => (
+                      <option key={id.id} value={id.id}>
+                        {id.name} ({id.smtp_user})
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                <button
+                  type="button"
+                  onClick={checkSpamScore}
+                  disabled={spamChecking || !editingId}
+                  className="bg-[#111111] hover:bg-[#1a1a1a] text-[#cccccc] hover:text-white px-5 py-2.5 rounded-full text-xs font-semibold border border-[#222222] transition-all flex items-center gap-2 disabled:opacity-40 cursor-pointer"
+                >
+                  {spamChecking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Shield className="w-3.5 h-3.5 text-[#00ffff]" />}
+                  {spamChecking ? "Checking..." : "Check Spam Score"}
+                </button>
+              </div>
 
-                {spamScore !== null && (
-                  <div className="mt-4 skeuo-inset-box p-4">
-                    <div className="flex items-start gap-4">
-                      <div className="flex-shrink-0">
-                        {spamScore.score <= 3 ? (
-                          <ShieldCheck className="w-10 h-10 text-green-500" />
-                        ) : spamScore.score <= 6 ? (
-                          <AlertTriangle className="w-10 h-10 text-orange-500" />
-                        ) : (
-                          <ShieldAlert className="w-10 h-10 text-red-500" />
-                        )}
+              {spamScore !== null && (
+                <div className="mt-4 skeuo-inset-box p-4">
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0">
+                      {spamScore.score <= 3 ? (
+                        <ShieldCheck className="w-10 h-10 text-green-500" />
+                      ) : spamScore.score <= 6 ? (
+                        <AlertTriangle className="w-10 h-10 text-orange-500" />
+                      ) : (
+                        <ShieldAlert className="w-10 h-10 text-red-500" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-lg font-bold">
+                          Spam Score: <span className={spamScore.score <= 3 ? "text-green-600" : spamScore.score <= 6 ? "text-orange-600" : "text-red-600"}>{spamScore.score.toFixed(1)} / 10</span>
+                        </span>
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${spamScore.score <= 3 ? "bg-green-100 text-green-700" : spamScore.score <= 6 ? "bg-orange-100 text-orange-700" : "bg-red-100 text-red-700"}`}>
+                          {spamScore.score <= 3 ? "Good" : spamScore.score <= 6 ? "Fair" : "Poor"}
+                        </span>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="text-lg font-bold">
-                            Spam Score: <span className={spamScore.score <= 3 ? "text-green-600" : spamScore.score <= 6 ? "text-orange-600" : "text-red-600"}>{spamScore.score.toFixed(1)} / 10</span>
-                          </span>
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${spamScore.score <= 3 ? "bg-green-100 text-green-700" : spamScore.score <= 6 ? "bg-orange-100 text-orange-700" : "bg-red-100 text-red-700"}`}>
-                            {spamScore.score <= 3 ? "Good" : spamScore.score <= 6 ? "Fair" : "Poor"}
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
-                          <div
-                            className={`h-2 rounded-full transition-all ${spamScore.score <= 3 ? "bg-green-500" : spamScore.score <= 6 ? "bg-orange-500" : "bg-red-500"}`}
-                            style={{ width: `${Math.min(spamScore.score * 10, 100)}%` }}
-                          />
-                        </div>
-                        {spamScore.report && (
-                          <details>
-                            <summary className="text-xs font-bold text-gray-500 cursor-pointer hover:text-gray-700">View detailed report</summary>
-                            <pre className="mt-2 text-xs text-gray-600 whitespace-pre-wrap font-mono bg-white p-3 rounded max-h-48 overflow-y-auto">{spamScore.report}</pre>
-                          </details>
-                        )}
+                      <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
+                        <div
+                          className={`h-2 rounded-full transition-all ${spamScore.score <= 3 ? "bg-green-500" : spamScore.score <= 6 ? "bg-orange-500" : "bg-red-500"}`}
+                          style={{ width: `${Math.min(spamScore.score * 10, 100)}%` }}
+                        />
                       </div>
+                      {spamScore.report && (
+                        <details>
+                          <summary className="text-xs font-bold text-gray-500 cursor-pointer hover:text-gray-700">View detailed report</summary>
+                          <pre className="mt-2 text-xs text-gray-600 whitespace-pre-wrap font-mono bg-white p-3 rounded max-h-48 overflow-y-auto">{spamScore.report}</pre>
+                        </details>
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
 
-            <div className="flex justify-end gap-4 pt-4 border-t border-gray-100">
+            <div className="flex justify-end gap-4 pt-6 border-t border-[#1a1a1a]">
               <button
                 type="button"
                 onClick={() => {
@@ -378,13 +321,13 @@ export default function Templates() {
                   setSpamScore(null);
                   setNewTemplate({ name: "", subject: "", body: "", type: 'email', design: undefined });
                 }}
-                className="skeuo-btn px-6 py-2 text-sm font-bold"
+                className="bg-[#111111] hover:bg-[#1a1a1a] text-[#888888] hover:text-white px-6 py-2.5 rounded-none text-xs font-semibold border border-[#222222] transition-all cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="bg-gradient-to-b from-orange-400 to-orange-600 border border-orange-700 border-bottom-orange-800 shadow-[0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.4)] text-white text-shadow-[0_-1px_0_rgba(0,0,0,0.3)] hover:from-orange-500 hover:to-orange-700 active:from-orange-600 active:to-orange-400 active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)] px-8 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2"
+                className="bg-[#19b3d2] hover:bg-[#20c4e6] text-black font-semibold rounded-none px-8 py-2.5 text-xs flex items-center gap-2 transition-all cursor-pointer border border-[#1499b4]"
               >
                 <Save className="w-4 h-4" /> Save Template
               </button>
@@ -395,16 +338,11 @@ export default function Templates() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {templates
-          .filter(t => filterType === 'all' || t.type === filterType)
           .map((template) => (
             <div key={template.id} className="skeuo-card p-6 flex flex-col">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  {template.type === 'whatsapp' ? (
-                    <MessageSquare className="w-4 h-4 text-green-600" />
-                  ) : (
-                    <Mail className="w-4 h-4 text-blue-600" />
-                  )}
+                  <Mail className="w-4 h-4 text-blue-600" />
                   <h3 className="font-bold text-lg line-clamp-1 skeuo-text" title={template.name}>{template.name}</h3>
                 </div>
                 <div className="flex items-center gap-2">
@@ -417,12 +355,10 @@ export default function Templates() {
                 </div>
               </div>
 
-              {template.type === 'email' && (
-                <div className="mb-4">
-                  <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1 skeuo-text">Subject</p>
-                  <p className="text-sm text-gray-700 line-clamp-1 font-medium" title={template.subject}>{template.subject}</p>
-                </div>
-              )}
+              <div className="mb-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1 skeuo-text">Subject</p>
+                <p className="text-sm text-gray-700 line-clamp-1 font-medium" title={template.subject}>{template.subject}</p>
+              </div>
 
               <div className="flex-1 skeuo-inset-box p-4 overflow-hidden relative group">
                 <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Content Preview</p>

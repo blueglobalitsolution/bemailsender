@@ -1,161 +1,278 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-serif: "Instrument Serif", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --color-primary: #00ffff;
+  --color-bg: #0a0a0a;
+  --color-bg-secondary: #000000;
+  --color-surface: #111111;
+  --color-border: #1a1a1a;
+  --color-border-subtle: #141414;
+  --color-text-primary: #f5f5f5;
+  --color-text-secondary: #999999;
+  --color-text-muted: #666666;
+}
+
+:root {
+  --color-primary: #00ffff;
+  --color-bg: #0a0a0a;
+  --color-bg-secondary: #000000;
+  --color-surface: #111111;
+  --color-border: #1c1c1c;
+  --color-text: #ffffff;
+  --color-text-secondary: #999999;
 }
 
 body {
-  background-color: #e5e7eb;
-  background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E");
+  background-color: #0a0a0a;
+  color: #ededed;
+  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Skeuomorphic utilities */
-.skeuo-card {
-  background: linear-gradient(to bottom, #ffffff, #f3f4f6);
-  border: 1px solid #d1d5db;
-  border-bottom-color: #9ca3af;
-  box-shadow: 
-    0 4px 6px -1px rgba(0, 0, 0, 0.1), 
-    0 2px 4px -1px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 1);
-  border-radius: 12px;
+/* Typography styles */
+.font-serif, h1, h2, .heading-serif {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.02em;
 }
 
-.skeuo-btn {
-  background: linear-gradient(to bottom, #f9fafb, #e5e7eb);
-  border: 1px solid #9ca3af;
-  border-bottom-color: #6b7280;
-  box-shadow: 
-    0 2px 4px rgba(0,0,0,0.1),
-    inset 0 1px 0 rgba(255,255,255,0.8);
-  border-radius: 8px;
-  color: #374151;
-  text-shadow: 0 1px 0 rgba(255,255,255,0.8);
-  transition: all 0.1s ease;
+/* Dream Motion Cards & Panels */
+/* Square Cards & Panels */
+.card, .skeuo-card, .skeuo-panel {
+  background: #000000;
+  border: 1px solid #1c1c1c;
+  border-radius: 4px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  color: #f3f3f3;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.skeuo-btn:active {
-  background: linear-gradient(to bottom, #e5e7eb, #f9fafb);
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
-  transform: translateY(1px);
+.card:hover, .skeuo-card:hover {
+  border-color: #2e2e2e;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7);
 }
 
-.skeuo-btn-primary {
-  background: linear-gradient(to bottom, #60a5fa, #3b82f6);
-  border: 1px solid #2563eb;
-  border-bottom-color: #1d4ed8;
-  box-shadow: 
-    0 2px 4px rgba(0,0,0,0.2),
-    inset 0 1px 0 rgba(255,255,255,0.4);
-  color: white;
-  text-shadow: 0 -1px 0 rgba(0,0,0,0.3);
+/* Square Buttons with #19b3d2 and Pure Noise/Grain Texture (No Glow) */
+.btn-primary, .skeuo-btn-primary, button[type="submit"]:not(.skeuo-btn), .btn-grain {
+  position: relative;
+  background-color: #19b3d2 !important;
+  background-image: 
+    linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(15, 120, 142, 0.35) 100%),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.35'/%3E%3C/svg%3E") !important;
+  background-blend-mode: overlay, multiply;
+  color: #000000 !important;
+  border-radius: 4px !important;
+  padding: 10px 22px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em;
+  border: 1px solid #1499b4 !important;
+  cursor: pointer;
+  box-shadow: none !important;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  overflow: hidden;
 }
 
-.skeuo-btn-primary:active {
-  background: linear-gradient(to bottom, #3b82f6, #60a5fa);
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+.btn-primary:hover, .skeuo-btn-primary:hover, button[type="submit"]:not(.skeuo-btn):hover {
+  background-color: #20c4e6 !important;
+  border-color: #20c4e6 !important;
+  box-shadow: none !important;
 }
 
-.skeuo-btn-danger {
-  background: linear-gradient(to bottom, #f87171, #ef4444);
-  border: 1px solid #dc2626;
-  border-bottom-color: #b91c1c;
-  box-shadow: 
-    0 2px 4px rgba(0,0,0,0.2),
-    inset 0 1px 0 rgba(255,255,255,0.4);
-  color: white;
-  text-shadow: 0 -1px 0 rgba(0,0,0,0.3);
+.btn-primary:active, .skeuo-btn-primary:active, button[type="submit"]:not(.skeuo-btn):active {
+  background-color: #159eb9 !important;
+  box-shadow: none !important;
 }
 
-.skeuo-btn-danger:active {
-  background: linear-gradient(to bottom, #ef4444, #f87171);
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+.btn-secondary, .skeuo-btn {
+  position: relative;
+  background-color: #121212 !important;
+  background-image: 
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0.4) 100%),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.22'/%3E%3C/svg%3E") !important;
+  background-blend-mode: overlay, multiply;
+  color: #e5e5e5 !important;
+  border: 1px solid #242424 !important;
+  border-radius: 4px !important;
+  padding: 8px 18px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  cursor: pointer;
+  box-shadow: none !important;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  overflow: hidden;
 }
 
-.skeuo-input {
-  background: #f9fafb;
-  border: 1px solid #9ca3af;
-  border-top-color: #6b7280;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
-  border-radius: 8px;
+.btn-secondary:hover, .skeuo-btn:hover {
+  background-color: #1a1a1a !important;
+  border-color: #383838 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
 }
 
-.skeuo-input:focus {
+.btn-danger, .skeuo-btn-danger {
+  position: relative;
+  background-color: rgba(239, 68, 68, 0.12) !important;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.25'/%3E%3C/svg%3E") !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+  border-radius: 4px !important;
+  padding: 8px 16px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  cursor: pointer;
+  box-shadow: none !important;
+  transition: all 0.15s ease;
+  overflow: hidden;
+}
+
+.btn-danger:hover, .skeuo-btn-danger:hover {
+  background-color: rgba(239, 68, 68, 0.22) !important;
+  border-color: #ef4444 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+/* Also give active nav tab and active buttons the #19b3d2 color with noise and no glow */
+.bg-\[\#00ffff\], .bg-\[\#19b3d2\] {
+  background-color: #19b3d2 !important;
+  background-image: 
+    linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(15, 120, 142, 0.35) 100%),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.35'/%3E%3C/svg%3E") !important;
+  background-blend-mode: overlay, multiply;
+  box-shadow: none !important;
+}
+
+/* Square Inputs & Forms */
+.skeuo-input, input:not([type="checkbox"]):not([type="radio"]), select, textarea {
+  background: #0a0a0a;
+  border: 1px solid #1f1f1f;
+  border-radius: 4px !important;
+  color: #f3f3f3;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.skeuo-input:focus, input:not([type="checkbox"]):not([type="radio"]):focus, select:focus, textarea:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 
-    inset 0 2px 4px rgba(0,0,0,0.05),
-    0 0 0 3px rgba(59, 130, 246, 0.3);
+  border-color: #00ffff !important;
+  background: #0f0f0f !important;
+  box-shadow: 0 0 0 1px #00ffff !important;
 }
 
+/* Inset boxes & containers */
+.skeuo-inset-box {
+  background: #0a0a0a;
+  border: 1px solid #161616;
+  border-radius: 4px !important;
+  color: #cccccc;
+}
+
+/* Sidebar & Navigation */
 .skeuo-sidebar {
-  background: linear-gradient(to right, #2d3748, #1a202c);
-  border-right: 1px solid #111827;
-  box-shadow: inset -1px 0 0 rgba(255,255,255,0.05);
+  background: #000000;
+  border-right: 1px solid #141414;
 }
 
 .skeuo-nav-item {
-  color: #cbd5e1;
-  text-shadow: 0 -1px 0 rgba(0,0,0,0.5);
-  border-top: 1px solid transparent;
-  border-bottom: 1px solid transparent;
+  color: #888888;
+  border-radius: 4px !important;
+  transition: all 0.15s ease;
 }
 
 .skeuo-nav-item:hover {
-  background: linear-gradient(to bottom, rgba(255,255,255,0.05), rgba(255,255,255,0));
-  border-top-color: rgba(255,255,255,0.1);
-  border-bottom-color: rgba(0,0,0,0.2);
+  color: #ffffff;
+  background: #111111;
 }
 
 .skeuo-nav-item.active {
-  background: linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.4));
-  border-top-color: rgba(0,0,0,0.5);
-  border-bottom-color: rgba(255,255,255,0.05);
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
-  color: #60a5fa;
+  color: #000000 !important;
+  background: #00ffff !important;
+  font-weight: 600;
+  border-radius: 4px !important;
 }
 
-.skeuo-progress-track {
-  background: #d1d5db;
-  border: 1px solid #9ca3af;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
-  border-radius: 999px;
-}
-
-.skeuo-progress-bar {
-  background: linear-gradient(to bottom, #60a5fa, #3b82f6);
-  border-radius: 999px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 1px 2px rgba(0,0,0,0.2);
-}
-
-.skeuo-step {
-  background: linear-gradient(to bottom, #f9fafb, #e5e7eb);
-  border: 2px solid #9ca3af;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8);
-}
-
-.skeuo-step.active {
-  background: linear-gradient(to bottom, #60a5fa, #3b82f6);
-  border-color: #2563eb;
-  color: white;
-  text-shadow: 0 -1px 0 rgba(0,0,0,0.3);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 2px 4px rgba(0,0,0,0.2);
-}
-
-.skeuo-inset-box {
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
-  border-top-color: #9ca3af;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
-  border-radius: 8px;
-}
-
+/* Text helpers */
 .skeuo-text {
-  color: #374151;
-  text-shadow: 0 1px 0 rgba(255,255,255,0.8);
+  color: #ffffff !important;
+  text-shadow: none !important;
 }
 
 .skeuo-text-light {
-  color: #f3f4f6;
-  text-shadow: 0 -1px 0 rgba(0,0,0,0.5);
+  color: #ffffff !important;
+  text-shadow: none !important;
+}
+
+.text-muted {
+  color: #888888;
+}
+
+.accent-text {
+  color: #00ffff;
+}
+
+/* Progress bars */
+.skeuo-progress-track {
+  background: #141414;
+  border: 1px solid #222222;
+  border-radius: 2px !important;
+}
+
+.skeuo-progress-bar {
+  background: #00ffff;
+  border-radius: 2px !important;
+}
+
+/* Step bullets */
+.skeuo-step {
+  background: #111111;
+  border: 1px solid #222222;
+  color: #888888;
+  border-radius: 4px !important;
+}
+
+.skeuo-step.active {
+  background: #00ffff !important;
+  border-color: #00ffff !important;
+  color: #000000 !important;
+  font-weight: bold;
+  border-radius: 4px !important;
+}
+
+/* Global utility overrides for crisp square UI */
+.rounded-full, .rounded-3xl, .rounded-2xl, .rounded-xl, .rounded-\[28px\], .rounded-\[32px\] {
+  border-radius: 4px !important;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #222222;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #333333;
 }

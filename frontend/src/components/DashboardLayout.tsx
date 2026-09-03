@@ -1,10 +1,17 @@
+import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, Menu, X } from "lucide-react";
 import { cn } from "../lib/utils";
 
 export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) => void }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close mobile drawer when route changes
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
   const handleLogout = () => {
     localStorage.removeItem("access_token");
@@ -15,22 +22,38 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
   const navItems = [
     { name: "Live Dashboard", path: "/campaigns", icon: LayoutDashboard },
     { name: "Automation Wizard", path: "/wizard", icon: Wand2 },
-    { name: "WhatsApp Connect", path: "/whatsapp", icon: MessageSquare },
     { name: "Script Architect", path: "/templates", icon: FileText },
     { name: "Sender Identities", path: "/identities", icon: UserCircle },
     { name: "Saved CSVs", path: "/saved-csvs", icon: Database },
   ];
 
   return (
-    <div className="min-h-screen bg-transparent text-gray-900 font-sans flex">
-      {/* Sidebar */}
-      <aside className="w-64 skeuo-sidebar text-gray-100 flex flex-col">
-        <div className="p-6 border-b border-gray-800/50 shadow-[0_1px_0_rgba(255,255,255,0.05)]">
-          <h1 className="text-xl font-bold tracking-tight skeuo-text-light">BEmailSender</h1>
-          <p className="text-xs text-white/50 mt-1 uppercase tracking-widest">Mission Control</p>
+    <div className="min-h-screen bg-[#0a0a0a] text-[#ededed] font-sans flex flex-col md:flex-row relative">
+      {/* Mobile Backdrop */}
+      {mobileOpen && (
+        <div 
+          onClick={() => setMobileOpen(false)}
+          className="fixed inset-0 bg-black/80 z-40 md:hidden backdrop-blur-sm transition-opacity"
+        />
+      )}
+
+      {/* Sidebar (Desktop fixed, Mobile sliding drawer) */}
+      <aside className={cn(
+        "w-64 bg-[#000000] border-r border-[#161616] text-[#ededed] flex flex-col z-50 transition-transform duration-300 ease-in-out",
+        "fixed md:static inset-y-0 left-0",
+        mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+      )}>
+        <div className="h-16 border-b border-[#161616] flex items-center justify-between px-6">
+          <h1 className="text-2xl font-serif text-white tracking-tight">BEmailSender</h1>
+          <button 
+            onClick={() => setMobileOpen(false)} 
+            className="md:hidden text-[#777777] hover:text-white p-1 cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
         
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
           {navItems.map((item) => {
             const isActive = location.pathname.startsWith(item.path);
             return (
@@ -38,36 +61,47 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
                 key={item.path}
                 to={item.path}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all skeuo-nav-item",
-                  isActive && "active"
+                  "flex items-center gap-3 px-4 py-3 rounded-none text-sm font-medium transition-all",
+                  isActive 
+                    ? "bg-[#00ffff] text-black font-semibold shadow-[0_0_16px_rgba(0,255,255,0.25)]" 
+                    : "text-[#888888] hover:text-white hover:bg-[#111111]"
                 )}
               >
-                <item.icon className="w-5 h-5" />
+                <item.icon className="w-4 h-4" />
                 {item.name}
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 border-t border-gray-800/50 shadow-[0_-1px_0_rgba(255,255,255,0.05)]">
+        <div className="p-4 border-t border-[#141414]">
           <button 
             onClick={handleLogout}
-            className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-800/50 transition-all skeuo-nav-item"
+            className="flex items-center gap-3 px-4 py-3 w-full rounded-none text-sm font-medium text-[#777777] hover:text-[#f87171] hover:bg-[#1a0f0f] transition-all cursor-pointer"
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut className="w-4 h-4" />
             Sign Out
           </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        <header className="h-16 border-b border-gray-300 shadow-[0_1px_0_rgba(255,255,255,0.8)] flex items-center px-8 bg-transparent">
-          <h2 className="text-lg font-bold skeuo-text capitalize">
-            {location.pathname.split("/")[1] || "Dashboard"}
-          </h2>
+      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-[#0a0a0a] min-w-0">
+        <header className="h-16 border-b border-[#161616] flex items-center justify-between px-4 sm:px-8 bg-[#000000]/60 backdrop-blur-md shrink-0">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setMobileOpen(true)}
+              className="md:hidden p-2 -ml-2 text-[#cccccc] hover:text-white hover:bg-[#111111] transition-colors cursor-pointer"
+              title="Open Menu"
+            >
+              <Menu className="w-5 h-5 text-[#00ffff]" />
+            </button>
+            <h2 className="text-xl sm:text-2xl font-serif text-white capitalize tracking-wide truncate">
+              {location.pathname.split("/")[1] ? location.pathname.split("/")[1].replace("-", " ") : "Dashboard"}
+            </h2>
+          </div>
         </header>
-        <div className="flex-1 overflow-auto p-8">
+        <div className="flex-1 overflow-auto p-4 sm:p-6 md:p-8">
           <Outlet />
         </div>
       </main>

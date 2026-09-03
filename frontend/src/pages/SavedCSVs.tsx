@@ -113,14 +113,14 @@ export default function SavedCSVs() {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2 skeuo-text">
-          <Database className="w-6 h-6 text-blue-600 drop-shadow-sm" /> Saved CSVs
+        <h2 className="text-3xl font-serif text-white flex items-center gap-3">
+          <Database className="w-6 h-6 text-[#00ffff]" /> Saved CSVs
         </h2>
         <button
           onClick={() => { setIsUploading(true); setNewName(""); setNewFile(null); }}
-          className="skeuo-btn-primary px-4 py-2 text-sm font-bold flex items-center gap-2"
+          className="bg-[#00ffff] hover:bg-[#33ffff] text-black font-semibold rounded-full px-5 py-2.5 text-xs flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(0,255,255,0.25)] hover:shadow-[0_0_28px_rgba(0,255,255,0.4)] cursor-pointer"
         >
-          <Upload className="w-4 h-4" /> Upload CSV
+          <Upload className="w-3.5 h-3.5" /> Upload CSV
         </button>
       </div>
 
@@ -156,12 +156,12 @@ export default function SavedCSVs() {
               )}
             </div>
             <div className="flex justify-end gap-4">
-              <button type="button" onClick={() => setIsUploading(false)} className="skeuo-btn px-4 py-2 text-sm font-bold">
+              <button type="button" onClick={() => setIsUploading(false)} className="bg-[#111111] hover:bg-[#1a1a1a] text-[#888888] hover:text-white px-5 py-2.5 rounded-none text-xs font-semibold border border-[#222222] transition-all cursor-pointer">
                 Cancel
               </button>
               <button
                 type="submit"
-                className="bg-gradient-to-b from-orange-400 to-orange-600 border border-orange-700 border-bottom-orange-800 shadow-[0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.4)] text-white text-shadow-[0_-1px_0_rgba(0,0,0,0.3)] hover:from-orange-500 hover:to-orange-700 active:from-orange-600 active:to-orange-400 active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)] px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2"
+                className="bg-[#19b3d2] hover:bg-[#20c4e6] text-black font-semibold rounded-none px-7 py-2.5 text-xs flex items-center gap-2 transition-all cursor-pointer border border-[#1499b4]"
               >
                 <Save className="w-4 h-4" /> Upload & Save
               </button>

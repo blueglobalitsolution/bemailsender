@@ -172,9 +172,9 @@ export default function Identities() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2 skeuo-text">
           {activeTab === 'identities' ? (
-            <><UserCircle className="w-6 h-6 text-blue-600 drop-shadow-sm" /> Sender Identities</>
+            <><UserCircle className="w-6 h-6 text-[#00ffff]" /> Sender Identities</>
           ) : (
-            <><Users className="w-6 h-6 text-blue-600 drop-shadow-sm" /> Identity Groups</>
+            <><Users className="w-6 h-6 text-[#00ffff]" /> Identity Groups</>
           )}
         </h2>
         <button
@@ -187,25 +187,33 @@ export default function Identities() {
               setIsCreatingGroup(true);
             }
           }}
-          className="skeuo-btn-primary px-4 py-2 text-sm font-bold flex items-center gap-2"
+          className="bg-[#00ffff] hover:bg-[#33ffff] text-black font-semibold rounded-full px-5 py-2.5 text-xs flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(0,255,255,0.25)] hover:shadow-[0_0_28px_rgba(0,255,255,0.4)] cursor-pointer"
         >
-          <Plus className="w-4 h-4" /> {activeTab === 'identities' ? 'Add Identity' : 'Create Group'}
+          <Plus className="w-3.5 h-3.5" /> {activeTab === 'identities' ? 'Add Identity' : 'Create Group'}
         </button>
       </div>
 
       {/* Tab toggle */}
-      <div className="flex gap-2 skeuo-inset-box p-1 w-fit">
+      <div className="flex gap-2 bg-[#000000] border border-[#1a1a1a] rounded-none p-1.5 w-fit">
         <button
           onClick={() => setActiveTab('identities')}
-          className={`px-4 py-2 text-sm font-bold rounded-md transition-all ${activeTab === 'identities' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500'}`}
+          className={`px-5 py-2 text-xs font-semibold rounded-none transition-all cursor-pointer ${
+            activeTab === 'identities' 
+              ? 'bg-[#00ffff] text-black shadow-[0_0_16px_rgba(0,255,255,0.35)]' 
+              : 'text-[#777777] hover:text-white'
+          }`}
         >
-          <UserCircle className="w-4 h-4 inline mr-1.5" /> Identities
+          <UserCircle className="w-3.5 h-3.5 inline mr-1.5" /> Identities
         </button>
         <button
           onClick={() => setActiveTab('groups')}
-          className={`px-4 py-2 text-sm font-bold rounded-md transition-all ${activeTab === 'groups' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500'}`}
+          className={`px-5 py-2 text-xs font-semibold rounded-none transition-all cursor-pointer ${
+            activeTab === 'groups' 
+              ? 'bg-[#00ffff] text-black shadow-[0_0_16px_rgba(0,255,255,0.35)]' 
+              : 'text-[#777777] hover:text-white'
+          }`}
         >
-          <Users className="w-4 h-4 inline mr-1.5" /> Groups
+          <Users className="w-3.5 h-3.5 inline mr-1.5" /> Groups
         </button>
       </div>
 
@@ -217,18 +225,28 @@ export default function Identities() {
               <h3 className="text-xl font-bold mb-6 skeuo-text">Add New Identity</h3>
               <div className="flex gap-4 mb-8">
                 <button
+                  type="button"
                   onClick={() => handleProviderChange("gmail")}
-                  className={`flex-1 p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${provider === "gmail" ? "bg-blue-50 border-blue-400 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_4px_rgba(0,0,0,0.1)]" : "skeuo-btn"}`}
+                  className={`flex-1 p-5 rounded-none border transition-all flex flex-col items-center gap-2 cursor-pointer ${
+                    provider === "gmail" 
+                      ? "bg-[#00ffff]/10 border-[#00ffff] text-white shadow-[0_0_16px_rgba(0,255,255,0.2)]" 
+                      : "bg-[#0a0a0a] border-[#1e1e1e] text-[#888888] hover:border-[#333333] hover:text-white"
+                  }`}
                 >
-                  <div className="text-2xl font-bold text-blue-600">G</div>
-                  <span className="font-bold">Google (Gmail)</span>
+                  <div className={`text-2xl font-serif font-bold ${provider === "gmail" ? "text-[#00ffff]" : "text-[#777777]"}`}>G</div>
+                  <span className="text-xs font-semibold uppercase tracking-wider">Google (Gmail)</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleProviderChange("custom")}
-                  className={`flex-1 p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${provider === "custom" ? "bg-blue-50 border-blue-400 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_4px_rgba(0,0,0,0.1)]" : "skeuo-btn"}`}
+                  className={`flex-1 p-5 rounded-none border transition-all flex flex-col items-center gap-2 cursor-pointer ${
+                    provider === "custom" 
+                      ? "bg-[#00ffff]/10 border-[#00ffff] text-white shadow-[0_0_16px_rgba(0,255,255,0.2)]" 
+                      : "bg-[#0a0a0a] border-[#1e1e1e] text-[#888888] hover:border-[#333333] hover:text-white"
+                  }`}
                 >
-                  <Server className="w-6 h-6 text-gray-600" />
-                  <span className="font-bold">Custom SMTP</span>
+                  <Server className={`w-6 h-6 ${provider === "custom" ? "text-[#00ffff]" : "text-[#777777]"}`} />
+                  <span className="text-xs font-semibold uppercase tracking-wider">Custom SMTP</span>
                 </button>
               </div>
               <form onSubmit={handleIdentitySave} className="space-y-6">
@@ -268,8 +286,8 @@ export default function Identities() {
                   )}
                 </div>
                 <div className="flex justify-end gap-4 mt-6">
-                  <button type="button" onClick={() => setIsCreating(false)} className="skeuo-btn px-4 py-2 text-sm font-bold">Cancel</button>
-                  <button type="submit" className="bg-gradient-to-b from-orange-400 to-orange-600 border border-orange-700 border-bottom-orange-800 shadow-[0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.4)] text-white text-shadow-[0_-1px_0_rgba(0,0,0,0.3)] hover:from-orange-500 hover:to-orange-700 active:from-orange-600 active:to-orange-400 active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)] px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2">
+                  <button type="button" onClick={() => setIsCreating(false)} className="bg-[#111111] hover:bg-[#1a1a1a] text-[#888888] hover:text-white px-5 py-2.5 rounded-full text-xs font-semibold border border-[#222222] transition-all cursor-pointer">Cancel</button>
+                  <button type="submit" className="bg-[#00ffff] hover:bg-[#33ffff] text-black font-semibold rounded-full px-7 py-2.5 text-xs flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(0,255,255,0.25)] hover:shadow-[0_0_28px_rgba(0,255,255,0.4)] cursor-pointer">
                     <Save className="w-4 h-4" /> Save Identity
                   </button>
                 </div>
@@ -331,7 +349,7 @@ export default function Identities() {
                   <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Select Identities ({selectedGroupIds.length} selected)</label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto">
                     {allIdentities.map((idn) => (
-                      <label key={idn.id} className={`flex items-start gap-3 p-4 rounded-xl cursor-pointer transition-all ${selectedGroupIds.includes(idn.id) ? "bg-blue-50 border-2 border-blue-400 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_4px_rgba(0,0,0,0.1)]" : "skeuo-btn"}`}>
+                      <label key={idn.id} className={`flex items-start gap-3 p-4 rounded-none cursor-pointer transition-all border ${selectedGroupIds.includes(idn.id) ? "bg-[#00ffff]/10 border-[#00ffff] text-white shadow-[0_0_16px_rgba(0,255,255,0.2)]" : "bg-[#0a0a0a] border-[#1e1e1e] text-[#888888] hover:border-[#333333]"}`}>
                         <input type="checkbox" checked={selectedGroupIds.includes(idn.id)} onChange={() => toggleGroupIdentity(idn.id)} className="mt-1 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-sm skeuo-text">{idn.name}</p>
@@ -346,8 +364,8 @@ export default function Identities() {
                   </div>
                 </div>
                 <div className="flex justify-end gap-4">
-                  <button type="button" onClick={resetGroupForm} className="skeuo-btn px-4 py-2 text-sm font-bold">Cancel</button>
-                  <button type="submit" className="bg-gradient-to-b from-orange-400 to-orange-600 border border-orange-700 border-bottom-orange-800 shadow-[0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.4)] text-white text-shadow-[0_-1px_0_rgba(0,0,0,0.3)] hover:from-orange-500 hover:to-orange-700 active:from-orange-600 active:to-orange-400 active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)] px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2">
+                  <button type="button" onClick={resetGroupForm} className="bg-[#111111] hover:bg-[#1a1a1a] text-[#888888] hover:text-white px-5 py-2.5 rounded-full text-xs font-semibold border border-[#222222] transition-all cursor-pointer">Cancel</button>
+                  <button type="submit" className="bg-[#00ffff] hover:bg-[#33ffff] text-black font-semibold rounded-full px-7 py-2.5 text-xs flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(0,255,255,0.25)] hover:shadow-[0_0_28px_rgba(0,255,255,0.4)] cursor-pointer">
                     <Save className="w-4 h-4" /> {editingGroupId ? "Save Changes" : "Create Group"}
                   </button>
                 </div>

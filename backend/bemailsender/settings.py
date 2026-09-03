@@ -168,8 +168,8 @@ REST_FRAMEWORK = {
 CORS_ALLOW_ALL_ORIGINS = False
 if DEBUG:
     CORS_ALLOWED_ORIGINS = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
+        "http://localhost:3010",
+        "http://127.0.0.1:3010",
         "http://localhost:80",
         "http://mailer.blueglobaltechnology.com",
         "https://mailer.blueglobaltechnology.com",

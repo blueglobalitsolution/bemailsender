@@ -463,24 +463,10 @@ class LogViewSet(viewsets.ModelViewSet):
     serializer_class = LogSerializer
 
     def get_permissions(self):
-        if self.action == "create":
-            return [AllowAny()]
         return [IsAuthenticated()]
 
     def get_queryset(self):
         return Log.objects.filter(campaign__user=self.request.user)
-
-    def create(self, request, *args, **kwargs):
-        api_key = request.headers.get("authorization", "").replace("Bearer ", "")
-        if api_key == getattr(settings, "WHATSAPP_API_KEY", ""):
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            self.perform_create(serializer)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        if request.user.is_authenticated:
-            return super().create(request, *args, **kwargs)
-        return Response({"error": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 POSTMARK_SPAMCHECK_URL = "https://spamcheck.postmarkapp.com/filter"

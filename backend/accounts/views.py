@@ -57,10 +57,18 @@ class LoginView(generics.GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        user = authenticate(
-            email=serializer.validated_data["email"],
-            password=serializer.validated_data["password"],
-        )
+        email = serializer.validated_data["email"]
+        password = serializer.validated_data["password"]
+
+        # Look up user directly from the database by email
+        try:
+            user_obj = User.objects.get(email__iexact=email)
+            if user_obj.check_password(password):
+                user = user_obj
+            else:
+                user = None
+        except User.DoesNotExist:
+            user = None
 
         if not user:
             return Response(

@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Wand2, User, Users, FileText, Settings, ArrowRight, ArrowLeft, Upload, CheckCircle, Loader2, X, Clock, AlertCircle, Shield, ShieldCheck, ShieldAlert } from "lucide-react";
-import { apiFetch, getApiUrl, whatsappFetch, getWhatsAppUrl } from "../lib/api";
+import { apiFetch, getApiUrl } from "../lib/api";
+import { useToast } from "../components/Toast";
 
 export default function Wizard() {
+  const toast = useToast();
   const [step, setStep] = useState(1);
   const navigate = useNavigate();
   const [templates, setTemplates] = useState<any[]>([]);
@@ -14,7 +16,7 @@ export default function Wizard() {
 
   // Form State
   const [campaignName, setCampaignName] = useState("");
-  const [campaignType, setCampaignType] = useState<'email' | 'whatsapp'>('email');
+  const campaignType = 'email';
   const [identityId, setIdentityId] = useState("");
   const [identityGroupId, setIdentityGroupId] = useState("");
   const [senderMode, setSenderMode] = useState<'single' | 'group'>('single');
@@ -27,7 +29,6 @@ export default function Wizard() {
   const [scheduleDays, setScheduleDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("17:00");
-  const [whatsappStatus, setWhatsappStatus] = useState<string>('not_initialized');
 
   // CSV rows state (parsed client-side)
   const [csvRows, setCsvRows] = useState<Record<string, string>[]>([]);
@@ -53,27 +54,20 @@ export default function Wizard() {
   const delayRef = useRef(45);
 
   useEffect(() => {
-    apiFetch(`/api/templates/?type=${campaignType}`)
+    apiFetch('/api/templates/?type=email')
       .then((res) => res.json())
       .then((data) => setTemplates(data));
 
-    if (campaignType === 'email') {
-      apiFetch("/api/identities/")
-        .then((res) => res.json())
-        .then((data) => setIdentities(data));
-      apiFetch("/api/identity-groups/")
-        .then((res) => res.json())
-        .then((data) => setIdentityGroups(data));
-    }
+    apiFetch("/api/identities/")
+      .then((res) => res.json())
+      .then((data) => setIdentities(data));
+    apiFetch("/api/identity-groups/")
+      .then((res) => res.json())
+      .then((data) => setIdentityGroups(data));
     apiFetch("/api/saved-csvs/")
       .then((res) => res.json())
       .then((data) => setSavedCsvs(data));
-    if (campaignType === 'whatsapp') {
-      whatsappFetch("/api/whatsapp/status")
-        .then((res) => res.json())
-        .then((data) => setWhatsappStatus(data.status));
-    }
-  }, [campaignType]);
+  }, []);
 
   const handleNext = () => setStep((s) => Math.min(s + 1, 4));
   const handlePrev = () => setStep((s) => Math.max(s - 1, 1));
@@ -165,25 +159,18 @@ export default function Wizard() {
   };
 
   const handleSubmit = async () => {
-    if ((!csvFile && !savedCsvId) || !templateId || (campaignType === 'email' && !identityId && !identityGroupId)) {
-      alert("Please fill all required fields");
-      return;
-    }
-
-    if (campaignType === 'whatsapp' && whatsappStatus !== 'ready') {
-      alert("WhatsApp must be connected and ready to launch a campaign.");
+    if ((!csvFile && !savedCsvId) || !templateId || (!identityId && !identityGroupId)) {
+      toast.error("Please fill all required fields");
       return;
     }
 
     setLoading(true);
     const formData = new FormData();
     formData.append("name", campaignName || `Campaign ${new Date().toLocaleDateString()}`);
-    formData.append("type", campaignType);
+    formData.append("type", "email");
     formData.append("templateId", templateId);
-    if (campaignType === 'email') {
-      formData.append("identityId", identityId);
-      formData.append("identityGroupId", identityGroupId);
-    }
+    formData.append("identityId", identityId);
+    formData.append("identityGroupId", identityGroupId);
     formData.append("delayMs", delayMs);
     formData.append("scheduleDays", isScheduled ? JSON.stringify(scheduleDays) : "[]");
     formData.append("startTime", isScheduled ? startTime : "");
@@ -218,10 +205,10 @@ export default function Wizard() {
         if (progressInterval.current) clearInterval(progressInterval.current);
         progressInterval.current = setInterval(() => pollProgress(data.campaignId), 2000);
       } else {
-        alert(data.error);
+        toast.error(data.error || "Failed to start campaign");
       }
     } catch (err) {
-      alert("An error occurred");
+      toast.error("An error occurred while launching campaign");
     } finally {
       setLoading(false);
     }
@@ -261,168 +248,145 @@ export default function Wizard() {
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2 skeuo-text">
-          <Wand2 className="w-6 h-6 text-blue-600 drop-shadow-sm" /> Automation Wizard
+        <h2 className="text-3xl font-serif text-white tracking-tight flex items-center gap-3">
+          <Wand2 className="w-6 h-6 text-[#00ffff]" /> Automation Wizard
         </h2>
       </div>
 
       {/* Progress Bar */}
-      <div className="skeuo-card p-6">
+      <div className="bg-[#000000] border border-[#1a1a1a] rounded-none p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
         <div className="flex justify-between items-center relative">
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-2 skeuo-progress-track -z-10" />
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-[#141414] -z-10" />
           <div
-            className="absolute left-0 top-1/2 -translate-y-1/2 h-2 skeuo-progress-bar -z-10 transition-all duration-300"
+            className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-[#00ffff] -z-10 shadow-[0_0_12px_rgba(0,255,255,0.4)] transition-all duration-300"
             style={{ width: `${((step - 1) / 3) * 100}%` }}
           />
 
           {steps.map((s) => (
             <div key={s.id} className="flex flex-col items-center gap-2 px-2">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 skeuo-step ${step >= s.id ? 'active' : 'text-gray-400'
-                }`}>
-                <s.icon className="w-5 h-5 drop-shadow-sm" />
+              <div className={`w-10 h-10 rounded-none flex items-center justify-center transition-all duration-300 ${
+                step >= s.id 
+                  ? 'bg-[#00ffff] text-black shadow-[0_0_16px_rgba(0,255,255,0.4)]' 
+                  : 'bg-[#111111] text-[#555555] border border-[#222222]'
+              }`}>
+                <s.icon className="w-4 h-4" />
               </div>
-              <span className={`text-xs font-bold uppercase tracking-wider ${step >= s.id ? 'skeuo-text' : 'text-gray-400'
-                }`}>{s.title}</span>
+              <span className={`text-[11px] font-mono uppercase tracking-wider ${
+                step >= s.id ? 'text-[#00ffff]' : 'text-[#555555]'
+              }`}>{s.title}</span>
             </div>
           ))}
         </div>
       </div>
 
       {/* Step Content */}
-      <div className="skeuo-card p-8 min-h-[400px]">
+      <div className="bg-[#000000] border border-[#1a1a1a] rounded-none p-8 min-h-[400px] shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
         {step === 1 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div>
-              <h3 className="text-xl font-bold mb-2 skeuo-text">Configure Identity</h3>
-              <p className="text-gray-500 text-sm mb-6">Choose your campaign type and sender identity.</p>
+              <h3 className="text-2xl font-serif text-white mb-1">Configure Email Identity</h3>
+              <p className="text-[#777777] text-sm mb-6">Choose your sender identity or rotation pool.</p>
             </div>
 
             <div className="grid grid-cols-1 gap-6">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Campaign Type</label>
-                <div className="flex gap-4">
-                  <button
-                    onClick={() => setCampaignType('email')}
-                    className={`flex-1 p-4 rounded-xl font-bold transition-all ${campaignType === 'email' ? 'skeuo-btn-primary' : 'skeuo-btn'
-                      }`}
-                  >
-                    Email Campaign
-                  </button>
-                  <button
-                    onClick={() => setCampaignType('whatsapp')}
-                    className={`flex-1 p-4 rounded-xl font-bold transition-all ${campaignType === 'whatsapp' ? 'skeuo-btn-primary' : 'skeuo-btn'
-                      }`}
-                  >
-                    WhatsApp Campaign
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Campaign Name (Optional)</label>
+                <label className="block text-xs uppercase tracking-widest text-[#777777] mb-2 font-medium">Campaign Name (Optional)</label>
                 <input
                   type="text"
                   value={campaignName}
                   onChange={(e) => setCampaignName(e.target.value)}
-                  className="w-full skeuo-input py-3 px-4"
+                  className="w-full bg-[#0a0a0a] border border-[#1e1e1e] rounded-none py-3 px-4 text-white placeholder-[#555555]"
                   placeholder="e.g., Q3 Outreach"
                 />
               </div>
 
-              {campaignType === 'email' ? (
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Select Sender</label>
-                  <div className="flex gap-2 mb-4">
-                    <button
-                      type="button"
-                      onClick={() => { setSenderMode('single'); setIdentityGroupId(""); }}
-                      className={`px-4 py-2 text-sm font-bold rounded-lg transition-all flex-1 ${senderMode === 'single' ? 'skeuo-btn-primary' : 'skeuo-btn'}`}
-                    >
-                      Single Identity
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setSenderMode('group'); setIdentityId(""); }}
-                      className={`px-4 py-2 text-sm font-bold rounded-lg transition-all flex-1 ${senderMode === 'group' ? 'skeuo-btn-primary' : 'skeuo-btn'}`}
-                    >
-                      Identity Group
-                    </button>
-                  </div>
+              <div>
+                <label className="block text-xs uppercase tracking-widest text-[#777777] mb-2 font-medium">Select Sender</label>
+                <div className="flex gap-2 mb-4">
+                  <button
+                    type="button"
+                    onClick={() => { setSenderMode('single'); setIdentityGroupId(""); }}
+                    className={`px-5 py-2.5 text-xs font-semibold rounded-none transition-all flex-1 cursor-pointer ${
+                      senderMode === 'single'
+                        ? 'bg-[#00ffff] text-black shadow-[0_0_16px_rgba(0,255,255,0.3)]'
+                        : 'bg-[#111111] text-[#888888] hover:text-white border border-[#222222]'
+                    }`}
+                  >
+                    Single Identity
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setSenderMode('group'); setIdentityId(""); }}
+                    className={`px-5 py-2.5 text-xs font-semibold rounded-none transition-all flex-1 cursor-pointer ${
+                      senderMode === 'group'
+                        ? 'bg-[#00ffff] text-black shadow-[0_0_16px_rgba(0,255,255,0.3)]'
+                        : 'bg-[#111111] text-[#888888] hover:text-white border border-[#222222]'
+                    }`}
+                  >
+                    Identity Group
+                  </button>
+                </div>
 
-                  {senderMode !== 'group' ? (
-                    <>
-                      <p className="text-sm text-gray-500 mb-3 font-medium">Choose a single sender identity.</p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {identities.length === 0 ? (
-                          <div className="col-span-full text-center py-8 text-gray-500 skeuo-inset-box">
-                            No identities found. <a href="/identities" className="text-blue-600 hover:underline font-bold">Add one here</a>.
-                          </div>
-                        ) : (
-                          identities.map((identity) => (
-                            <div
-                              key={identity.id}
-                              onClick={() => { setSenderMode('single'); setIdentityId(identity.id.toString()); setIdentityGroupId(""); }}
-                              className={`p-4 rounded-xl cursor-pointer transition-all ${identityId === identity.id.toString()
-                                ? 'bg-blue-50 border-2 border-blue-400 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_4px_rgba(0,0,0,0.1)]'
-                                : 'skeuo-btn'
-                                }`}
-                            >
-                              <div className="flex justify-between items-start mb-2">
-                                <h4 className="font-bold text-lg skeuo-text">{identity.name}</h4>
-                                {identityId === identity.id.toString() && <CheckCircle className="w-5 h-5 text-blue-600 drop-shadow-sm" />}
-                              </div>
-                              <p className="text-sm text-gray-600 font-medium">{identity.smtp_user}</p>
-                              <p className="text-xs text-gray-500 mt-1 font-mono">{identity.host}:{identity.port}</p>
+                {senderMode !== 'group' ? (
+                  <>
+                    <p className="text-xs text-[#777777] mb-3">Choose a single sender identity.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {identities.length === 0 ? (
+                        <div className="col-span-full text-center py-8 text-[#666666] bg-[#0a0a0a] border border-[#1a1a1a] rounded-none">
+                          No identities found. <a href="/identities" className="text-[#00ffff] hover:underline">Add one here</a>.
+                        </div>
+                      ) : (
+                        identities.map((identity) => (
+                          <div
+                            key={identity.id}
+                            onClick={() => { setSenderMode('single'); setIdentityId(identity.id.toString()); setIdentityGroupId(""); }}
+                            className={`p-4 rounded-none cursor-pointer transition-all border ${
+                              identityId === identity.id.toString()
+                                ? 'bg-[#00ffff]/10 border-[#00ffff] shadow-[0_0_16px_rgba(0,255,255,0.2)]'
+                                : 'bg-[#0a0a0a] border-[#1e1e1e] hover:border-[#333333]'
+                            }`}
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <h4 className="font-serif text-lg text-white">{identity.name}</h4>
+                              {identityId === identity.id.toString() && <CheckCircle className="w-4 h-4 text-[#00ffff]" />}
                             </div>
-                          ))
-                        )}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm text-gray-500 mb-3 font-medium">Choose an identity group for automatic rotation across multiple senders.</p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {identityGroups.length === 0 ? (
-                          <div className="col-span-full text-center py-8 text-gray-500 skeuo-inset-box">
-                            No identity groups found. <a href="/identity-groups" className="text-blue-600 hover:underline font-bold">Create one here</a>.
+                            <p className="text-xs text-[#888888]">{identity.smtp_user}</p>
+                            <p className="text-[10px] font-mono text-[#555555] mt-1">{identity.host}:{identity.port}</p>
                           </div>
-                        ) : (
-                          identityGroups.map((group) => (
-                            <div
-                              key={group.id}
-                              onClick={() => { setSenderMode('group'); setIdentityGroupId(group.id.toString()); setIdentityId(""); }}
-                              className={`p-4 rounded-xl cursor-pointer transition-all ${identityGroupId === group.id.toString()
-                                ? 'bg-blue-50 border-2 border-blue-400 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_4px_rgba(0,0,0,0.1)]'
-                                : 'skeuo-btn'
-                                }`}
-                            >
-                              <div className="flex justify-between items-start mb-2">
-                                <h4 className="font-bold text-lg skeuo-text">{group.name}</h4>
-                                {identityGroupId === group.id.toString() && <CheckCircle className="w-5 h-5 text-blue-600 drop-shadow-sm" />}
-                              </div>
-                              <p className="text-sm text-gray-600 font-medium">{group.identities?.length || 0} identities</p>
+                        ))
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-500 mb-3 font-medium">Choose an identity group for automatic rotation across multiple senders.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {identityGroups.length === 0 ? (
+                        <div className="col-span-full text-center py-8 text-gray-500 skeuo-inset-box">
+                          No identity groups found. <a href="/identities" className="text-blue-600 hover:underline font-bold">Create one here</a>.
+                        </div>
+                      ) : (
+                        identityGroups.map((group) => (
+                          <div
+                            key={group.id}
+                            onClick={() => { setSenderMode('group'); setIdentityGroupId(group.id.toString()); setIdentityId(""); }}
+                            className={`p-4 rounded-xl cursor-pointer transition-all ${identityGroupId === group.id.toString()
+                              ? 'bg-blue-50 border-2 border-blue-400 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_4px_rgba(0,0,0,0.1)]'
+                              : 'skeuo-btn'
+                              }`}
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <h4 className="font-bold text-lg skeuo-text">{group.name}</h4>
+                              {identityGroupId === group.id.toString() && <CheckCircle className="w-5 h-5 text-blue-600 drop-shadow-sm" />}
                             </div>
-                          ))
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <div className="skeuo-inset-box p-6">
-                  <h4 className="font-bold text-lg mb-2 skeuo-text">WhatsApp Connection</h4>
-                  {whatsappStatus === 'ready' ? (
-                    <div className="flex items-center gap-2 text-green-600 font-bold">
-                      <CheckCircle className="w-5 h-5" /> WhatsApp is connected and ready.
+                            <p className="text-sm text-gray-600 font-medium">{group.identities?.length || 0} identities</p>
+                          </div>
+                        ))
+                      )}
                     </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <p className="text-sm text-red-500 font-medium">WhatsApp is not connected. Please connect your WhatsApp account first.</p>
-                      <a href="/whatsapp" className="inline-block skeuo-btn-primary px-6 py-2 rounded-lg text-sm">Connect WhatsApp</a>
-                    </div>
-                  )}
-                </div>
-              )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -438,21 +402,29 @@ export default function Wizard() {
               <button
                 type="button"
                 onClick={() => { setSavedCsvId(""); setShowSavedList(false); setCsvFile(null); setScanData(null); setCsvRows([]); }}
-                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all flex-1 ${!showSavedList ? 'skeuo-btn-primary' : 'skeuo-btn'}`}
+                className={`px-5 py-2.5 text-xs font-semibold rounded-none transition-all flex-1 cursor-pointer ${
+                  !showSavedList 
+                    ? 'bg-[#00ffff] text-black shadow-[0_0_16px_rgba(0,255,255,0.3)]' 
+                    : 'bg-[#111111] text-[#888888] hover:text-white border border-[#222222]'
+                }`}
               >
                 Upload CSV
               </button>
               <button
                 type="button"
                 onClick={() => { setShowSavedList(true); setCsvFile(null); setScanData(null); setCsvRows([]); }}
-                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all flex-1 ${showSavedList ? 'skeuo-btn-primary' : 'skeuo-btn'}`}
+                className={`px-5 py-2.5 text-xs font-semibold rounded-none transition-all flex-1 cursor-pointer ${
+                  showSavedList 
+                    ? 'bg-[#00ffff] text-black shadow-[0_0_16px_rgba(0,255,255,0.3)]' 
+                    : 'bg-[#111111] text-[#888888] hover:text-white border border-[#222222]'
+                }`}
               >
                 Saved CSV
               </button>
             </div>
 
             {!showSavedList ? (
-              <div className="skeuo-inset-box p-12 text-center hover:bg-gray-200 transition-colors cursor-pointer relative border-dashed border-2">
+              <div className="bg-[#0a0a0a] border-2 border-dashed border-[#222222] hover:border-[#00ffff] rounded-none p-12 text-center transition-colors cursor-pointer relative">
                 <input
                   type="file"
                   accept=".csv"
@@ -673,13 +645,13 @@ export default function Wizard() {
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div>
               <h3 className="text-xl font-bold mb-2 skeuo-text">Select Creative</h3>
-              <p className="text-gray-500 text-sm mb-6">Choose a {campaignType} template from your Script Architect library.</p>
+              <p className="text-gray-500 text-sm mb-6">Choose an email template from your Script Architect library.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {templates.length === 0 ? (
                 <div className="col-span-full text-center py-12 text-gray-500 skeuo-inset-box">
-                  No {campaignType} templates found. Please create one in Script Architect first.
+                  No email templates found. Please create one in Script Architect first.
                 </div>
               ) : (
                 templates.map((t) => (
@@ -732,14 +704,14 @@ export default function Wizard() {
                     checked={isScheduled}
                     onChange={(e) => setIsScheduled(e.target.checked)}
                   />
-                  <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]"></div>
+                  <div className="w-12 h-6 bg-[#1a1a1a] border border-[#2a2a2a] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-6 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00ffff] peer-checked:after:bg-black peer-checked:shadow-[0_0_16px_rgba(0,255,255,0.4)]"></div>
                 </label>
               </div>
 
               {isScheduled && (
-                <div className="space-y-6 pt-4 border-t border-gray-200 animate-in fade-in duration-300">
+                <div className="space-y-6 pt-4 border-t border-[#1a1a1a] animate-in fade-in duration-300">
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Active Days</label>
+                    <label className="block text-xs uppercase tracking-widest text-[#777777] mb-2 font-medium">Active Days</label>
                     <div className="flex flex-wrap gap-2">
                       {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
                         <button
@@ -752,9 +724,9 @@ export default function Wizard() {
                               setScheduleDays([...scheduleDays, index]);
                             }
                           }}
-                          className={`px-4 py-2 text-sm font-bold transition-colors rounded-lg ${scheduleDays.includes(index)
-                            ? 'skeuo-btn-primary'
-                            : 'skeuo-btn'
+                          className={`px-4 py-2 text-xs font-semibold rounded-full transition-all cursor-pointer ${scheduleDays.includes(index)
+                            ? 'bg-[#00ffff] text-black shadow-[0_0_16px_rgba(0,255,255,0.3)]'
+                            : 'bg-[#111111] text-[#888888] hover:text-white border border-[#222222]'
                             }`}
                         >
                           {day}
@@ -765,21 +737,21 @@ export default function Wizard() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Start Time</label>
+                      <label className="block text-xs uppercase tracking-widest text-[#777777] mb-2 font-medium">Start Time</label>
                       <input
                         type="time"
                         value={startTime}
                         onChange={(e) => setStartTime(e.target.value)}
-                        className="w-full skeuo-input py-2 px-4"
+                        className="w-full bg-[#0a0a0a] border border-[#1e1e1e] rounded-full py-2 px-4 text-white"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">End Time</label>
+                      <label className="block text-xs uppercase tracking-widest text-[#777777] mb-2 font-medium">End Time</label>
                       <input
                         type="time"
                         value={endTime}
                         onChange={(e) => setEndTime(e.target.value)}
-                        className="w-full skeuo-input py-2 px-4"
+                        className="w-full bg-[#0a0a0a] border border-[#1e1e1e] rounded-full py-2 px-4 text-white"
                       />
                     </div>
                   </div>
@@ -795,7 +767,7 @@ export default function Wizard() {
         <button
           onClick={handlePrev}
           disabled={step === 1}
-          className={`px-6 py-3 font-bold flex items-center gap-2 transition-colors ${step === 1 ? 'text-gray-400 cursor-not-allowed opacity-50 skeuo-btn' : 'skeuo-btn'
+          className={`px-6 py-3 font-semibold rounded-none flex items-center gap-2 transition-all text-xs cursor-pointer ${step === 1 ? 'text-[#444444] border border-[#1c1c1c] cursor-not-allowed opacity-40' : 'bg-[#111111] text-[#cccccc] hover:text-white border border-[#222222]'
             }`}
         >
           <ArrowLeft className="w-4 h-4" /> Back
@@ -804,7 +776,7 @@ export default function Wizard() {
         {step < 4 ? (
           <button
             onClick={handleNext}
-            className="skeuo-btn-primary px-6 py-3 font-bold flex items-center gap-2"
+            className="bg-[#19b3d2] hover:bg-[#20c4e6] text-black font-semibold rounded-none px-7 py-3 text-xs flex items-center gap-2 transition-all cursor-pointer border border-[#1499b4]"
           >
             Continue <ArrowRight className="w-4 h-4" />
           </button>
@@ -812,7 +784,7 @@ export default function Wizard() {
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="bg-gradient-to-b from-orange-400 to-orange-600 border border-orange-700 border-bottom-orange-800 shadow-[0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.4)] text-white text-shadow-[0_-1px_0_rgba(0,0,0,0.3)] hover:from-orange-500 hover:to-orange-700 active:from-orange-600 active:to-orange-400 active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)] px-8 py-3 rounded-lg font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-[#19b3d2] hover:bg-[#20c4e6] text-black font-semibold rounded-none px-8 py-3.5 text-xs flex items-center gap-2 transition-all cursor-pointer border border-[#1499b4] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Launching..." : "Launch Campaign"} <ArrowRight className="w-4 h-4" />
           </button>

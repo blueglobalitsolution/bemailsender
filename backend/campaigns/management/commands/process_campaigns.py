@@ -147,11 +147,8 @@ class Command(BaseCommand):
                 if subject:
                     subject = subject.replace(f"{{{{{key}}}}}", str(value))
 
-            # Send Message
-            if campaign.type == 'email':
-                self.send_email(campaign, contact, subject, body)
-            else:
-                self.send_whatsapp(campaign, contact, body)
+            # Send Email
+            self.send_email(campaign, contact, subject, body)
 
             # Update counters
             campaign.total_sent += 1
@@ -236,35 +233,3 @@ class Command(BaseCommand):
         contact.status = 'sent'
         contact.save()
         Log.objects.create(campaign=campaign, recipient=contact.recipient, status='success', message="Email sent successfully")
-
-    def send_whatsapp(self, campaign, contact, body):
-        whatsapp_url = getattr(settings, 'WHATSAPP_SERVICE_URL', 'http://localhost:3001')
-        api_key = getattr(settings, 'WHATSAPP_API_KEY', '')
-
-        # Construct recipient chatId
-        # Usually contact.recipient stores the phone number in WhatsApp campaigns
-        phone = contact.recipient.strip().replace(' ', '').replace('+', '')
-        
-        response = requests.post(
-            f"{whatsapp_url}/api/whatsapp/send",
-            headers={
-                "Content-Type": "application/json",
-                "x-api-key": api_key
-            },
-            json={
-                "campaignId": campaign.id,
-                "recipient": phone,
-                "message": body,
-                "userId": campaign.user.id
-            },
-            timeout=30
-        )
-
-        if response.status_code == 200:
-            contact.status = 'sent'
-            contact.save()
-            # Note: WhatsApp microservice might also log to Django, but we log here for consistency
-            Log.objects.create(campaign=campaign, recipient=contact.email, status='success', message="WhatsApp message sent successfully")
-        else:
-            error_data = response.json()
-            raise Exception(f"WhatsApp API Error: {error_data.get('error', 'Unknown error')}")

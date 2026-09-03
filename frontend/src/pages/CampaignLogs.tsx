@@ -157,24 +157,24 @@ export default function CampaignLogs() {
         <div className="flex items-center gap-3">
           <button
             onClick={openEditor}
-            className="skeuo-btn px-4 py-2 text-sm font-bold flex items-center gap-2"
+            className="bg-[#111111] hover:bg-[#1a1a1a] text-[#cccccc] hover:text-white px-5 py-2.5 rounded-none text-xs font-semibold border border-[#222222] transition-all flex items-center gap-2 cursor-pointer"
           >
-            <Edit3 className="w-4 h-4" /> Edit CSV
+            <Edit3 className="w-3.5 h-3.5" /> Edit CSV
           </button>
           <button
             onClick={handleRerun}
             disabled={rerunning}
-            className="bg-gradient-to-b from-orange-400 to-orange-600 border border-orange-700 border-bottom-orange-800 shadow-[0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.4)] text-white text-shadow-[0_-1px_0_rgba(0,0,0,0.3)] hover:from-orange-500 hover:to-orange-700 active:from-orange-600 active:to-orange-400 active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)] px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-50"
+            className="bg-[#19b3d2] hover:bg-[#20c4e6] text-black font-semibold rounded-none px-6 py-2.5 text-xs flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer border border-[#1499b4]"
           >
-            {rerunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {rerunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
             {rerunning ? "Re-running..." : "Re-run Campaign"}
           </button>
           <button
             onClick={handleRetryFailed}
             disabled={retryingFailed || stats.failed === 0}
-            className="bg-gradient-to-b from-red-400 to-red-600 border border-red-700 border-bottom-red-800 shadow-[0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.4)] text-white text-shadow-[0_-1px_0_rgba(0,0,0,0.3)] hover:from-red-500 hover:to-red-700 active:from-red-600 active:to-red-400 active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)] px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-50"
+            className="bg-red-950/30 hover:bg-red-900/40 text-red-400 hover:text-white border border-red-900/40 px-6 py-2.5 rounded-none text-xs font-semibold transition-all flex items-center gap-2 disabled:opacity-40 cursor-pointer"
           >
-            {retryingFailed ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {retryingFailed ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
             {retryingFailed ? "Retrying..." : "Retry Failed"} {stats.failed > 0 && `(${stats.failed})`}
           </button>
         </div>
@@ -291,15 +291,15 @@ export default function CampaignLogs() {
                 <Plus className="w-4 h-4" /> Add Row
               </button>
               <div className="flex items-center gap-3">
-                <button onClick={() => setShowEditor(false)} className="skeuo-btn px-6 py-2 text-sm font-bold">
+                <button onClick={() => setShowEditor(false)} className="bg-[#111111] hover:bg-[#1a1a1a] text-[#888888] hover:text-white px-5 py-2.5 rounded-none text-xs font-semibold border border-[#222222] transition-all cursor-pointer">
                   Cancel
                 </button>
                 <button
                   onClick={saveContacts}
                   disabled={savingContacts}
-                  className="bg-gradient-to-b from-orange-400 to-orange-600 border border-orange-700 border-bottom-orange-800 shadow-[0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.4)] text-white text-shadow-[0_-1px_0_rgba(0,0,0,0.3)] hover:from-orange-500 hover:to-orange-700 active:from-orange-600 active:to-orange-400 active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)] px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-50"
+                  className="bg-[#19b3d2] hover:bg-[#20c4e6] text-black font-semibold rounded-none px-7 py-2.5 text-xs flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer border border-[#1499b4]"
                 >
-                  {savingContacts ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {savingContacts ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                   {savingContacts ? "Saving..." : "Save Contacts"}
                 </button>
               </div>

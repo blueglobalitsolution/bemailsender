@@ -7,7 +7,7 @@ interface Campaign {
   id: number;
   name: string;
   status: string;
-  type: 'email' | 'whatsapp';
+  type?: string;
   total_sent: number;
   total_failed: number;
   created_at: string;
@@ -63,97 +63,96 @@ export default function Campaigns() {
     <div className="space-y-8">
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="skeuo-card p-6">
+        <div className="bg-[#000000] border border-[#1a1a1a] rounded-none p-6 hover:border-[#262626] transition-all shadow-lg">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500 skeuo-text">Total Sent</h3>
-            <div className="p-2 rounded-full bg-gradient-to-b from-green-50 to-green-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.1)] border border-green-200">
-              <CheckCircle className="w-5 h-5 text-green-600 drop-shadow-sm" />
+            <span className="text-sm font-sans font-semibold uppercase tracking-wider text-[#a0a0a0]">Total Sent</span>
+            <div className="p-2.5 rounded-none bg-emerald-950/30 border border-emerald-800/40">
+              <CheckCircle className="w-4 h-4 text-emerald-400" />
             </div>
           </div>
-          <p className="text-4xl font-bold font-mono skeuo-text">{totalSent}</p>
+          <p className="text-5xl font-mono font-bold text-white tracking-tight">{totalSent}</p>
         </div>
         
-        <div className="skeuo-card p-6">
+        <div className="bg-[#000000] border border-[#1a1a1a] rounded-none p-6 hover:border-[#262626] transition-all shadow-lg">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500 skeuo-text">Total Failed</h3>
-            <div className="p-2 rounded-full bg-gradient-to-b from-red-50 to-red-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.1)] border border-red-200">
-              <XCircle className="w-5 h-5 text-red-600 drop-shadow-sm" />
+            <span className="text-sm font-sans font-semibold uppercase tracking-wider text-[#a0a0a0]">Total Failed</span>
+            <div className="p-2.5 rounded-none bg-red-950/30 border border-red-800/40">
+              <XCircle className="w-4 h-4 text-red-400" />
             </div>
           </div>
-          <p className="text-4xl font-bold font-mono skeuo-text">{totalFailed}</p>
+          <p className="text-5xl font-mono font-bold text-white tracking-tight">{totalFailed}</p>
         </div>
         
-        <div className="skeuo-card p-6">
+        <div className="bg-[#000000] border border-[#1a1a1a] rounded-none p-6 hover:border-[#262626] transition-all shadow-lg">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500 skeuo-text">Active Campaigns</h3>
-            <div className="p-2 rounded-full bg-gradient-to-b from-blue-50 to-blue-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.1)] border border-blue-200">
-              <Activity className="w-5 h-5 text-blue-600 drop-shadow-sm" />
+            <span className="text-sm font-sans font-semibold uppercase tracking-wider text-[#a0a0a0]">Active Campaigns</span>
+            <div className="p-2.5 rounded-none bg-[#19b3d2]/10 border border-[#19b3d2]/30">
+              <Activity className="w-4 h-4 text-[#19b3d2]" />
             </div>
           </div>
-          <p className="text-4xl font-bold font-mono skeuo-text">{activeCampaigns}</p>
+          <p className="text-5xl font-mono font-bold text-white tracking-tight">{activeCampaigns}</p>
         </div>
       </div>
 
       {/* Campaigns List */}
-      <div className="skeuo-card overflow-hidden">
-        <div className="p-6 border-b border-gray-300 shadow-[0_1px_0_rgba(255,255,255,0.8)] flex justify-between items-center bg-gradient-to-b from-gray-50 to-gray-100">
-          <h2 className="text-lg font-bold flex items-center gap-2 skeuo-text">
-            <BarChart3 className="w-5 h-5 text-gray-600 drop-shadow-sm" /> Recent Campaigns
+      <div className="bg-[#000000] border border-[#1a1a1a] rounded-[32px] overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+        <div className="p-6 border-b border-[#141414] flex justify-between items-center bg-[#050505]">
+          <h2 className="text-xl font-serif text-white flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-[#00ffff]" /> Recent Campaigns
           </h2>
-          <Link to="/wizard" className="skeuo-btn-primary px-4 py-2 text-sm font-bold flex items-center gap-2">
-            New Campaign <ArrowRight className="w-4 h-4" />
+          <Link 
+            to="/wizard" 
+            className="bg-[#00ffff] hover:bg-[#33ffff] text-black font-semibold rounded-full px-5 py-2.5 text-xs flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(0,255,255,0.25)] hover:shadow-[0_0_28px_rgba(0,255,255,0.4)]"
+          >
+            New Campaign <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
         
-        <div className="divide-y divide-gray-200">
+        <div className="divide-y divide-[#141414]">
           {campaigns.length === 0 ? (
-            <div className="p-12 text-center text-gray-500 font-bold skeuo-inset-box m-6">
-              No campaigns found. Start your first campaign!
+            <div className="p-16 text-center text-[#666666] font-medium m-6 rounded-2xl bg-[#080808] border border-[#161616]">
+              No campaigns launched yet. Click "New Campaign" to broadcast your first batch.
             </div>
           ) : (
             campaigns.map((campaign) => (
               <Link 
                 key={campaign.id} 
                 to={`/campaigns/${campaign.id}/logs`}
-                className="block p-6 hover:bg-gray-50 transition-colors group"
+                className="block p-6 hover:bg-[#080808] transition-colors group"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-3 h-3 rounded-full shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_1px_2px_rgba(0,0,0,0.5)] border ${campaign.status === 'running' ? 'bg-blue-500 border-blue-700 animate-pulse' : 'bg-green-500 border-green-700'}`} />
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-bold text-lg skeuo-text">{campaign.name}</h3>
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter border shadow-sm ${
-                          campaign.type === 'whatsapp' 
-                            ? 'bg-green-50 text-green-700 border-green-200' 
-                            : 'bg-blue-50 text-blue-700 border-blue-200'
-                        }`}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2.5 h-2.5 shrink-0 rounded-none ${campaign.status === 'running' ? 'bg-[#00ffff] shadow-[0_0_8px_#00ffff] animate-pulse' : 'bg-emerald-500'}`} />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-serif text-lg sm:text-xl text-white group-hover:text-[#00ffff] transition-colors truncate">{campaign.name}</h3>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-none text-[10px] font-mono uppercase tracking-wider bg-[#111111] text-[#00ffff] border border-[#222222]">
                           {campaign.type || 'email'}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-500 flex items-center gap-1 mt-1 font-medium">
-                        <Clock className="w-3 h-3 drop-shadow-sm" /> {new Date(campaign.created_at).toLocaleString()}
+                      <p className="text-xs text-[#666666] flex items-center gap-1.5 mt-1 font-mono">
+                        <Clock className="w-3 h-3" /> {new Date(campaign.created_at).toLocaleString()}
                       </p>
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-8">
-                    <div className="text-right">
-                      <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1 skeuo-text">Sent</p>
-                      <p className="font-mono text-green-700 font-bold">{campaign.total_sent}</p>
+                  <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-8 pt-3 sm:pt-0 border-t sm:border-t-0 border-[#141414]">
+                    <div className="text-left sm:text-right">
+                      <p className="text-[10px] uppercase tracking-widest text-[#666666] mb-0.5">Sent</p>
+                      <p className="font-mono text-emerald-400 font-semibold text-sm">{campaign.total_sent}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1 skeuo-text">Failed</p>
-                      <p className="font-mono text-red-700 font-bold">{campaign.total_failed}</p>
+                    <div className="text-left sm:text-right">
+                      <p className="text-[10px] uppercase tracking-widest text-[#666666] mb-0.5">Failed</p>
+                      <p className="font-mono text-rose-400 font-semibold text-sm">{campaign.total_failed}</p>
                     </div>
-                    <div className="text-right w-24">
-                      <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1 skeuo-text">Status</p>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.1)] border capitalize ${
+                    <div className="text-left sm:text-right">
+                      <p className="text-[10px] uppercase tracking-widest text-[#666666] mb-0.5">Status</p>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-none text-[10px] font-medium border capitalize ${
                         campaign.status === 'running' 
-                          ? 'bg-gradient-to-b from-blue-50 to-blue-100 text-blue-800 border-blue-200' 
+                          ? 'bg-[#00ffff]/10 text-[#00ffff] border-[#00ffff]/30 shadow-[0_0_12px_rgba(0,255,255,0.2)]' 
                           : campaign.status === 'scheduled'
-                          ? 'bg-gradient-to-b from-amber-50 to-amber-100 text-amber-800 border-amber-200'
-                          : 'bg-gradient-to-b from-green-50 to-green-100 text-green-800 border-green-200'
+                          ? 'bg-amber-950/30 text-amber-400 border-amber-800/40'
+                          : 'bg-emerald-950/30 text-emerald-400 border-emerald-800/40'
                       }`}>
                         {campaign.status}
                       </span>
@@ -161,12 +160,12 @@ export default function Campaigns() {
                     <div className="flex items-center gap-2">
                       <button 
                         onClick={(e) => handleDelete(e, campaign.id)}
-                        className="p-2 skeuo-btn-danger"
+                        className="p-2 rounded-none bg-red-950/20 text-red-400 hover:bg-red-900/40 hover:text-white border border-red-900/30 transition-all cursor-pointer"
                         title="Delete Campaign"
                       >
-                        <Trash2 className="w-5 h-5 drop-shadow-sm" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
-                      <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-gray-800 transition-colors drop-shadow-sm" />
+                      <ArrowRight className="w-4 h-4 text-[#444444] group-hover:text-white group-hover:translate-x-1 transition-all hidden sm:block" />
                     </div>
                   </div>
                 </div>
