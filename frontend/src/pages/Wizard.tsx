@@ -140,8 +140,9 @@ export default function Wizard() {
         const data = await res.json();
         if (res.ok) {
           setScanData(data);
+          toast.success("CSV scan completed.");
         } else {
-          alert(data.error || "Scan failed");
+          toast.error(data.error || "Scan failed");
         }
       } else if (csvFile) {
         const formData = new FormData();
@@ -154,12 +155,13 @@ export default function Wizard() {
         const data = await res.json();
         if (res.ok) {
           setScanData(data);
+          toast.success("CSV scan completed.");
         } else {
-          alert(data.error || "Scan failed");
+          toast.error(data.error || "Scan failed");
         }
       }
     } catch (err) {
-      alert("Scan failed");
+      toast.error("Scan failed");
     } finally {
       setScanning(false);
     }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Activity, CheckCircle, XCircle, Clock, BarChart3, ArrowRight, Trash2 } from "lucide-react";
 import { apiFetch, getApiUrl } from "../lib/api";
+import { useToast } from "../components/Toast";
 
 interface Campaign {
   id: number;
@@ -14,6 +15,7 @@ interface Campaign {
 }
 
 export default function Campaigns() {
+  const toast = useToast();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -37,20 +39,25 @@ export default function Campaigns() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleDelete = async (e: React.MouseEvent, id: number) => {
+  const handleDelete = (e: React.MouseEvent, id: number) => {
     e.preventDefault();
-    if (!confirm("Are you sure you want to delete this campaign and all its associated logs and contacts?")) return;
-    
-    try {
-      const res = await apiFetch(`/api/campaigns/${id}/`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        fetchCampaigns();
+    e.stopPropagation();
+    toast.confirm("Are you sure you want to delete this campaign and all its logs?", async () => {
+      try {
+        const res = await apiFetch(`/api/campaigns/${id}/`, {
+          method: "DELETE",
+        });
+        if (res.ok) {
+          fetchCampaigns();
+          toast.success("Campaign deleted successfully.");
+        } else {
+          toast.error("Failed to delete campaign.");
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error("Network error deleting campaign.");
       }
-    } catch (err) {
-      console.error(err);
-    }
+    });
   };
 
   if (loading) return <div className="text-center py-12 text-gray-500">Loading dashboard...</div>;

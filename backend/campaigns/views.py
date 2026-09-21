@@ -914,3 +914,104 @@ def track_open(request, campaign_id, recipient):
         pass
 
     return HttpResponse(TRANSPARENT_GIF, content_type="image/gif")
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_analytics(request):
+    user = request.user
+    user_campaigns = Campaign.objects.filter(user=user)
+    
+    total_campaigns = user_campaigns.count()
+    completed_campaigns = user_campaigns.filter(status="completed").count()
+    running_campaigns = user_campaigns.filter(status="running").count()
+
+    total_sent = Log.objects.filter(campaign__in=user_campaigns, status="success").count()
+    total_failed = Log.objects.filter(campaign__in=user_campaigns, status="error").count()
+    total_opened = TrackedOpen.objects.filter(campaign__in=user_campaigns).count()
+
+    total_attempts = total_sent + total_failed
+    delivery_rate = round((total_sent / total_attempts * 100), 1) if total_attempts > 0 else 100.0
+    open_rate = round((total_opened / total_sent * 100), 1) if total_sent > 0 else 0.0
+
+    # Recent 7 Days Send History
+    from django.utils import timezone
+    from datetime import timedelta
+    now = timezone.now()
+    daily_stats = []
+    for i in range(6, -1, -1):
+        day_date = (now - timedelta(days=i)).date()
+        day_start = timezone.make_aware(timezone.datetime.combine(day_date, timezone.datetime.min.time()))
+        day_end = timezone.make_aware(timezone.datetime.combine(day_date, timezone.datetime.max.time()))
+        
+        sent_count = Log.objects.filter(
+            campaign__in=user_campaigns,
+            status="success",
+            created_at__range=(day_start, day_end)
+        ).count()
+        failed_count = Log.objects.filter(
+            campaign__in=user_campaigns,
+            status="error",
+            created_at__range=(day_start, day_end)
+        ).count()
+        opened_count = TrackedOpen.objects.filter(
+            campaign__in=user_campaigns,
+            opened_at__range=(day_start, day_end)
+        ).count()
+
+        daily_stats.append({
+            "date": day_date.strftime("%b %d"),
+            "sent": sent_count,
+            "failed": failed_count,
+            "opened": opened_count,
+        })
+
+    # Top Performing Templates
+    top_templates = []
+    templates = Template.objects.filter(user=user)
+    for tmpl in templates:
+        t_campaigns = user_campaigns.filter(template=tmpl)
+        if t_campaigns.exists():
+            t_sent = Log.objects.filter(campaign__in=t_campaigns, status="success").count()
+            t_opened = TrackedOpen.objects.filter(campaign__in=t_campaigns).count()
+            t_rate = round((t_opened / t_sent * 100), 1) if t_sent > 0 else 0.0
+            top_templates.append({
+                "id": tmpl.id,
+                "name": tmpl.name,
+                "subject": tmpl.subject,
+                "sent": t_sent,
+                "opened": t_opened,
+                "open_rate": t_rate,
+            })
+    top_templates.sort(key=lambda x: x["open_rate"], reverse=True)
+
+    # Identities & Quota Usage
+    identities_stat = []
+    identities = Identity.objects.filter(user=user)
+    for idn in identities:
+        identities_stat.append({
+            "id": idn.id,
+            "name": idn.name,
+            "email": idn.smtp_user,
+            "host": idn.host,
+            "daily_limit": idn.daily_limit,
+            "daily_sent": idn.daily_sent,
+            "remaining": max(0, idn.daily_limit - idn.daily_sent),
+            "usage_percent": round((idn.daily_sent / idn.daily_limit * 100), 1) if idn.daily_limit > 0 else 0,
+        })
+
+    return Response({
+        "summary": {
+            "total_campaigns": total_campaigns,
+            "completed_campaigns": completed_campaigns,
+            "running_campaigns": running_campaigns,
+            "total_sent": total_sent,
+            "total_failed": total_failed,
+            "total_opened": total_opened,
+            "delivery_rate": delivery_rate,
+            "open_rate": open_rate,
+        },
+        "daily_stats": daily_stats,
+        "top_templates": top_templates[:5],
+        "identities": identities_stat,
+    })

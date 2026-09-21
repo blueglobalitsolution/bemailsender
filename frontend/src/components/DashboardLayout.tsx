@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, Menu, X } from "lucide-react";
+import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, Menu, X, BarChart3 } from "lucide-react";
 import { cn } from "../lib/utils";
 import Beams from "./Beams";
 
@@ -22,6 +22,7 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
 
   const navItems = [
     { name: "Live Dashboard", path: "/campaigns", icon: LayoutDashboard },
+    { name: "Analytics", path: "/analytics", icon: BarChart3 },
     { name: "Automation Wizard", path: "/wizard", icon: Wand2 },
     { name: "Script Architect", path: "/templates", icon: FileText },
     { name: "Sender Identities", path: "/identities", icon: UserCircle },

@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#09090b" />
+      <stop offset="100%" stop-color="#020202" />
+    </linearGradient>
+    <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00ffff" />
+      <stop offset="100%" stop-color="#0088ff" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background rounded box with metallic border -->
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#bgGrad)" stroke="#1f2937" stroke-width="1.5" />
+
+  <!-- Outer ambient glow border -->
+  <rect x="3" y="3" width="58" height="58" rx="13" fill="none" stroke="#00ffff" stroke-width="0.75" stroke-opacity="0.3" />
+
+  <!-- Letter 'B' Spine & Top/Bottom Loop -->
+  <path d="M16 14 H32 C38 14 42 17.5 42 22.5 C42 26 39.5 28.8 35.5 29.8 C40.5 31 43.5 34.5 43.5 39.5 C43.5 45.5 38.5 50 31.5 50 H16 Z" 
+        fill="none" 
+        stroke="url(#cyanGrad)" 
+        stroke-width="3" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        filter="url(#glow)" />
+
+  <!-- Inner B cutouts -->
+  <path d="M22 20 H30 C33.5 20 35.5 21.2 35.5 23.5 C35.5 25.8 33.5 27 30 27 H22 Z" 
+        fill="none" 
+        stroke="#00ffff" 
+        stroke-width="1.5" 
+        stroke-opacity="0.7" />
+        
+  <path d="M22 33 H31 C34.5 33 37 34.5 37 37.5 C37 40.5 34.5 42 31 42 H22 Z" 
+        fill="none" 
+        stroke="#00ffff" 
+        stroke-width="1.5" 
+        stroke-opacity="0.7" />
+
+  <!-- Futuristic Paper Airplane / Mail Wing overlaid -->
+  <polygon points="26,30 52,18 42,46 36,36" 
+           fill="#00ffff" 
+           fill-opacity="0.9"
+           stroke="#ffffff" 
+           stroke-width="1"
+           filter="url(#glow)" />
+
+  <polygon points="26,30 42,46 36,36" 
+           fill="#0088ff" 
+           fill-opacity="0.8" />
+</svg>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Database, Upload, Save, Trash2, FileText, ChevronDown, ChevronRight, Shield, Loader2, CheckCircle, X, AlertCircle, Edit3, Plus, Search, Check, RefreshCw } from "lucide-react";
+import { Database, Upload, Save, Trash2, FileText, ChevronDown, ChevronRight, Shield, Loader2, CheckCircle, X, AlertCircle, Edit3, Plus, Search, Check, RefreshCw, UserPlus } from "lucide-react";
 import { apiFetch } from "../lib/api";
+import { useToast } from "../components/Toast";
 
 interface SavedCsv {
   id: number;
@@ -11,6 +12,7 @@ interface SavedCsv {
 }
 
 export default function SavedCSVs() {
+  const toast = useToast();
   const [csvs, setCsvs] = useState<SavedCsv[]>([]);
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -20,6 +22,15 @@ export default function SavedCSVs() {
   const [scanning, setScanning] = useState<Record<number, boolean>>({});
   const [scanData, setScanData] = useState<Record<number, any>>({});
   const [checkGravatar, setCheckGravatar] = useState(false);
+
+  // Quick Add Contact State
+  const [isAddingContact, setIsAddingContact] = useState(false);
+  const [addContactTargetId, setAddContactTargetId] = useState<number | "new">("new");
+  const [newListName, setNewListName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [contactCompany, setContactCompany] = useState("");
+  const [savingContact, setSavingContact] = useState(false);
 
   // CSV Editor State
   const [editingCsvId, setEditingCsvId] = useState<number | null>(null);
@@ -57,18 +68,30 @@ export default function SavedCSVs() {
       setIsUploading(false);
       setNewName("");
       setNewFile(null);
+      toast.success("CSV uploaded successfully.");
       fetchCsvs();
     } else {
       const data = await res.json();
-      alert(Object.values(data).flat().join("\n") || "Upload failed");
+      toast.error(Object.values(data).flat().join("\n") || "Upload failed");
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Delete this saved CSV?")) return;
-    await apiFetch(`/api/saved-csvs/${id}/`, { method: "DELETE" });
-    if (editingCsvId === id) setEditingCsvId(null);
-    fetchCsvs();
+  const handleDelete = (id: number) => {
+    toast.confirm("Are you sure you want to delete this saved CSV?", async () => {
+      try {
+        const res = await apiFetch(`/api/saved-csvs/${id}/`, { method: "DELETE" });
+        if (res.ok) {
+          if (editingCsvId === id) setEditingCsvId(null);
+          fetchCsvs();
+          toast.success("Saved CSV deleted.");
+        } else {
+          toast.error("Failed to delete CSV.");
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error("Network error deleting CSV.");
+      }
+    });
   };
 
   const handleScan = async (id: number) => {
@@ -82,13 +105,14 @@ export default function SavedCSVs() {
       if (res.ok) {
         const data = await res.json();
         setScanData(prev => ({ ...prev, [id]: data }));
+        toast.success("CSV scan completed.");
       } else {
         const err = await res.json();
-        alert(err.error || "Scan failed");
+        toast.error(err.error || "Scan failed");
       }
     } catch (err) {
       console.error(err);
-      alert("Scan failed");
+      toast.error("Scan failed");
     } finally {
       setScanning(prev => ({ ...prev, [id]: false }));
     }
@@ -102,22 +126,122 @@ export default function SavedCSVs() {
     });
   };
 
-  const removeEmails = async (id: number, emails: string[]) => {
+  const removeEmails = (id: number, emails: string[]) => {
     if (!emails.length) return;
-    if (!confirm(`Remove ${emails.length} email(s) from this CSV?`)) return;
-    const res = await apiFetch(`/api/saved-csvs/${id}/clean/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ remove_emails: emails }),
+    toast.confirm(`Remove ${emails.length} email(s) from this CSV?`, async () => {
+      try {
+        const res = await apiFetch(`/api/saved-csvs/${id}/clean/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ remove_emails: emails }),
+        });
+        if (res.ok) {
+          clearScan(id);
+          fetchCsvs();
+          if (editingCsvId === id) openEditor(id);
+          toast.success(`Removed ${emails.length} email(s).`);
+        } else {
+          const err = await res.json();
+          toast.error(err.error || "Failed to clean CSV");
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error("Network error while cleaning CSV.");
+      }
     });
-    if (res.ok) {
-      clearScan(id);
-      fetchCsvs();
-      if (editingCsvId === id) openEditor(id);
-    } else {
-      const err = await res.json();
-      alert(err.error || "Failed to clean CSV");
+  };
+
+  const handleQuickAddContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contactEmail.trim()) {
+      toast.warning("Email is required");
+      return;
     }
+
+    setSavingContact(true);
+    try {
+      if (csvs.length === 0) {
+        // Create initial default list
+        const headers = ["email", "name", "company"];
+        const row = [
+          contactEmail.trim(),
+          contactName.trim(),
+          contactCompany.trim(),
+        ];
+        const csvContent = `${headers.join(",")}\n${row.map(c => `"${c.replace(/"/g, '""')}"`).join(",")}`;
+
+        const res = await apiFetch("/api/saved-csvs/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "Contact List", csv_content: csvContent }),
+        });
+
+        if (res.ok) {
+          toast.success("Contact added to new list.");
+          setIsAddingContact(false);
+          resetAddContactForm();
+          fetchCsvs();
+        } else {
+          const err = await res.json();
+          toast.error(Object.values(err).flat().join("\n") || "Failed to create contact");
+        }
+      } else {
+        // Append to the first/active CSV list
+        const targetId = editingCsvId || csvs[0].id;
+        const res = await apiFetch(`/api/saved-csvs/${targetId}/content/`);
+        if (!res.ok) throw new Error("Could not fetch contact list");
+        const data = await res.json();
+        const { headers, rows } = parseCsvText(data.csv_content || "");
+
+        // Find best column name for email, name, company or fallback
+        const emailCol = headers.find(h => ["email", "e-mail", "email_address", "recipient"].includes(h.toLowerCase())) || headers[0] || "email";
+        const nameCol = headers.find(h => ["name", "username", "full_name", "first_name", "contact_name", "business_name"].includes(h.toLowerCase()));
+        const companyCol = headers.find(h => ["company", "company_name", "business", "organization"].includes(h.toLowerCase()));
+
+        const newRow: Record<string, string> = {};
+        headers.forEach(h => { newRow[h] = ""; });
+        newRow[emailCol] = contactEmail.trim();
+        if (nameCol && contactName) newRow[nameCol] = contactName.trim();
+        if (companyCol && contactCompany) newRow[companyCol] = contactCompany.trim();
+
+        const updatedRows = [newRow, ...rows];
+        const updatedCsvText = serializeToCsv(headers, updatedRows);
+
+        const updateRes = await apiFetch(`/api/saved-csvs/${targetId}/`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: data.name,
+            csv_content: updatedCsvText,
+          }),
+        });
+
+        if (updateRes.ok) {
+          toast.success("Contact added successfully.");
+          setIsAddingContact(false);
+          resetAddContactForm();
+          fetchCsvs();
+          if (editingCsvId === targetId) {
+            openEditor(targetId);
+          }
+        } else {
+          const err = await updateRes.json();
+          toast.error(Object.values(err).flat().join("\n") || "Failed to add contact");
+        }
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to save contact");
+    } finally {
+      setSavingContact(false);
+    }
+  };
+
+  const resetAddContactForm = () => {
+    setContactEmail("");
+    setContactName("");
+    setContactCompany("");
+    setNewListName("");
   };
 
   // CSV Parser & Serializer helpers
@@ -192,12 +316,12 @@ export default function SavedCSVs() {
         setEditorHeaders(headers);
         setEditorRows(rows);
       } else {
-        alert("Failed to load CSV content");
+        toast.error("Failed to load CSV content");
         setEditingCsvId(null);
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to load CSV content");
+      toast.error("Failed to load CSV content");
       setEditingCsvId(null);
     } finally {
       setLoadingEditor(false);
@@ -227,7 +351,7 @@ export default function SavedCSVs() {
     if (!colName || !colName.trim()) return;
     const cleanName = colName.trim().toUpperCase();
     if (editorHeaders.includes(cleanName)) {
-      alert("Column already exists");
+      toast.warning("Column already exists");
       return;
     }
     setEditorHeaders(prev => [...prev, cleanName]);
@@ -236,16 +360,18 @@ export default function SavedCSVs() {
 
   const handleDeleteColumn = (headerToDelete: string) => {
     if (editorHeaders.length <= 1) {
-      alert("CSV must have at least one column");
+      toast.warning("CSV must have at least one column");
       return;
     }
-    if (!confirm(`Are you sure you want to delete column "${headerToDelete}"?`)) return;
-    setEditorHeaders(prev => prev.filter(h => h !== headerToDelete));
-    setEditorRows(prev => prev.map(r => {
-      const copy = { ...r };
-      delete copy[headerToDelete];
-      return copy;
-    }));
+    toast.confirm(`Are you sure you want to delete column "${headerToDelete}"?`, () => {
+      setEditorHeaders(prev => prev.filter(h => h !== headerToDelete));
+      setEditorRows(prev => prev.map(r => {
+        const copy = { ...r };
+        delete copy[headerToDelete];
+        return copy;
+      }));
+      toast.success(`Deleted column "${headerToDelete}".`);
+    });
   };
 
   const handleSaveEditor = async () => {
@@ -263,16 +389,17 @@ export default function SavedCSVs() {
       });
 
       if (res.ok) {
+        toast.success("CSV saved successfully.");
         setEditorSavedMsg(true);
         setTimeout(() => setEditorSavedMsg(false), 3000);
         fetchCsvs();
       } else {
         const data = await res.json();
-        alert(Object.values(data).flat().join("\n") || "Failed to save CSV");
+        toast.error(Object.values(data).flat().join("\n") || "Failed to save CSV");
       }
     } catch (err) {
       console.error(err);
-      alert("Error saving CSV");
+      toast.error("Error saving CSV");
     } finally {
       setSavingEditor(false);
     }
@@ -298,13 +425,86 @@ export default function SavedCSVs() {
             Manage, edit, validate, and clean your contact database directly.
           </p>
         </div>
-        <button
-          onClick={() => { setIsUploading(true); setNewName(""); setNewFile(null); }}
-          className="bg-[#00ffff] hover:bg-[#33ffff] text-black font-semibold rounded-none px-5 py-2.5 text-xs flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(0,255,255,0.25)] hover:shadow-[0_0_28px_rgba(0,255,255,0.4)] cursor-pointer"
-        >
-          <Upload className="w-3.5 h-3.5" /> Upload CSV
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              setIsAddingContact(true);
+              setIsUploading(false);
+              setAddContactTargetId(csvs.length > 0 ? csvs[0].id : "new");
+              resetAddContactForm();
+            }}
+            className="bg-[#111111] hover:bg-[#1a1a1a] text-[#00ffff] hover:text-white border border-[#00ffff]/40 font-semibold rounded-none px-4 py-2.5 text-xs flex items-center gap-2 transition-all cursor-pointer shadow-[0_0_12px_rgba(0,255,255,0.15)]"
+          >
+            <UserPlus className="w-3.5 h-3.5" /> + Add Contact
+          </button>
+          <button
+            onClick={() => { setIsUploading(true); setIsAddingContact(false); setNewName(""); setNewFile(null); }}
+            className="bg-[#00ffff] hover:bg-[#33ffff] text-black font-semibold rounded-none px-5 py-2.5 text-xs flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(0,255,255,0.25)] hover:shadow-[0_0_28px_rgba(0,255,255,0.4)] cursor-pointer"
+          >
+            <Upload className="w-3.5 h-3.5" /> Upload CSV
+          </button>
+        </div>
       </div>
+
+      {/* Add Single Contact Modal / Form */}
+      {isAddingContact && (
+        <div className="skeuo-card p-8 border border-[#00ffff]/40 shadow-[0_0_30px_rgba(0,255,255,0.12)]">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-[#00ffff]/10 border border-[#00ffff]/30">
+                <UserPlus className="w-5 h-5 text-[#00ffff]" />
+              </div>
+              <h3 className="text-xl font-bold skeuo-text">Add New Contact</h3>
+            </div>
+            <button onClick={() => setIsAddingContact(false)} className="text-xs text-[#888888] hover:text-white">✕ Close</button>
+          </div>
+
+          <form onSubmit={handleQuickAddContact} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Email Address *</label>
+                <input
+                  type="email"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                  className="w-full skeuo-input py-3 px-4 font-mono text-xs"
+                  placeholder="contact@company.com"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Company Name</label>
+                <input
+                  type="text"
+                  value={contactCompany}
+                  onChange={(e) => setContactCompany(e.target.value)}
+                  className="w-full skeuo-input py-3 px-4 font-mono text-xs"
+                  placeholder="Acme Corp"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-4 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsAddingContact(false)}
+                className="bg-[#111111] hover:bg-[#1a1a1a] text-[#888888] hover:text-white px-5 py-2.5 text-xs font-semibold border border-[#222222] transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={savingContact}
+                className="bg-[#00ffff] hover:bg-[#33ffff] text-black font-semibold px-7 py-2.5 text-xs flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(0,255,255,0.25)] cursor-pointer disabled:opacity-50"
+              >
+                {savingContact ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {savingContact ? "Saving..." : "Save Contact"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Upload Modal / Form */}
       {isUploading && (

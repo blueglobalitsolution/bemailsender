@@ -114,6 +114,7 @@ export default function Templates() {
         body: JSON.stringify(payload),
       });
       if (res.ok) {
+        toast.success(editingId ? "Template updated successfully." : "Template created successfully.");
         setIsCreating(false);
         setEditingId(null);
         setNewTemplate({ name: "", subject: "", body: "", type: 'email', design: undefined });
@@ -122,10 +123,10 @@ export default function Templates() {
         const errData = await res.json().catch(() => ({}));
         const errMsg = typeof errData === 'string' ? errData : 
           Object.values(errData).flat().join('. ') || `Error ${res.status}`;
-        alert(errMsg);
+        toast.error(errMsg);
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to save template");
+      toast.error(err instanceof Error ? err.message : "Failed to save template");
     }
   };
 
@@ -184,18 +185,23 @@ export default function Templates() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this template?")) return;
-    try {
-      const res = await apiFetch(`/api/templates/${id}/`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        fetchTemplates();
+  const handleDelete = (id: number) => {
+    toast.confirm("Are you sure you want to delete this template?", async () => {
+      try {
+        const res = await apiFetch(`/api/templates/${id}/`, {
+          method: "DELETE",
+        });
+        if (res.ok) {
+          fetchTemplates();
+          toast.success("Template deleted successfully.");
+        } else {
+          toast.error("Failed to delete template.");
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error("Network error deleting template.");
       }
-    } catch (err) {
-      console.error(err);
-    }
+    });
   };
 
   if (loading) return <div className="text-center py-12 text-gray-500">Loading templates...</div>;

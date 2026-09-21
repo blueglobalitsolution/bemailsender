@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, CheckCircle, XCircle, Terminal, Eye, Mail, RefreshCw, Edit3, Plus, Trash2, Save, X, Loader2 } from "lucide-react";
 import { apiFetch } from "../lib/api";
+import { useToast } from "../components/Toast";
 
 interface Log {
   id: number;
@@ -27,6 +28,7 @@ interface Contact {
 export default function CampaignLogs() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const [logs, setLogs] = useState<Log[]>([]);
   const [stats, setStats] = useState<Stats>({ sent: 0, failed: 0, opens: 0, open_rate: 0 });
   const [loading, setLoading] = useState(true);
@@ -58,36 +60,46 @@ export default function CampaignLogs() {
     return () => clearInterval(interval);
   }, [id]);
 
-  const handleRerun = async () => {
-    if (!confirm("Duplicate this campaign and re-run it?")) return;
-    setRerunning(true);
-    try {
-      const res = await apiFetch(`/api/campaigns/${id}/rerun/`, { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        navigate(`/campaigns/${data.campaignId}/logs`);
+  const handleRerun = () => {
+    toast.confirm("Duplicate this campaign and re-run it?", async () => {
+      setRerunning(true);
+      try {
+        const res = await apiFetch(`/api/campaigns/${id}/rerun/`, { method: "POST" });
+        if (res.ok) {
+          const data = await res.json();
+          toast.success("Campaign duplicated.");
+          navigate(`/campaigns/${data.campaignId}/logs`);
+        } else {
+          toast.error("Failed to re-run campaign.");
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error("Network error.");
+      } finally {
+        setRerunning(false);
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setRerunning(false);
-    }
+    }, { confirmLabel: "Re-run" });
   };
 
-  const handleRetryFailed = async () => {
-    if (!confirm("Create a new campaign with only the failed contacts?")) return;
-    setRetryingFailed(true);
-    try {
-      const res = await apiFetch(`/api/campaigns/${id}/retry_failed/`, { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        navigate(`/campaigns/${data.campaignId}/logs`);
+  const handleRetryFailed = () => {
+    toast.confirm("Create a new campaign with only the failed contacts?", async () => {
+      setRetryingFailed(true);
+      try {
+        const res = await apiFetch(`/api/campaigns/${id}/retry_failed/`, { method: "POST" });
+        if (res.ok) {
+          const data = await res.json();
+          toast.success("Retry campaign launched.");
+          navigate(`/campaigns/${data.campaignId}/logs`);
+        } else {
+          toast.error("Failed to retry campaign.");
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error("Network error.");
+      } finally {
+        setRetryingFailed(false);
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setRetryingFailed(false);
-    }
+    }, { confirmLabel: "Retry Failed" });
   };
 
   const openEditor = async () => {
@@ -241,63 +253,95 @@ export default function CampaignLogs() {
 
       {/* Edit CSV Modal */}
       {showEditor && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="skeuo-card p-6 w-full max-w-4xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold skeuo-text flex items-center gap-2">
-                <Edit3 className="w-5 h-5 text-blue-600" /> Edit Contacts
-              </h3>
-              <button onClick={() => setShowEditor(false)} className="p-2 skeuo-btn">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="skeuo-card p-6 w-full max-w-5xl max-h-[90vh] flex flex-col border border-[#00ffff]/40 shadow-[0_0_40px_rgba(0,255,255,0.15)] bg-[#09090b]">
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#1f1f23]">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-[#00ffff]/10 border border-[#00ffff]/30">
+                  <Edit3 className="w-5 h-5 text-[#00ffff]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white tracking-wide font-mono">Edit Campaign Contacts</h3>
+                  <p className="text-[11px] text-[#777777] font-mono mt-0.5">{contacts.length} recipients scheduled for this campaign</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowEditor(false)} 
+                className="p-1.5 text-[#888888] hover:text-white hover:bg-[#141417] transition-all cursor-pointer"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-auto mb-4">
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="bg-gray-50">
+            <div className="flex-1 overflow-auto mb-4 border border-[#1f1f23] bg-[#050505] scrollbar-thin">
+              <table className="w-full text-left text-xs border-collapse font-mono">
+                <thead className="sticky top-0 bg-[#0c0c0e] border-b border-[#1f1f23] z-10">
+                  <tr>
+                    <th className="py-2.5 px-3 text-[10px] uppercase text-[#666666] border-r border-[#1a1a1e] w-12 text-center">Action</th>
+                    <th className="py-2.5 px-3 text-[10px] uppercase text-[#666666] border-r border-[#1a1a1e] w-12 text-center">#</th>
                     {contactKeys.map((key) => (
-                      <th key={key} className="p-2 text-left text-xs font-bold uppercase tracking-wider text-gray-500 border-b skeuo-text">{key}</th>
+                      <th key={key} className="py-2.5 px-3 text-[11px] uppercase tracking-wider text-[#00ffff] font-bold border-r border-[#1a1a1e]">
+                        {key}
+                      </th>
                     ))}
-                    <th className="p-2 text-center border-b w-12"></th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-[#141417]">
                   {contacts.map((row, idx) => (
-                    <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr key={idx} className="hover:bg-[#0a0a0d] group transition-colors">
+                      <td className="py-1.5 px-2 text-center border-r border-[#141417] bg-[#070709]">
+                        <button
+                          onClick={() => removeContactRow(idx)}
+                          title="Delete Contact"
+                          className="px-1.5 py-0.5 text-xs text-[#666666] hover:text-rose-400 hover:bg-rose-950/40 border border-transparent hover:border-rose-900/50 rounded transition-all cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 inline" />
+                        </button>
+                      </td>
+                      <td className="py-2 px-3 text-[10px] text-[#555555] text-center border-r border-[#141417] select-none">
+                        {idx + 1}
+                      </td>
                       {contactKeys.map((key) => (
-                        <td key={key} className="p-1">
+                        <td key={key} className="p-0 border-r border-[#141417] min-w-[140px]">
                           <input
                             type="text"
                             value={row[key] || ""}
                             onChange={(e) => updateContactField(idx, key, e.target.value)}
-                            className="w-full skeuo-input py-1.5 px-2 text-xs"
+                            className="w-full bg-transparent px-3 py-2 text-xs text-[#cccccc] focus:text-white focus:bg-[#0c0c12] focus:outline-none focus:ring-1 focus:ring-[#00ffff]/50 border-none font-mono"
                           />
                         </td>
                       ))}
-                      <td className="p-1 text-center">
-                        <button onClick={() => removeContactRow(idx)} className="p-1.5 skeuo-btn-danger text-red-500">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
                     </tr>
                   ))}
+                  {contacts.length === 0 && (
+                    <tr>
+                      <td colSpan={contactKeys.length + 2} className="py-12 text-center text-xs text-[#555555]">
+                        No contacts available. Click "+ Add Row" to add one.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
 
-            <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-              <button onClick={addContactRow} className="skeuo-btn px-4 py-2 text-sm font-bold flex items-center gap-2">
-                <Plus className="w-4 h-4" /> Add Row
+            <div className="flex items-center justify-between pt-4 border-t border-[#1f1f23]">
+              <button 
+                onClick={addContactRow} 
+                className="bg-[#111111] hover:bg-[#1a1a1a] text-white border border-[#262626] hover:border-[#00ffff]/50 text-xs font-mono px-4 py-2 flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5 text-[#00ffff]" /> + Add Row
               </button>
               <div className="flex items-center gap-3">
-                <button onClick={() => setShowEditor(false)} className="bg-[#111111] hover:bg-[#1a1a1a] text-[#888888] hover:text-white px-5 py-2.5 rounded-none text-xs font-semibold border border-[#222222] transition-all cursor-pointer">
+                <button 
+                  onClick={() => setShowEditor(false)} 
+                  className="bg-[#141414] hover:bg-[#202020] text-[#888888] hover:text-white px-5 py-2 text-xs font-semibold border border-[#222222] transition-all cursor-pointer"
+                >
                   Cancel
                 </button>
                 <button
                   onClick={saveContacts}
                   disabled={savingContacts}
-                  className="bg-[#19b3d2] hover:bg-[#20c4e6] text-black font-semibold rounded-none px-7 py-2.5 text-xs flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer border border-[#1499b4]"
+                  className="bg-[#00ffff] hover:bg-[#33ffff] text-black font-bold px-7 py-2 text-xs flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(0,255,255,0.25)] disabled:opacity-50 cursor-pointer"
                 >
                   {savingContacts ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                   {savingContacts ? "Saving..." : "Save Contacts"}

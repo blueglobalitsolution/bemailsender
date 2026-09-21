@@ -10,6 +10,7 @@ import Templates from "./pages/Templates";
 import CampaignLogs from "./pages/CampaignLogs";
 import Identities from "./pages/Identities";
 import SavedCSVs from "./pages/SavedCSVs";
+import Analytics from "./pages/Analytics";
 import { ToastProvider } from "./components/Toast";
 
 export default function App() {
@@ -34,6 +35,7 @@ export default function App() {
         {isAuthenticated ? (
           <Route path="/" element={<DashboardLayout setAuth={setIsAuthenticated} />}>
             <Route index element={<Navigate to="/campaigns" replace />} />
+            <Route path="analytics" element={<Analytics />} />
             <Route path="campaigns" element={<Campaigns />} />
             <Route path="campaigns/:id/logs" element={<CampaignLogs />} />
             <Route path="wizard" element={<Wizard />} />

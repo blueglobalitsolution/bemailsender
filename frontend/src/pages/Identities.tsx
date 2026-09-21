@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { UserCircle, Plus, Save, Trash2, Server, Users, ChevronDown, ChevronRight, Edit2 } from "lucide-react";
 import { apiFetch, getApiUrl } from "../lib/api";
+import { useToast } from "../components/Toast";
 
 interface Identity {
   id: number;
@@ -22,6 +23,7 @@ interface IdentityGroup {
 }
 
 export default function Identities() {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<'identities' | 'groups'>('identities');
 
   // Identity state
@@ -125,22 +127,33 @@ export default function Identities() {
         body: JSON.stringify(payload),
       });
       if (res.ok) {
+        toast.success(editingIdentityId ? "Identity updated successfully." : "New identity created.");
         resetIdentityForm();
         fetchIdentities();
+      } else {
+        toast.error("Failed to save identity. Please verify fields.");
       }
     } catch (err) {
       console.error(err);
+      toast.error("Network error while saving identity.");
     }
   };
 
-  const handleIdentityDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this identity?")) return;
-    try {
-      const res = await apiFetch(`/api/identities/${id}/`, { method: "DELETE" });
-      if (res.ok) fetchIdentities();
-    } catch (err) {
-      console.error(err);
-    }
+  const handleIdentityDelete = (id: number) => {
+    toast.confirm("Are you sure you want to delete this identity?", async () => {
+      try {
+        const res = await apiFetch(`/api/identities/${id}/`, { method: "DELETE" });
+        if (res.ok) {
+          fetchIdentities();
+          toast.success("Identity deleted successfully.");
+        } else {
+          toast.error("Failed to delete identity.");
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error("Network error deleting identity.");
+      }
+    });
   };
 
   // Group handlers
@@ -155,27 +168,45 @@ export default function Identities() {
     e.preventDefault();
     if (!newGroupName.trim()) return;
     const body = { name: newGroupName.trim(), identity_ids: selectedGroupIds };
-    if (editingGroupId !== null) {
-      await apiFetch(`/api/identity-groups/${editingGroupId}/`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-    } else {
-      await apiFetch("/api/identity-groups/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+    try {
+      if (editingGroupId !== null) {
+        const res = await apiFetch(`/api/identity-groups/${editingGroupId}/`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (res.ok) toast.success("Identity group updated.");
+      } else {
+        const res = await apiFetch("/api/identity-groups/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (res.ok) toast.success("Identity group created.");
+      }
+      resetGroupForm();
+      fetchGroups();
+    } catch (err) {
+      console.error(err);
+      toast.error("Error saving identity group.");
     }
-    resetGroupForm();
-    fetchGroups();
   };
 
-  const handleGroupDelete = async (id: number) => {
-    if (!confirm("Delete this identity group?")) return;
-    await apiFetch(`/api/identity-groups/${id}/`, { method: "DELETE" });
-    fetchGroups();
+  const handleGroupDelete = (id: number) => {
+    toast.confirm("Are you sure you want to delete this identity group?", async () => {
+      try {
+        const res = await apiFetch(`/api/identity-groups/${id}/`, { method: "DELETE" });
+        if (res.ok) {
+          fetchGroups();
+          toast.success("Identity group deleted.");
+        } else {
+          toast.error("Failed to delete group.");
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error("Network error deleting group.");
+      }
+    });
   };
 
   const handleGroupEdit = (group: IdentityGroup) => {
