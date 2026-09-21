@@ -46,6 +46,9 @@ docker-compose*.yml
 
 # Database backups
 *.sqlite3
+*.sqlite3.backup
+*.backup
+*.sql
 *.db
 backend/media/
 backend/staticfiles/

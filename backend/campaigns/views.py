@@ -167,6 +167,20 @@ class SavedCsvViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+    def perform_update(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=["get"])
+    def content(self, request, pk=None):
+        saved_csv = self.get_object()
+        return Response({
+            "id": saved_csv.id,
+            "name": saved_csv.name,
+            "columns": saved_csv.columns,
+            "row_count": saved_csv.row_count,
+            "csv_content": saved_csv.csv_content,
+        })
+
     @action(detail=True, methods=["post"])
     def clean(self, request, pk=None):
         saved_csv = self.get_object()

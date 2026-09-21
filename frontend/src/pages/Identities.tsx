@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { UserCircle, Plus, Save, Trash2, Server, Users, ChevronDown, ChevronRight } from "lucide-react";
+import { UserCircle, Plus, Save, Trash2, Server, Users, ChevronDown, ChevronRight, Edit2 } from "lucide-react";
 import { apiFetch, getApiUrl } from "../lib/api";
 
 interface Identity {
@@ -28,6 +28,7 @@ export default function Identities() {
   const [identities, setIdentities] = useState<Identity[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [editingIdentityId, setEditingIdentityId] = useState<number | null>(null);
   const [newIdentity, setNewIdentity] = useState({
     name: "",
     host: "",
@@ -80,23 +81,51 @@ export default function Identities() {
   const handleProviderChange = (type: "gmail" | "custom") => {
     setProvider(type);
     if (type === "gmail") {
-      setNewIdentity({ ...newIdentity, host: "smtp.gmail.com", port: "587", secure: false });
+      setNewIdentity((prev) => ({ ...prev, host: "smtp.gmail.com", port: "587", secure: false }));
     } else {
-      setNewIdentity({ ...newIdentity, host: "", port: "587", secure: false });
+      setNewIdentity((prev) => ({ ...prev, host: prev.host === "smtp.gmail.com" ? "" : prev.host, port: prev.port || "587" }));
     }
+  };
+
+  const resetIdentityForm = () => {
+    setIsCreating(false);
+    setEditingIdentityId(null);
+    setNewIdentity({ name: "", host: "", port: "587", smtp_user: "", smtp_pass: "", secure: false });
+  };
+
+  const handleIdentityEdit = (identity: Identity) => {
+    setEditingIdentityId(identity.id);
+    setIsCreating(true);
+    const isGmail = identity.host.toLowerCase().includes("gmail");
+    setProvider(isGmail ? "gmail" : "custom");
+    setNewIdentity({
+      name: identity.name,
+      host: identity.host,
+      port: String(identity.port),
+      smtp_user: identity.smtp_user,
+      smtp_pass: "", // Leave empty if keeping existing, or enter new password
+      secure: identity.secure,
+    });
   };
 
   const handleIdentitySave = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await apiFetch("/api/identities/", {
-        method: "POST",
+      const payload: any = { ...newIdentity, port: parseInt(newIdentity.port) || 587 };
+      if (editingIdentityId && !payload.smtp_pass) {
+        delete payload.smtp_pass;
+      }
+      
+      const endpoint = editingIdentityId ? `/api/identities/${editingIdentityId}/` : "/api/identities/";
+      const method = editingIdentityId ? "PUT" : "POST";
+
+      const res = await apiFetch(endpoint, {
+        method: method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newIdentity),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
-        setIsCreating(false);
-        setNewIdentity({ name: "", host: "", port: "587", smtp_user: "", smtp_pass: "", secure: false });
+        resetIdentityForm();
         fetchIdentities();
       }
     } catch (err) {
@@ -221,8 +250,19 @@ export default function Identities() {
       {activeTab === 'identities' && (
         <>
           {isCreating && (
-            <div className="skeuo-card p-8">
-              <h3 className="text-xl font-bold mb-6 skeuo-text">Add New Identity</h3>
+            <div className="skeuo-card p-8 border border-[#00ffff]/30 shadow-[0_0_24px_rgba(0,255,255,0.08)]">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold skeuo-text">
+                  {editingIdentityId ? "Edit Sender Identity" : "Add New Identity"}
+                </h3>
+                <button
+                  type="button"
+                  onClick={resetIdentityForm}
+                  className="text-xs text-[#888888] hover:text-white transition-colors"
+                >
+                  ✕ Close
+                </button>
+              </div>
               <div className="flex gap-4 mb-8">
                 <button
                   type="button"
@@ -253,7 +293,7 @@ export default function Identities() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="col-span-full">
                     <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Profile Name (Reference)</label>
-                    <input type="text" value={newIdentity.name} onChange={(e) => setNewIdentity({ ...newIdentity, name: e.target.value })} className="w-full skeuo-input py-3 px-4" placeholder="e.g., Marketing Team, Personal Email" required />
+                    <input type="text" value={newIdentity.name} onChange={(e) => setNewIdentity({ ...newIdentity, name: e.target.value })} className="w-full skeuo-input py-3 px-4" placeholder="e.g., Marketing Team, Brevo SMTP" required />
                   </div>
                   {provider === "custom" && (
                     <>
@@ -269,11 +309,18 @@ export default function Identities() {
                   )}
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">{provider === "gmail" ? "Gmail Address" : "SMTP Username (Email)"}</label>
-                    <input type="email" value={newIdentity.smtp_user} onChange={(e) => setNewIdentity({ ...newIdentity, smtp_user: e.target.value })} className="w-full skeuo-input py-3 px-4" placeholder="you@gmail.com" required />
+                    <input type="email" value={newIdentity.smtp_user} onChange={(e) => setNewIdentity({ ...newIdentity, smtp_user: e.target.value })} className="w-full skeuo-input py-3 px-4" placeholder="you@example.com" required />
                   </div>
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">{provider === "gmail" ? "Google App Password" : "SMTP Password"}</label>
-                    <input type="password" value={newIdentity.smtp_pass} onChange={(e) => setNewIdentity({ ...newIdentity, smtp_pass: e.target.value })} className="w-full skeuo-input py-3 px-4" placeholder={provider === "gmail" ? "xxxx xxxx xxxx xxxx" : "Your Password"} required />
+                    <input 
+                      type="password" 
+                      value={newIdentity.smtp_pass} 
+                      onChange={(e) => setNewIdentity({ ...newIdentity, smtp_pass: e.target.value })} 
+                      className="w-full skeuo-input py-3 px-4" 
+                      placeholder={editingIdentityId ? "Leave blank to keep existing password" : (provider === "gmail" ? "xxxx xxxx xxxx xxxx" : "Your Password")} 
+                      required={!editingIdentityId} 
+                    />
                     {provider === "gmail" && <p className="text-[10px] text-blue-600 mt-2 font-bold uppercase">Must be a 16-digit App Password, not your login password.</p>}
                   </div>
                   {provider === "custom" && (
@@ -286,9 +333,9 @@ export default function Identities() {
                   )}
                 </div>
                 <div className="flex justify-end gap-4 mt-6">
-                  <button type="button" onClick={() => setIsCreating(false)} className="bg-[#111111] hover:bg-[#1a1a1a] text-[#888888] hover:text-white px-5 py-2.5 rounded-full text-xs font-semibold border border-[#222222] transition-all cursor-pointer">Cancel</button>
+                  <button type="button" onClick={resetIdentityForm} className="bg-[#111111] hover:bg-[#1a1a1a] text-[#888888] hover:text-white px-5 py-2.5 rounded-full text-xs font-semibold border border-[#222222] transition-all cursor-pointer">Cancel</button>
                   <button type="submit" className="bg-[#00ffff] hover:bg-[#33ffff] text-black font-semibold rounded-full px-7 py-2.5 text-xs flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(0,255,255,0.25)] hover:shadow-[0_0_28px_rgba(0,255,255,0.4)] cursor-pointer">
-                    <Save className="w-4 h-4" /> Save Identity
+                    <Save className="w-4 h-4" /> {editingIdentityId ? "Update Identity" : "Save Identity"}
                   </button>
                 </div>
               </form>
@@ -297,33 +344,48 @@ export default function Identities() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {identities.map((identity) => (
-              <div key={identity.id} className="skeuo-card p-6 flex flex-col">
-                <div className="flex items-start justify-between mb-4">
-                  <h3 className="font-bold text-lg line-clamp-1 skeuo-text" title={identity.name}>{identity.name}</h3>
-                  <button onClick={() => handleIdentityDelete(identity.id)} className="p-2 skeuo-btn-danger">
-                    <Trash2 className="w-4 h-4 drop-shadow-sm" />
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1 skeuo-text">Email / Username</p>
-                    <p className="text-sm text-gray-700 font-medium">{identity.smtp_user}</p>
-                  </div>
-                  <div className="flex items-center gap-4 skeuo-inset-box p-3">
-                    <div className="flex-1">
-                      <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1 skeuo-text">Host</p>
-                      <p className="text-sm text-gray-700 flex items-center gap-1 font-medium"><Server className="w-3 h-3 text-gray-500 drop-shadow-sm" /> {identity.host}</p>
+              <div key={identity.id} className="skeuo-card p-6 flex flex-col justify-between group hover:border-[#333333] transition-all">
+                <div>
+                  <div className="flex items-start justify-between mb-4">
+                    <h3 className="font-bold text-lg line-clamp-1 skeuo-text" title={identity.name}>{identity.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => handleIdentityEdit(identity)} 
+                        title="Edit Identity"
+                        className="p-2 bg-[#111111] hover:bg-[#1a1a1a] text-[#888888] hover:text-[#00ffff] border border-[#222222] hover:border-[#00ffff]/40 rounded-none transition-all cursor-pointer shadow-sm"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button 
+                        onClick={() => handleIdentityDelete(identity.id)} 
+                        title="Delete Identity"
+                        className="p-2 skeuo-btn-danger rounded-none cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 drop-shadow-sm" />
+                      </button>
                     </div>
+                  </div>
+                  <div className="space-y-3">
                     <div>
-                      <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1 skeuo-text">Port</p>
-                      <p className="text-sm text-gray-700 font-mono font-bold">{identity.port}</p>
+                      <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1 skeuo-text">Email / Username</p>
+                      <p className="text-sm text-gray-700 font-medium break-all">{identity.smtp_user}</p>
+                    </div>
+                    <div className="flex items-center gap-4 skeuo-inset-box p-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1 skeuo-text">Host</p>
+                        <p className="text-sm text-gray-700 flex items-center gap-1 font-medium truncate"><Server className="w-3 h-3 text-gray-500 shrink-0 drop-shadow-sm" /> {identity.host}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1 skeuo-text">Port</p>
+                        <p className="text-sm text-gray-700 font-mono font-bold">{identity.port}</p>
+                      </div>
                     </div>
                   </div>
-                  <div className="pt-2">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.1)] border ${identity.secure ? 'bg-gradient-to-b from-green-50 to-green-100 text-green-800 border-green-200' : 'bg-gradient-to-b from-gray-50 to-gray-100 text-gray-800 border-gray-200'}`}>
-                      {identity.secure ? 'Secure (SSL/TLS)' : 'Standard'}
-                    </span>
-                  </div>
+                </div>
+                <div className="pt-4 mt-2">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.1)] border ${identity.secure ? 'bg-gradient-to-b from-green-50 to-green-100 text-green-800 border-green-200' : 'bg-gradient-to-b from-gray-50 to-gray-100 text-gray-800 border-gray-200'}`}>
+                    {identity.secure ? 'Secure (SSL/TLS)' : 'Standard'}
+                  </span>
                 </div>
               </div>
             ))}

@@ -71,35 +71,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "bemailsender.wsgi.application"
 
-if os.environ.get("USE_SQLITE", "False") == "True":
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.mysql",
-            "NAME": os.environ.get("DB_NAME", "bemailerdb"),
-            "USER": os.environ.get("DB_USER", "bemailuser"),
-            "PASSWORD": os.environ.get("DB_PASSWORD", "befullfill786"),
-            "HOST": os.environ.get("DB_HOST", "localhost"),
-            "PORT": os.environ.get("DB_PORT", "3306"),
-            "CONN_MAX_AGE": 60,
-            "CONN_HEALTH_CHECKS": True,
-            "OPTIONS": {
-                "charset": "utf8mb4",
-                "init_command": "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci",
-                "connect_timeout": 5,
-            },
-        }
-    }
+}
 
-# Use PyMySQL as the MySQL client
-import pymysql
-pymysql.install_as_MySQLdb()
 
 LOGGING = {
     "version": 1,
@@ -170,6 +148,8 @@ if DEBUG:
     CORS_ALLOWED_ORIGINS = [
         "http://localhost:3010",
         "http://127.0.0.1:3010",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
         "http://localhost:80",
         "http://mailer.blueglobaltechnology.com",
         "https://mailer.blueglobaltechnology.com",
@@ -190,8 +170,8 @@ CORS_ALLOW_CREDENTIALS = True
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
-    "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": True,
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": False,
 }
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

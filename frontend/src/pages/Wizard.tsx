@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Wand2, User, Users, FileText, Settings, ArrowRight, ArrowLeft, Upload, CheckCircle, Loader2, X, Clock, AlertCircle, Shield, ShieldCheck, ShieldAlert, Globe, Calendar, Shuffle, Target, Sparkles } from "lucide-react";
+import { Wand2, User, Users, FileText, Settings, ArrowRight, ArrowLeft, Upload, CheckCircle, Loader2, X, Clock, AlertCircle, Shield, ShieldCheck, ShieldAlert, Globe, Calendar, Shuffle, Target, Sparkles, Eye } from "lucide-react";
 import { apiFetch, getApiUrl } from "../lib/api";
 import { useToast } from "../components/Toast";
 
@@ -13,6 +13,21 @@ export default function Wizard() {
   const [identityGroups, setIdentityGroups] = useState<any[]>([]);
   const [savedCsvs, setSavedCsvs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [previewTemplate, setPreviewTemplate] = useState<any | null>(null);
+
+  const stripHtml = (html: string) => {
+    if (!html) return "";
+    return html
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
 
   // Form State
   const [campaignName, setCampaignName] = useState("");
@@ -260,7 +275,7 @@ export default function Wizard() {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="w-full space-y-8">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-serif text-white tracking-tight flex items-center gap-3">
           <Wand2 className="w-6 h-6 text-[#00ffff]" /> Automation Wizard
@@ -270,11 +285,10 @@ export default function Wizard() {
       {/* Progress Bar */}
       <div className="bg-[#000000] border border-[#1a1a1a] rounded-none p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
         <div className="flex justify-between items-center relative">
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-[#141414] -z-10" />
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-[#141414] -z-10"></div>
           <div
             className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-[#00ffff] -z-10 shadow-[0_0_12px_rgba(0,255,255,0.4)] transition-all duration-300"
-            style={{ width: `${((step - 1) / 3) * 100}%` }}
-          />
+            style={{ width: `${((step - 1) / 3) * 100}%` }}></div>
 
           {steps.map((s) => (
             <div key={s.id} className="flex flex-col items-center gap-2 px-2">
@@ -344,7 +358,7 @@ export default function Wizard() {
                 {senderMode !== 'group' ? (
                   <>
                     <p className="text-xs text-[#777777] mb-3">Choose a single sender identity.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                       {identities.length === 0 ? (
                         <div className="col-span-full text-center py-8 text-[#666666] bg-[#0a0a0a] border border-[#1a1a1a] rounded-none">
                           No identities found. <a href="/identities" className="text-[#00ffff] hover:underline">Add one here</a>.
@@ -373,27 +387,27 @@ export default function Wizard() {
                   </>
                 ) : (
                   <>
-                    <p className="text-sm text-gray-500 mb-3 font-medium">Choose an identity group for automatic rotation across multiple senders.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <p className="text-xs text-[#777777] mb-3 font-medium">Choose an identity group for automatic rotation across multiple senders.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                       {identityGroups.length === 0 ? (
-                        <div className="col-span-full text-center py-8 text-gray-500 skeuo-inset-box">
-                          No identity groups found. <a href="/identities" className="text-blue-600 hover:underline font-bold">Create one here</a>.
+                        <div className="col-span-full text-center py-8 text-[#555555] bg-[#0a0a0a] border border-[#1e1e1e]">
+                          No identity groups found. <a href="/identities" className="text-[#00ffff] hover:underline font-bold">Create one here</a>.
                         </div>
                       ) : (
                         identityGroups.map((group) => (
                           <div
                             key={group.id}
                             onClick={() => { setSenderMode('group'); setIdentityGroupId(group.id.toString()); setIdentityId(""); }}
-                            className={`p-4 rounded-xl cursor-pointer transition-all ${identityGroupId === group.id.toString()
-                              ? 'bg-blue-50 border-2 border-blue-400 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_4px_rgba(0,0,0,0.1)]'
-                              : 'skeuo-btn'
+                            className={`p-4 cursor-pointer transition-all border ${identityGroupId === group.id.toString()
+                              ? 'bg-[#00ffff]/10 border-[#00ffff] shadow-[0_0_16px_rgba(0,255,255,0.2)]'
+                              : 'bg-[#0a0a0a] border-[#1e1e1e] hover:border-[#333333]'
                               }`}
                           >
                             <div className="flex justify-between items-start mb-2">
-                              <h4 className="font-bold text-lg skeuo-text">{group.name}</h4>
-                              {identityGroupId === group.id.toString() && <CheckCircle className="w-5 h-5 text-blue-600 drop-shadow-sm" />}
+                              <h4 className="font-serif text-lg text-white font-medium">{group.name}</h4>
+                              {identityGroupId === group.id.toString() && <CheckCircle className="w-4 h-4 text-[#00ffff]" />}
                             </div>
-                            <p className="text-sm text-gray-600 font-medium">{group.identities?.length || 0} identities</p>
+                            <p className="text-xs text-[#888888]">{group.identities?.length || 0} identities</p>
                           </div>
                         ))
                       )}
@@ -408,8 +422,8 @@ export default function Wizard() {
         {step === 2 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div>
-              <h3 className="text-xl font-bold mb-2 skeuo-text">Import Audience</h3>
-              <p className="text-gray-500 text-sm mb-6">Upload a CSV file or select a previously saved one.</p>
+              <h3 className="text-2xl font-serif text-white mb-1">Import Audience</h3>
+              <p className="text-[#777777] text-sm mb-6">Upload a CSV file or select a previously saved one.</p>
             </div>
 
             <div className="flex gap-2 mb-4">
@@ -471,23 +485,23 @@ export default function Wizard() {
                   }}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
-                <Upload className="w-12 h-12 text-gray-500 mx-auto mb-4 drop-shadow-sm" />
-                <h4 className="text-lg font-bold mb-1 skeuo-text">Click to upload or drag and drop</h4>
-                <p className="text-sm text-gray-500 font-medium">CSV files only</p>
+                <Upload className="w-10 h-10 text-[#555555] mx-auto mb-3 drop-shadow-sm" />
+                <h4 className="text-base font-medium text-white mb-1">Click to upload or drag and drop</h4>
+                <p className="text-xs text-[#666666] font-mono">CSV files only</p>
 
                 {csvFile && (
-                  <div className="mt-6 inline-flex items-center gap-2 bg-gradient-to-b from-green-50 to-green-100 text-green-700 px-4 py-2 rounded-lg text-sm font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.1)] border border-green-200">
-                    <CheckCircle className="w-4 h-4" /> {csvFile.name} ({csvRows.length} contacts)
+                  <div className="mt-4 inline-flex items-center gap-2 bg-[#00ffff]/10 text-[#00ffff] px-4 py-2 text-xs font-mono border border-[#00ffff]/30 shadow-[0_0_12px_rgba(0,255,255,0.15)]">
+                    <CheckCircle className="w-3.5 h-3.5" /> {csvFile.name} ({csvRows.length} contacts)
                   </div>
                 )}
               </div>
             ) : (
               <div className="space-y-4">
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Select Saved CSV</label>
+                <label className="block text-xs uppercase tracking-widest text-[#777777] mb-2 font-medium">Select Saved CSV</label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {savedCsvs.length === 0 ? (
-                    <div className="col-span-full text-center py-8 text-gray-500 skeuo-inset-box">
-                      No saved CSVs found. <a href="/saved-csvs" className="text-blue-600 hover:underline font-bold">Upload one here</a>.
+                    <div className="col-span-full text-center py-8 text-[#555555] bg-[#0a0a0a] border border-[#1e1e1e]">
+                      No saved CSVs found. <a href="/saved-csvs" className="text-[#00ffff] hover:underline font-bold">Upload one here</a>.
                     </div>
                   ) : (
                     savedCsvs.map((scsv) => (
@@ -500,17 +514,17 @@ export default function Wizard() {
                           setCsvHeaders(scsv.columns || []);
                           setCsvRows([]);
                         }}
-                        className={`p-4 rounded-xl cursor-pointer transition-all ${savedCsvId === scsv.id.toString()
-                          ? 'bg-blue-50 border-2 border-blue-400 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_4px_rgba(0,0,0,0.1)]'
-                          : 'skeuo-btn'
+                        className={`p-5 cursor-pointer transition-all border ${savedCsvId === scsv.id.toString()
+                          ? 'bg-[#00ffff]/10 border-[#00ffff] shadow-[0_0_16px_rgba(0,255,255,0.2)]'
+                          : 'bg-[#0a0a0a] border-[#1e1e1e] hover:border-[#333333]'
                           }`}
                       >
                         <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-bold text-lg skeuo-text">{scsv.name}</h4>
-                          {savedCsvId === scsv.id.toString() && <CheckCircle className="w-5 h-5 text-blue-600 drop-shadow-sm" />}
+                          <h4 className="font-serif text-lg text-white font-medium">{scsv.name}</h4>
+                          {savedCsvId === scsv.id.toString() && <CheckCircle className="w-4 h-4 text-[#00ffff]" />}
                         </div>
-                        <p className="text-sm text-gray-600 font-medium">{scsv.row_count} contacts</p>
-                        <p className="text-xs text-gray-500 mt-1 font-mono">Uploaded {new Date(scsv.created_at).toLocaleDateString()}</p>
+                        <p className="text-xs text-[#888888] font-medium">{scsv.row_count} contacts</p>
+                        <p className="text-[10px] text-[#555555] mt-1 font-mono">Uploaded {new Date(scsv.created_at).toLocaleDateString()}</p>
                       </div>
                     ))
                   )}
@@ -520,84 +534,90 @@ export default function Wizard() {
 
             {(csvFile || (showSavedList && savedCsvId)) && campaignType === 'email' && (
               <div className="space-y-4">
-                <div className="flex gap-4 skeuo-inset-box p-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
+                <div className="bg-[#0a0a0a] border border-[#1e1e1e] p-4 flex items-center justify-between">
+                  <label className="flex items-center gap-3 cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={checkGravatar}
                       onChange={(e) => setCheckGravatar(e.target.checked)}
-                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="w-4 h-4 bg-[#111111] border-[#333333] rounded-none accent-[#00ffff] cursor-pointer"
                     />
-                    <span className="text-sm font-bold text-gray-700 skeuo-text">Check Gravatar profile</span>
+                    <div>
+                      <span className="text-xs font-semibold text-white block">Check Gravatar profile</span>
+                      <span className="text-[11px] text-[#666666]">Verify profile existence and avatar presence during scan</span>
+                    </div>
                   </label>
                 </div>
 
                 <button
                   onClick={handleScan}
                   disabled={scanning}
-                  className="skeuo-btn-primary px-6 py-3 font-bold flex items-center gap-2"
+                  className="bg-[#19b3d2] hover:bg-[#20c4e6] text-black font-semibold rounded-none px-6 py-2.5 text-xs flex items-center gap-2 transition-all cursor-pointer border border-[#1499b4] disabled:opacity-50"
                 >
-                  {scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                  {scanning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Shield className="w-3.5 h-3.5" />}
                   {scanning ? "Scanning..." : "Scan CSV"}
                 </button>
 
                 {scanData && (
                   <div className="space-y-4">
                     {/* Stats summary */}
-                    <div className="flex flex-wrap gap-4 text-sm font-bold">
-                      <span className="flex items-center gap-1 text-green-700">
-                        <CheckCircle className="w-4 h-4" /> {scanData.stats.valid} Safe
+                    <div className="flex flex-wrap gap-2 text-xs font-mono">
+                      <span className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-950/40 border border-emerald-500/30 text-emerald-400">
+                        <CheckCircle className="w-3.5 h-3.5" /> {scanData.stats.valid} Safe
                       </span>
                       {scanData.stats.gravatar > 0 && (
-                        <span className="flex items-center gap-1 text-purple-600">
-                          <CheckCircle className="w-4 h-4" /> {scanData.stats.gravatar} Gravatar
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-950/40 border border-purple-500/30 text-purple-400">
+                          <CheckCircle className="w-3.5 h-3.5" /> {scanData.stats.gravatar} Gravatar
                         </span>
                       )}
                       {scanData.stats.disposable > 0 && (
-                        <span className="flex items-center gap-1 text-orange-600">
-                          <AlertCircle className="w-4 h-4" /> {scanData.stats.disposable} Disposable
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-950/40 border border-amber-500/30 text-amber-400">
+                          <AlertCircle className="w-3.5 h-3.5" /> {scanData.stats.disposable} Disposable
                         </span>
                       )}
                       {scanData.stats.bounced > 0 && (
-                        <span className="flex items-center gap-1 text-blue-600">
-                          <X className="w-4 h-4" /> {scanData.stats.bounced} Bounced
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-950/40 border border-sky-500/30 text-sky-400">
+                          <X className="w-3.5 h-3.5" /> {scanData.stats.bounced} Bounced
                         </span>
                       )}
-                      <span className="flex items-center gap-1 text-red-600">
-                        <X className="w-4 h-4" /> {scanData.stats.invalid} Invalid
+                      <span className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-950/40 border border-rose-500/30 text-rose-400">
+                        <X className="w-3.5 h-3.5" /> {scanData.stats.invalid} Invalid
                       </span>
                       {removedEmails.length > 0 && (
-                        <span className="flex items-center gap-1 text-gray-600">
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 border border-gray-700 text-gray-400">
                           🗑️ {removedEmails.length} Removed
                         </span>
                       )}
                     </div>
 
                     {/* Remaining count */}
-                    <div className="skeuo-inset-box p-3 text-center">
-                      <span className="text-lg font-bold skeuo-text">
+                    <div className="bg-[#0a0a0a] border border-[#1e1e1e] p-3 text-center">
+                      <span className="text-sm font-mono text-[#00ffff]">
                         {csvRows.length - removedEmails.length} of {csvRows.length} contacts will be sent
                       </span>
                     </div>
 
                     {/* Invalid emails - with delete */}
                     {scanData.results.filter((r) => !r.valid).length > 0 && (
-                      <div className="skeuo-card p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-bold text-sm skeuo-text text-red-600">Invalid ({scanData.stats.invalid})</h4>
-                          <button onClick={removeAllInvalid} className="text-xs font-bold text-red-600 hover:text-red-800 skeuo-btn px-3 py-1">
+                      <div className="bg-[#0a0a0a] border border-rose-950/50 p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-mono text-xs font-bold text-rose-400">Invalid ({scanData.stats.invalid})</h4>
+                          <button
+                            onClick={removeAllInvalid}
+                            className="text-[11px] font-mono text-rose-400 hover:text-white bg-rose-950/40 border border-rose-900/50 hover:bg-rose-900/60 px-2.5 py-1 transition-all cursor-pointer"
+                          >
                             🗑️ Remove All
                           </button>
                         </div>
-                        <div className="max-h-48 overflow-y-auto space-y-1">
+                        <div className="max-h-48 overflow-y-auto space-y-1.5">
                           {scanData.results.filter((r) => !r.valid).map((r, i) => (
-                            <div key={i} className="text-xs flex items-center gap-2 p-1.5 rounded bg-red-50 text-red-700 font-medium">
-                              <X className="w-3 h-3 shrink-0" />
-                              <span className="truncate flex-1">{r.email} <span className="text-red-500">— {r.reason}</span></span>
+                            <div key={i} className="text-xs font-mono flex items-center gap-2 p-2 bg-[#050505] border border-[#1a1a1a] text-rose-300">
+                              <X className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                              <span className="truncate flex-1">{r.email} <span className="text-rose-500">— {r.reason}</span></span>
                               {!removedEmails.includes(r.email) && (
-                                <button onClick={() => removeEmail(r.email)} className="text-red-500 hover:text-red-700 font-bold px-1.5">🗑️</button>
+                                <button onClick={() => removeEmail(r.email)} className="text-rose-400 hover:text-rose-200 px-1.5 py-0.5 cursor-pointer">🗑️</button>
                               )}
-                              {removedEmails.includes(r.email) && <span className="text-green-600 text-[10px] font-bold">✓ Removed</span>}
+                              {removedEmails.includes(r.email) && <span className="text-emerald-400 text-[10px]">✓ Removed</span>}
                             </div>
                           ))}
                         </div>
@@ -606,22 +626,25 @@ export default function Wizard() {
 
                     {/* Bounced emails - with delete */}
                     {scanData.results.filter((r) => r.flags.includes("bounced") && r.valid).length > 0 && (
-                      <div className="skeuo-card p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-bold text-sm skeuo-text text-blue-600">Previously Bounced ({scanData.stats.bounced})</h4>
-                          <button onClick={removeAllBounced} className="text-xs font-bold text-blue-600 hover:text-blue-800 skeuo-btn px-3 py-1">
+                      <div className="bg-[#0a0a0a] border border-sky-950/50 p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-mono text-xs font-bold text-sky-400">Previously Bounced ({scanData.stats.bounced})</h4>
+                          <button
+                            onClick={removeAllBounced}
+                            className="text-[11px] font-mono text-sky-400 hover:text-white bg-sky-950/40 border border-sky-900/50 hover:bg-sky-900/60 px-2.5 py-1 transition-all cursor-pointer"
+                          >
                             🗑️ Remove All
                           </button>
                         </div>
-                        <div className="max-h-48 overflow-y-auto space-y-1">
+                        <div className="max-h-48 overflow-y-auto space-y-1.5">
                           {scanData.results.filter((r) => r.flags.includes("bounced") && r.valid).map((r, i) => (
-                            <div key={i} className="text-xs flex items-center gap-2 p-1.5 rounded bg-blue-50 text-blue-700 font-medium">
-                              <X className="w-3 h-3 shrink-0" />
-                              <span className="truncate flex-1">{r.email} <span className="text-blue-500">(bounced {r.bounce_count}x)</span></span>
+                            <div key={i} className="text-xs font-mono flex items-center gap-2 p-2 bg-[#050505] border border-[#1a1a1a] text-sky-300">
+                              <X className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                              <span className="truncate flex-1">{r.email} <span className="text-sky-500">(bounced {r.bounce_count}x)</span></span>
                               {!removedEmails.includes(r.email) && (
-                                <button onClick={() => removeEmail(r.email)} className="text-blue-500 hover:text-blue-700 font-bold px-1.5">🗑️</button>
+                                <button onClick={() => removeEmail(r.email)} className="text-sky-400 hover:text-sky-200 px-1.5 py-0.5 cursor-pointer">🗑️</button>
                               )}
-                              {removedEmails.includes(r.email) && <span className="text-green-600 text-[10px] font-bold">✓ Removed</span>}
+                              {removedEmails.includes(r.email) && <span className="text-emerald-400 text-[10px]">✓ Removed</span>}
                             </div>
                           ))}
                         </div>
@@ -630,19 +653,19 @@ export default function Wizard() {
 
                     {/* Disposable warning */}
                     {scanData.results.filter((r) => r.flags.includes("disposable")).length > 0 && (
-                      <div className="skeuo-card p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-bold text-sm skeuo-text text-orange-600">Disposable ({scanData.stats.disposable})</h4>
+                      <div className="bg-[#0a0a0a] border border-amber-950/50 p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-mono text-xs font-bold text-amber-400">Disposable ({scanData.stats.disposable})</h4>
                         </div>
-                        <div className="max-h-32 overflow-y-auto space-y-1">
+                        <div className="max-h-32 overflow-y-auto space-y-1.5">
                           {scanData.results.filter((r) => r.flags.includes("disposable")).map((r, i) => (
-                            <div key={i} className="text-xs flex items-center gap-2 p-1.5 rounded bg-orange-50 text-orange-700 font-medium">
-                              <AlertCircle className="w-3 h-3 shrink-0" />
-                              <span className="truncate flex-1">{r.email} <span className="text-orange-500">— {r.warning}</span></span>
+                            <div key={i} className="text-xs font-mono flex items-center gap-2 p-2 bg-[#050505] border border-[#1a1a1a] text-amber-300">
+                              <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                              <span className="truncate flex-1">{r.email} <span className="text-amber-500">— {r.warning}</span></span>
                               {!removedEmails.includes(r.email) && (
-                                <button onClick={() => removeEmail(r.email)} className="text-orange-500 hover:text-orange-700 font-bold px-1.5">🗑️</button>
+                                <button onClick={() => removeEmail(r.email)} className="text-amber-400 hover:text-amber-200 px-1.5 py-0.5 cursor-pointer">🗑️</button>
                               )}
-                              {removedEmails.includes(r.email) && <span className="text-green-600 text-[10px] font-bold">✓ Removed</span>}
+                              {removedEmails.includes(r.email) && <span className="text-emerald-400 text-[10px]">✓ Removed</span>}
                             </div>
                           ))}
                         </div>
@@ -658,32 +681,58 @@ export default function Wizard() {
         {step === 3 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div>
-              <h3 className="text-xl font-bold mb-2 skeuo-text">Select Creative</h3>
-              <p className="text-gray-500 text-sm mb-6">Choose an email template from your Script Architect library.</p>
+              <h3 className="text-2xl font-serif text-white mb-1">Select Creative</h3>
+              <p className="text-[#777777] text-sm mb-6">Choose an email template from your Script Architect library.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {templates.length === 0 ? (
-                <div className="col-span-full text-center py-12 text-gray-500 skeuo-inset-box">
+                <div className="col-span-full text-center py-12 text-[#555555] bg-[#0a0a0a] border border-[#1e1e1e]">
                   No email templates found. Please create one in Script Architect first.
                 </div>
               ) : (
                 templates.map((t) => (
                   <div
                     key={t.id}
-                    onClick={() => setTemplateId(t.id.toString())}
-                    className={`p-6 rounded-xl cursor-pointer transition-all ${templateId === t.id.toString()
-                      ? 'bg-blue-50 border-2 border-blue-400 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_4px_rgba(0,0,0,0.1)]'
-                      : 'skeuo-btn'
-                      }`}
+                    onClick={() => {
+                      setTemplateId(t.id.toString());
+                      setPreviewTemplate(t);
+                    }}
+                    className={`p-5 cursor-pointer transition-all border relative flex flex-col justify-between group ${
+                      templateId === t.id.toString()
+                        ? 'bg-[#00ffff]/10 border-[#00ffff] shadow-[0_0_20px_rgba(0,255,255,0.25)]'
+                        : 'bg-[#0a0a0a] border-[#1e1e1e] hover:border-[#3a3a3a]'
+                    }`}
                   >
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-bold text-lg skeuo-text">{t.name}</h4>
-                      {templateId === t.id.toString() && <CheckCircle className="w-5 h-5 text-blue-600 drop-shadow-sm" />}
+                    <div>
+                      <div className="flex justify-between items-start mb-2 gap-2">
+                        <h4 className="font-serif text-lg text-white font-medium line-clamp-1" title={t.name}>{t.name}</h4>
+                        {templateId === t.id.toString() && <CheckCircle className="w-4 h-4 text-[#00ffff] shrink-0" />}
+                      </div>
+                      {t.subject && (
+                        <p className="text-xs text-[#888888] font-medium mb-3 line-clamp-1" title={t.subject}>
+                          <span className="text-[#555555]">Subject:</span> {t.subject}
+                        </p>
+                      )}
+                      <p className="text-xs text-[#777777] line-clamp-3 leading-relaxed mb-4">
+                        {stripHtml(t.body) || "No plain text excerpt available."}
+                      </p>
                     </div>
-                    {campaignType === 'email' && <p className="text-sm text-gray-600 font-medium mb-4 line-clamp-1">{t.subject}</p>}
-                    <div className="text-xs font-mono text-gray-500 line-clamp-3 skeuo-inset-box p-3">
-                      {t.body}
+
+                    <div className="pt-3 border-t border-[#141414] flex items-center justify-between">
+                      <span className={`text-[10px] font-mono uppercase tracking-wider ${templateId === t.id.toString() ? 'text-[#00ffff]' : 'text-[#555555]'}`}>
+                        {templateId === t.id.toString() ? "✓ Selected" : "Click to view"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPreviewTemplate(t);
+                        }}
+                        className="text-xs font-medium text-[#00ffff] hover:text-white flex items-center gap-1.5 px-2.5 py-1 bg-[#00ffff]/10 hover:bg-[#00ffff]/20 border border-[#00ffff]/30 transition-all cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5" /> Preview
+                      </button>
                     </div>
                   </div>
                 ))
@@ -695,7 +744,7 @@ export default function Wizard() {
         {step === 4 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div>
-              <h3 className="text-xl font-bold mb-2 skeuo-text">Governance & Control</h3>
+              <h3 className="text-2xl font-serif text-white mb-1">Governance & Control</h3>
               <p className="text-gray-500 text-sm mb-6">Set delivery rules and scheduling.</p>
             </div>
             <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-none p-6">
@@ -999,25 +1048,26 @@ export default function Wizard() {
             {loading ? "Launching..." : "Launch Campaign"} <ArrowRight className="w-4 h-4" />
           </button>
         )}
+      </div>
 
       {/* Progress Modal */}
       {showProgress && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="skeuo-card p-6 w-full max-w-lg">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#0a0a0a] border border-[#1e1e1e] p-6 w-full max-w-lg shadow-[0_16px_48px_rgba(0,0,0,0.8)]">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold skeuo-text flex items-center gap-2">
-                <Loader2 className="w-5 h-5 text-orange-500 animate-spin" />
+              <h3 className="text-lg font-serif text-white flex items-center gap-2">
+                <Loader2 className="w-5 h-5 text-[#00ffff] animate-spin" />
                 {campaignName || "Campaign"}
               </h3>
               <div className="flex items-center gap-2">
                 {progress?.status === "running" && (
-                  <span className="text-xs font-bold px-2 py-1 rounded-full bg-green-100 text-green-700 animate-pulse">Running</span>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 animate-pulse">Running</span>
                 )}
                 {progress?.status === "completed" && (
-                  <span className="text-xs font-bold px-2 py-1 rounded-full bg-green-100 text-green-700">Completed</span>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-emerald-950/60 border border-emerald-500/40 text-emerald-400">Completed</span>
                 )}
                 {progress?.status === "scheduled" && (
-                  <span className="text-xs font-bold px-2 py-1 rounded-full bg-blue-100 text-blue-700">Scheduled</span>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-sky-950/60 border border-sky-500/40 text-sky-400">Scheduled</span>
                 )}
               </div>
             </div>
@@ -1025,18 +1075,15 @@ export default function Wizard() {
             {/* Progress bar */}
             {progress && (
               <div className="mb-4">
-                <div className="flex justify-between text-sm font-bold mb-1">
-                  <span className="text-gray-600">{progress.sent} of {progress.total} sent</span>
-                  <span className={progress.total > 0
-                    ? `font-bold ${(progress.sent / progress.total * 100) >= 100 ? 'text-green-600' : 'text-orange-600'}`
-                    : 'text-gray-400'
-                  }>
+                <div className="flex justify-between text-xs font-mono mb-1.5">
+                  <span className="text-[#888888]">{progress.sent} of {progress.total} sent</span>
+                  <span className="font-bold text-[#00ffff]">
                     {progress.total > 0 ? Math.round(progress.sent / progress.total * 100) : 0}%
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden shadow-inner">
+                <div className="w-full bg-[#141414] border border-[#222222] h-2 overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-700 ease-out ${(progress.sent / progress.total * 100) >= 100 ? 'bg-green-500' : 'bg-gradient-to-r from-orange-400 to-orange-500'}`}
+                    className="h-full bg-[#00ffff] shadow-[0_0_12px_rgba(0,255,255,0.6)] transition-all duration-700 ease-out"
                     style={{ width: `${progress.total > 0 ? Math.min(progress.sent / progress.total * 100, 100) : 0}%` }}
                   />
                 </div>
@@ -1045,45 +1092,42 @@ export default function Wizard() {
 
             {/* Countdown timer */}
             {(progress?.status === "running" || progress?.status === "scheduled") && progress?.pending > 0 && (
-              <div className="skeuo-inset-box p-4 mb-4 text-center">
-                <div className="text-3xl font-bold text-orange-600 font-mono">
+              <div className="bg-[#050505] border border-[#1a1a1a] p-4 mb-4 text-center">
+                <div className="text-3xl font-bold text-[#00ffff] font-mono">
                   {countdown}s
                 </div>
-                <div className="text-xs font-bold text-gray-500 mt-1 uppercase tracking-wider">Next email in</div>
+                <div className="text-[10px] font-mono text-[#777777] mt-1 uppercase tracking-widest">Next email in</div>
               </div>
             )}
 
             {/* Errors */}
             {progress?.failed > 0 && (
-              <div className="bg-red-50 border border-red-200 text-red-600 font-bold p-3 rounded-lg mb-4 text-sm flex items-center gap-2">
+              <div className="bg-rose-950/30 border border-rose-900/50 text-rose-400 p-3 mb-4 text-xs font-mono flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 {progress.failed} email{progress.failed > 1 ? 's' : ''} failed
               </div>
             )}
 
             {/* Live log */}
-            <div className="bg-gray-900 rounded-xl overflow-hidden shadow-inner mb-4">
-              <div className="p-3 border-b border-gray-800 flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-red-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.3)]" />
-                <div className="w-2 h-2 rounded-full bg-yellow-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.3)]" />
-                <div className="w-2 h-2 rounded-full bg-green-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.3)]" />
-                <span className="ml-2 font-mono text-xs text-gray-400 font-bold">Live Feed</span>
+            <div className="bg-[#050505] border border-[#1a1a1a] overflow-hidden mb-4">
+              <div className="p-2.5 border-b border-[#1a1a1a] flex items-center justify-between">
+                <span className="font-mono text-[11px] text-[#888888] uppercase tracking-wider">Live Feed</span>
               </div>
               <div className="p-3 h-48 overflow-y-auto font-mono text-xs space-y-1.5">
                 {progressLogs.length === 0 ? (
-                  <div className="text-gray-500 text-center py-4">Waiting for first email to send...</div>
+                  <div className="text-[#555555] text-center py-4">Waiting for first email to send...</div>
                 ) : (
                   [...progressLogs].reverse().map((log: any) => (
-                    <div key={log.id} className={`flex items-start gap-2 p-2 rounded ${log.status === 'success' ? 'text-green-400' : 'text-red-400'}`}>
-                      <span className="text-gray-500 shrink-0">[{new Date(log.created_at).toLocaleTimeString()}]</span>
+                    <div key={log.id} className={`flex items-start gap-2 p-1.5 border border-[#141414] ${log.status === 'success' ? 'text-emerald-400 bg-emerald-950/10' : 'text-rose-400 bg-rose-950/10'}`}>
+                      <span className="text-[#555555] shrink-0 text-[10px]">[{new Date(log.created_at).toLocaleTimeString()}]</span>
                       {log.status === 'success' ? (
-                        <CheckCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                        <CheckCircle className="w-3 h-3 mt-0.5 shrink-0 text-emerald-400" />
                       ) : (
-                        <X className="w-3 h-3 mt-0.5 shrink-0" />
+                        <X className="w-3 h-3 mt-0.5 shrink-0 text-rose-400" />
                       )}
-                      <span className="text-gray-300">{log.recipient}</span>
-                      <span className="text-gray-600">-</span>
-                      <span className="truncate">{log.message}</span>
+                      <span className="text-[#cccccc] truncate">{log.recipient}</span>
+                      <span className="text-[#555555]">-</span>
+                      <span className="truncate text-[#888888]">{log.message}</span>
                     </div>
                   ))
                 )}
@@ -1095,7 +1139,7 @@ export default function Wizard() {
               {progress?.status === "completed" && campaignId && (
                 <button
                   onClick={() => navigate(`/campaigns/${campaignId}/logs`)}
-                  className="bg-gradient-to-b from-orange-400 to-orange-600 border border-orange-700 border-bottom-orange-800 shadow-[0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.4)] text-white text-shadow-[0_-1px_0_rgba(0,0,0,0.3)] hover:from-orange-500 hover:to-orange-700 active:from-orange-600 active:to-orange-400 active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)] px-6 py-2 rounded-lg text-sm font-bold transition-all"
+                  className="bg-[#19b3d2] hover:bg-[#20c4e6] text-black font-semibold px-5 py-2 text-xs border border-[#1499b4] transition-all cursor-pointer"
                 >
                   View Full Logs
                 </button>
@@ -1109,7 +1153,7 @@ export default function Wizard() {
                     navigate("/campaigns");
                   }
                 }}
-                className="skeuo-btn px-6 py-2 text-sm font-bold"
+                className="bg-[#111111] hover:bg-[#1a1a1a] text-[#cccccc] hover:text-white border border-[#222222] px-5 py-2 text-xs font-semibold cursor-pointer transition-all"
               >
                 {progress?.status === "completed" ? "Done" : "Close"}
               </button>
@@ -1117,7 +1161,93 @@ export default function Wizard() {
           </div>
         </div>
       )}
+
+      {/* Right-Side Template Live Preview Drawer */}
+      {previewTemplate && (
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
+            onClick={() => setPreviewTemplate(null)}
+          />
+
+          <div className="fixed inset-y-0 right-0 max-w-full flex pl-8 sm:pl-16">
+            <div className="w-screen max-w-2xl lg:max-w-3xl bg-[#0c0c0c] border-l border-[#1f1f1f] flex flex-col shadow-[0_0_60px_rgba(0,0,0,0.9)] animate-in slide-in-from-right duration-300">
+              {/* Drawer Header */}
+              <div className="p-6 border-b border-[#1c1c1c] flex items-start justify-between bg-[#000000]/70 backdrop-blur-md">
+                <div className="pr-4 flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-[#00ffff] bg-[#00ffff]/10 px-2 py-0.5 border border-[#00ffff]/30">
+                      Live Preview
+                    </span>
+                    {templateId === previewTemplate.id.toString() && (
+                      <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 bg-emerald-950/40 px-2 py-0.5 border border-emerald-500/30 flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" /> Selected
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-2xl font-serif text-white tracking-tight leading-snug">{previewTemplate.name}</h3>
+                  {previewTemplate.subject && (
+                    <div className="mt-2 p-2.5 bg-[#050505] border border-[#1a1a1a] text-xs">
+                      <span className="text-[#666666] font-mono uppercase text-[10px] block mb-0.5">Subject Line:</span>
+                      <p className="text-[#ededed] font-medium">{previewTemplate.subject}</p>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => setPreviewTemplate(null)}
+                  className="p-2 text-[#777777] hover:text-white bg-[#111111] hover:bg-[#1a1a1a] border border-[#222222] transition-colors cursor-pointer shrink-0 ml-2"
+                  title="Close Preview"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Drawer Body - Live HTML Rendered in iframe */}
+              <div className="flex-1 overflow-hidden p-6 flex flex-col bg-[#050505]">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-[#666666]">
+                    Email Content Canvas
+                  </span>
+                  <span className="text-[11px] font-mono text-[#555555]">
+                    Rendered HTML
+                  </span>
+                </div>
+                <div className="flex-1 bg-white rounded-none overflow-hidden border border-[#222222] shadow-2xl relative">
+                  <iframe
+                    srcDoc={previewTemplate.body}
+                    className="w-full h-full border-0 bg-white"
+                    title="Creative Email Preview"
+                    sandbox="allow-same-origin allow-popups"
+                  />
+                </div>
+              </div>
+
+              {/* Drawer Footer Actions */}
+              <div className="p-5 border-t border-[#1a1a1a] bg-[#000000] flex items-center justify-between gap-4">
+                <button
+                  type="button"
+                  onClick={() => setPreviewTemplate(null)}
+                  className="px-6 py-3 border border-[#222222] text-[#888888] hover:text-white hover:bg-[#111111] text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTemplateId(previewTemplate.id.toString());
+                    setPreviewTemplate(null);
+                    setStep(4);
+                  }}
+                  className="px-8 py-3 bg-[#00ffff] hover:bg-[#20e8e8] text-black text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(0,255,255,0.3)] cursor-pointer"
+                >
+                  <CheckCircle className="w-4 h-4" /> Select & Continue <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  </div>
   );
 }
