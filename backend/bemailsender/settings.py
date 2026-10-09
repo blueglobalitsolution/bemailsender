@@ -183,3 +183,10 @@ WHATSAPP_API_KEY = os.environ.get("WHATSAPP_API_KEY")
 if not WHATSAPP_API_KEY and not DEBUG:
     raise ValueError("WHATSAPP_API_KEY environment variable is required in production")
 WHATSAPP_API_KEY = WHATSAPP_API_KEY or "whatsapp-dev-key-fallback"
+
+# Laya & Llama AI Service
+LAYA_BASE_URL = os.environ.get("LAYA_BASE_URL", "http://127.0.0.1:8081/predict")
+LAYA_REMOTE_URL = os.environ.get("LAYA_REMOTE_URL", "https://blueglobal.qzz.io/laya/predict")
+LLAMA_BASE_URL = os.environ.get("LLAMA_BASE_URL", "http://127.0.0.1:8080/v1/chat/completions")
+LLAMA_REMOTE_URL = os.environ.get("LLAMA_REMOTE_URL", "https://blueglobal.qzz.io/v1/chat/completions")
+LAYA_API_KEY = os.environ.get("LAYA_API_KEY", "5e32cdb0b828536dcabf517d42f63865")

@@ -56,3 +56,8 @@ frontend/uploads/
 uploads/
 *.csv
 
+# Knowledge Graphs & Tooling Artifacts
+graphify-out/
+.agents/
+.gemini/
+plans/

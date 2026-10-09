@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
-import { FileText, Plus, Save, Trash2, Edit3, Mail, Shield, ShieldCheck, ShieldAlert, Loader2, AlertTriangle, CheckCircle, Info, Eye, X } from "lucide-react";
+import { FileText, Plus, Save, Trash2, Edit3, Mail, Shield, ShieldCheck, ShieldAlert, Loader2, AlertTriangle, CheckCircle, Info, Eye, X, Sparkles } from "lucide-react";
 import EmailEditor, { EditorRef } from "react-email-editor";
 import { apiFetch, getApiUrl } from "../lib/api";
 import { useToast } from "../components/Toast";
+import AIEmailWriterModal from "../components/AIEmailWriterModal";
 
 interface Template {
   id: number;
@@ -34,6 +35,7 @@ export default function Templates() {
   const [spamCheckIdentity, setSpamCheckIdentity] = useState("");
   const [spamScore, setSpamScore] = useState<{ score: number; report: string } | null>(null);
   const [spamChecking, setSpamChecking] = useState(false);
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
 
   const stripHtml = (html: string) => {
     if (!html) return "";
@@ -144,8 +146,9 @@ export default function Templates() {
   };
 
   const onReady = () => {
-    if (newTemplate.design && emailEditorRef.current?.editor) {
-      emailEditorRef.current.editor.loadDesign(newTemplate.design);
+    const designToLoad = newTemplate.design;
+    if (designToLoad && emailEditorRef.current?.editor) {
+      emailEditorRef.current.editor.loadDesign(designToLoad);
     }
   };
 
@@ -212,7 +215,13 @@ export default function Templates() {
         <h2 className="text-3xl font-serif text-white flex items-center gap-3">
           <FileText className="w-6 h-6 text-[#00ffff]" /> Script Architect
         </h2>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsAIModalOpen(true)}
+            className="bg-[#111111] hover:bg-[#1a1a1a] text-[#00ffff] font-semibold rounded-none px-4 py-2.5 text-xs flex items-center gap-2 transition-all cursor-pointer border border-[#00ffff]/40 hover:border-[#00ffff] shadow-[0_0_15px_rgba(0,255,255,0.15)]"
+          >
+            <Sparkles className="w-3.5 h-3.5" /> AI Email Writer
+          </button>
           <button
             onClick={() => {
               setNewTemplate({ name: "", subject: "", body: "", type: 'email', design: undefined });
@@ -243,7 +252,16 @@ export default function Templates() {
 
             <div className="space-y-6">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Email Subject</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 skeuo-text">Email Subject</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsAIModalOpen(true)}
+                    className="text-[#00ffff] hover:text-white text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" /> Draft with AI Writer
+                  </button>
+                </div>
                 <input
                   type="text"
                   value={newTemplate.subject}
@@ -512,6 +530,59 @@ export default function Templates() {
           </div>
         </div>
       )}
+
+      {/* AI Email Writer Modal */}
+      <AIEmailWriterModal
+        isOpen={isAIModalOpen}
+        onClose={() => setIsAIModalOpen(false)}
+        onApply={(subject, body) => {
+          const formattedHtml = `<div style="font-family: Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #333333; padding: 20px;">${body.replace(/\n\n/g, "<br/><br/>").replace(/\n/g, "<br/>")}</div>`;
+          
+          const newDesign = {
+            body: {
+              rows: [
+                {
+                  cells: [1],
+                  columns: [
+                    {
+                      contents: [
+                        {
+                          type: "html",
+                          values: {
+                            html: formattedHtml
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          };
+
+          setNewTemplate((prev) => ({
+            ...prev,
+            name: prev.name || (subject ? `AI - ${subject.slice(0, 30)}` : "AI Generated Template"),
+            subject: subject,
+            body: body,
+            design: newDesign,
+          }));
+          setIsCreating(true);
+
+          // If the visual EmailEditor is already mounted, load design directly
+          setTimeout(() => {
+            if (emailEditorRef.current?.editor) {
+              try {
+                emailEditorRef.current.editor.loadDesign(newDesign);
+              } catch (err) {
+                console.log("Could not auto-populate react-email-editor canvas:", err);
+              }
+            }
+          }, 150);
+
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
+      />
     </div>
   );
 }

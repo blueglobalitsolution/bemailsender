@@ -48,9 +48,18 @@ export const apiFetch = async (path: string, options?: RequestInit) => {
           headers: retryHeaders,
           credentials: "include",
         });
+      } else {
+        localStorage.removeItem("access_token");
+        if (window.location.pathname !== "/login") {
+          window.location.href = "/login";
+        }
       }
     } catch (e) {
       console.error("Token refresh failed:", e);
+      localStorage.removeItem("access_token");
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
     }
   }
 

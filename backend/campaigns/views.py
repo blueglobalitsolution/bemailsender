@@ -1015,3 +1015,25 @@ def get_analytics(request):
         "top_templates": top_templates[:5],
         "identities": identities_stat,
     })
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def ai_generate_email(request):
+    """
+    Generate cold/marketing email subject & body from reference using Laya + Llama
+    """
+    reference = request.data.get("reference", "").strip()
+    if not reference:
+        return Response({"error": "Reference text or rough notes are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    tone = request.data.get("tone", "auto")
+    instruction = request.data.get("instruction", "").strip()
+
+    from .services.laya_service import LayaAIService
+    result = LayaAIService.generate_email_from_reference(
+        reference=reference,
+        requested_tone=tone,
+        custom_instruction=instruction
+    )
+    return Response(result, status=status.HTTP_200_OK)

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, Menu, X, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, Menu, X, BarChart3, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "../lib/utils";
 import Beams from "./Beams";
 
@@ -8,6 +8,18 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    return localStorage.getItem("sidebar_collapsed") === "true";
+  });
+
+  // Persist collapsed state
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("sidebar_collapsed", String(next));
+      return next;
+    });
+  };
 
   // Close mobile drawer when route changes
   useEffect(() => {
@@ -39,14 +51,34 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
         />
       )}
 
-      {/* Sidebar (Desktop fixed, Mobile sliding drawer) */}
+      {/* Sidebar (Desktop fixed/collapsible, Mobile sliding drawer) */}
       <aside className={cn(
-        "w-64 bg-[#000000] border-r border-[#161616] text-[#ededed] flex flex-col z-50 transition-transform duration-300 ease-in-out",
+        "bg-[#000000] border-r border-[#161616] text-[#ededed] flex flex-col z-50 transition-all duration-300 ease-in-out shrink-0",
         "fixed md:static inset-y-0 left-0",
-        mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        collapsed ? "md:w-20" : "md:w-64",
+        mobileOpen ? "w-64 translate-x-0" : "-translate-x-full md:translate-x-0"
       )}>
-        <div className="h-16 border-b border-[#161616] flex items-center justify-between px-6">
-          <h1 className="text-2xl font-serif text-white tracking-tight">BEmailSender</h1>
+        {/* Brand & Toggle Header */}
+        <div className={cn(
+          "h-16 border-b border-[#161616] flex items-center transition-all duration-300",
+          collapsed ? "justify-center px-2" : "justify-between px-6"
+        )}>
+          {!collapsed ? (
+            <h1 className="text-2xl font-serif text-white tracking-tight truncate">BEmailSender</h1>
+          ) : (
+            <span className="text-xl font-serif text-[#00ffff] font-bold tracking-tighter hidden md:block">B</span>
+          )}
+
+          {/* Desktop Collapse Toggle */}
+          <button
+            onClick={toggleCollapsed}
+            className="hidden md:flex text-[#777777] hover:text-[#00ffff] hover:bg-[#111111] p-1.5 transition-colors cursor-pointer rounded"
+            title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            {collapsed ? <PanelLeftOpen className="w-5 h-5" /> : <PanelLeftClose className="w-5 h-5" />}
+          </button>
+
+          {/* Mobile Close Button */}
           <button 
             onClick={() => setMobileOpen(false)} 
             className="md:hidden text-[#777777] hover:text-white p-1 cursor-pointer"
@@ -55,34 +87,55 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
           </button>
         </div>
         
-        <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
+        {/* Navigation Items */}
+        <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto overflow-x-hidden">
           {navItems.map((item) => {
             const isActive = location.pathname.startsWith(item.path);
             return (
               <Link
                 key={item.path}
                 to={item.path}
+                title={collapsed ? item.name : undefined}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-none text-sm font-medium transition-all",
+                  "flex items-center rounded-none text-sm font-medium transition-all group relative",
+                  collapsed ? "justify-center px-0 py-3" : "gap-3 px-4 py-3",
                   isActive 
                     ? "bg-[#19b3d2] text-black font-semibold" 
                     : "text-[#888888] hover:text-white hover:bg-[#111111]"
                 )}
               >
-                <item.icon className="w-4 h-4" />
-                {item.name}
+                <item.icon className="w-4 h-4 shrink-0" />
+                {!collapsed && <span className="truncate">{item.name}</span>}
+
+                {/* Floating tooltip when collapsed on desktop */}
+                {collapsed && (
+                  <div className="hidden md:group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#161616] border border-[#2a2a2a] text-white text-xs font-medium rounded shadow-xl whitespace-nowrap z-50 pointer-events-none">
+                    {item.name}
+                  </div>
+                )}
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 border-t border-[#141414]">
+        {/* Footer / Sign Out */}
+        <div className="p-3 border-t border-[#141414]">
           <button 
             onClick={handleLogout}
-            className="flex items-center gap-3 px-4 py-3 w-full rounded-none text-sm font-medium text-[#777777] hover:text-[#f87171] hover:bg-[#1a0f0f] transition-all cursor-pointer"
+            title={collapsed ? "Sign Out" : undefined}
+            className={cn(
+              "flex items-center w-full rounded-none text-sm font-medium text-[#777777] hover:text-[#f87171] hover:bg-[#1a0f0f] transition-all cursor-pointer group relative",
+              collapsed ? "justify-center px-0 py-3" : "gap-3 px-4 py-3"
+            )}
           >
-            <LogOut className="w-4 h-4" />
-            Sign Out
+            <LogOut className="w-4 h-4 shrink-0" />
+            {!collapsed && <span className="truncate">Sign Out</span>}
+
+            {collapsed && (
+              <div className="hidden md:group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#1a0f0f] border border-[#3a1a1a] text-[#f87171] text-xs font-medium rounded shadow-xl whitespace-nowrap z-50 pointer-events-none">
+                Sign Out
+              </div>
+            )}
           </button>
         </div>
       </aside>

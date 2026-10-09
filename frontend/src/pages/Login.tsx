@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Mail, Lock, ArrowRight } from "lucide-react";
+import { Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { getApiUrl } from "../lib/api";
 import Beams from "../components/Beams";
 
 export default function Login({ setAuth }: { setAuth: (auth: boolean) => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -103,13 +104,21 @@ export default function Login({ setAuth }: { setAuth: (auth: boolean) => void })
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#555555] pointer-events-none" />
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-[#0a0a0a] border border-[#1e1e1e] rounded-none py-3.5 !pl-12 pr-4 text-white placeholder-[#555555] focus:outline-none focus:border-[#00ffff] transition-all text-sm"
+                className="w-full bg-[#0a0a0a] border border-[#1e1e1e] rounded-none py-3.5 !pl-12 !pr-12 text-white placeholder-[#555555] focus:outline-none focus:border-[#00ffff] transition-all text-sm"
                 placeholder="••••••••"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#666666] hover:text-[#00ffff] p-1 transition-colors cursor-pointer"
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
