@@ -229,14 +229,31 @@ export default function Identities() {
 
   return (
     <div className="space-y-8">
+      {/* Top action bar: Tab toggle on left, Action button on right */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2 skeuo-text">
-          {activeTab === 'identities' ? (
-            <><UserCircle className="w-6 h-6 text-[#00ffff]" /> Sender Identities</>
-          ) : (
-            <><Users className="w-6 h-6 text-[#00ffff]" /> Identity Groups</>
-          )}
-        </h2>
+        <div className="flex gap-2 bg-[#000000] border border-[#1a1a1a] rounded-none p-1.5 w-fit">
+          <button
+            onClick={() => setActiveTab('identities')}
+            className={`px-5 py-2 text-xs font-semibold rounded-none transition-all cursor-pointer ${
+              activeTab === 'identities' 
+                ? 'bg-[#00ffff] text-black shadow-[0_0_16px_rgba(0,255,255,0.35)]' 
+                : 'text-[#777777] hover:text-white'
+            }`}
+          >
+            Sender Identities ({identities.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('groups')}
+            className={`px-5 py-2 text-xs font-semibold rounded-none transition-all cursor-pointer ${
+              activeTab === 'groups' 
+                ? 'bg-[#00ffff] text-black shadow-[0_0_16px_rgba(0,255,255,0.35)]' 
+                : 'text-[#777777] hover:text-white'
+            }`}
+          >
+            Identity Groups ({groups.length})
+          </button>
+        </div>
+
         <button
           onClick={() => {
             if (activeTab === 'identities') {
@@ -247,33 +264,9 @@ export default function Identities() {
               setIsCreatingGroup(true);
             }
           }}
-          className="bg-[#00ffff] hover:bg-[#33ffff] text-black font-semibold rounded-full px-5 py-2.5 text-xs flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(0,255,255,0.25)] hover:shadow-[0_0_28px_rgba(0,255,255,0.4)] cursor-pointer"
+          className="bg-[#00ffff] hover:bg-[#33ffff] text-black font-semibold rounded-none px-5 py-2.5 text-xs flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(0,255,255,0.25)] hover:shadow-[0_0_28px_rgba(0,255,255,0.4)] cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5" /> {activeTab === 'identities' ? 'Add Identity' : 'Create Group'}
-        </button>
-      </div>
-
-      {/* Tab toggle */}
-      <div className="flex gap-2 bg-[#000000] border border-[#1a1a1a] rounded-none p-1.5 w-fit">
-        <button
-          onClick={() => setActiveTab('identities')}
-          className={`px-5 py-2 text-xs font-semibold rounded-none transition-all cursor-pointer ${
-            activeTab === 'identities' 
-              ? 'bg-[#00ffff] text-black shadow-[0_0_16px_rgba(0,255,255,0.35)]' 
-              : 'text-[#777777] hover:text-white'
-          }`}
-        >
-          <UserCircle className="w-3.5 h-3.5 inline mr-1.5" /> Identities
-        </button>
-        <button
-          onClick={() => setActiveTab('groups')}
-          className={`px-5 py-2 text-xs font-semibold rounded-none transition-all cursor-pointer ${
-            activeTab === 'groups' 
-              ? 'bg-[#00ffff] text-black shadow-[0_0_16px_rgba(0,255,255,0.35)]' 
-              : 'text-[#777777] hover:text-white'
-          }`}
-        >
-          <Users className="w-3.5 h-3.5 inline mr-1.5" /> Groups
         </button>
       </div>
 

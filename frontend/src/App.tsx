@@ -34,9 +34,9 @@ export default function App() {
 
         {isAuthenticated ? (
           <Route path="/" element={<DashboardLayout setAuth={setIsAuthenticated} />}>
-            <Route index element={<Navigate to="/campaigns" replace />} />
+            <Route index element={<Navigate to="/analytics" replace />} />
             <Route path="analytics" element={<Analytics />} />
-            <Route path="campaigns" element={<Campaigns />} />
+            <Route path="campaigns" element={<Analytics />} />
             <Route path="campaigns/:id/logs" element={<CampaignLogs />} />
             <Route path="wizard" element={<Wizard />} />
             <Route path="templates" element={<Templates />} />

@@ -278,11 +278,6 @@ export default function Wizard() {
 
   return (
     <div className="w-full space-y-8">
-      <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-serif text-white tracking-tight flex items-center gap-3">
-          <Wand2 className="w-6 h-6 text-[#00ffff]" /> Automation Wizard
-        </h2>
-      </div>
 
       {/* Progress Bar */}
       <div className="bg-[#000000] border border-[#1a1a1a] rounded-none p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">

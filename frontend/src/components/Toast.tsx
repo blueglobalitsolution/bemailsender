@@ -103,7 +103,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                       if (toast.onConfirm) toast.onConfirm();
                       removeToast(toast.id);
                     }}
-                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold border border-rose-400 text-[11px] transition-all shadow-[0_0_12px_rgba(225,29,72,0.4)] cursor-pointer"
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold border border-rose-500 text-[11px] rounded transition-all cursor-pointer"
                   >
                     {toast.confirmLabel || "Delete"}
                   </button>

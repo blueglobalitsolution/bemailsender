@@ -110,9 +110,9 @@ class ForgotPasswordView(generics.GenericAPIView):
             # Send real email using configured backend (console for now)
             reset_url = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}/"
             send_mail(
-                "Password Reset for BEmailSender",
+                "Password Reset for ReachEngine",
                 f"Use this link to reset your password: {reset_url}",
-                "noreply@bemailsender.com",
+                "noreply@reachengine.com",
                 [email],
                 fail_silently=False,
             )

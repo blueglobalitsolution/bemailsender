@@ -217,33 +217,34 @@ export default function CampaignLogs() {
         </div>
       </div>
 
-      <div className="skeuo-panel rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-gray-900 bg-gradient-to-b from-gray-800 to-gray-900 flex items-center gap-2 shadow-[0_1px_0_rgba(255,255,255,0.1)]">
-          <div className="w-3 h-3 rounded-full bg-red-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_1px_2px_rgba(0,0,0,0.5)] border border-red-700" />
-          <div className="w-3 h-3 rounded-full bg-yellow-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_1px_2px_rgba(0,0,0,0.5)] border border-yellow-700" />
-          <div className="w-3 h-3 rounded-full bg-green-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_1px_2px_rgba(0,0,0,0.5)] border border-green-700" />
-          <span className="ml-4 font-mono text-xs text-gray-400 font-bold text-shadow-[0_-1px_0_rgba(0,0,0,0.5)]">Live Stream</span>
+      <div className="bg-[#222930] border border-[#2C353D] rounded-lg overflow-hidden">
+        <div className="p-4 border-b border-[#2C353D] bg-[#1C2227] flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-red-500/80" />
+          <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+          <div className="w-3 h-3 rounded-full bg-green-500/80" />
+          <span className="ml-4 font-mono text-xs text-[#CBD5E1] font-semibold">Live Stream</span>
         </div>
 
-        <div className="p-6 h-[500px] overflow-y-auto font-mono text-sm space-y-2 bg-gray-900 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
+        <div className="p-6 h-[500px] overflow-y-auto font-mono text-sm space-y-2 bg-[#161B1F]">
           {logs.length === 0 ? (
-            <div className="text-center text-gray-500 py-12 font-bold">No logs yet...</div>
+            <div className="text-center text-[#8E9BA8] py-12 font-medium">No logs yet...</div>
           ) : (
             logs.map((log) => (
-              <div key={log.id} className={`flex items-start gap-4 p-3 rounded-lg border shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] ${log.status === 'success' ? 'bg-gradient-to-b from-green-900/40 to-green-900/20 border-green-800 text-green-400' : 'bg-gradient-to-b from-red-900/40 to-red-900/20 border-red-800 text-red-400'
+              <div key={log.id} className={`flex items-start gap-4 p-3 rounded border ${
+                log.status === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
                 }`}>
-                <span className="text-gray-500 whitespace-nowrap font-bold">
+                <span className="text-[#8E9BA8] whitespace-nowrap">
                   [{new Date(log.created_at).toLocaleTimeString()}]
                 </span>
                 {log.status === 'success' ? (
-                  <CheckCircle className="w-4 h-4 mt-0.5 shrink-0 drop-shadow-[0_0_2px_rgba(74,222,128,0.5)]" />
+                  <CheckCircle className="w-4 h-4 mt-0.5 shrink-0 text-emerald-400" />
                 ) : (
-                  <XCircle className="w-4 h-4 mt-0.5 shrink-0 drop-shadow-[0_0_2px_rgba(248,113,113,0.5)]" />
+                  <XCircle className="w-4 h-4 mt-0.5 shrink-0 text-rose-400" />
                 )}
                 <div className="flex-1">
-                  <span className="font-bold text-gray-300">{log.recipient}</span>
-                  <span className="mx-2 text-gray-600">-</span>
-                  <span className="text-shadow-[0_1px_0_rgba(0,0,0,0.5)]">{log.message}</span>
+                  <span className="font-semibold text-white">{log.recipient}</span>
+                  <span className="mx-2 text-[#8E9BA8]">-</span>
+                  <span className="text-[#CBD5E1]">{log.message}</span>
                 </div>
               </div>
             ))
@@ -253,16 +254,16 @@ export default function CampaignLogs() {
 
       {/* Edit CSV Modal */}
       {showEditor && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="skeuo-card p-6 w-full max-w-5xl max-h-[90vh] flex flex-col border border-[#00ffff]/40 shadow-[0_0_40px_rgba(0,255,255,0.15)] bg-[#09090b]">
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#1f1f23]">
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-[#222930] border border-[#2C353D] rounded-lg p-6 w-full max-w-5xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#2C353D]">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-[#00ffff]/10 border border-[#00ffff]/30">
-                  <Edit3 className="w-5 h-5 text-[#00ffff]" />
+                <div className="p-2 bg-[#161B1F] border border-[#2C353D] rounded">
+                  <Edit3 className="w-5 h-5 text-[#CBD5E1]" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white tracking-wide font-mono">Edit Campaign Contacts</h3>
-                  <p className="text-[11px] text-[#777777] font-mono mt-0.5">{contacts.length} recipients scheduled for this campaign</p>
+                  <h3 className="text-base font-bold text-white tracking-wide font-sans">Edit Campaign Contacts</h3>
+                  <p className="text-[11px] text-[#8E9BA8] mt-0.5">{contacts.length} recipients scheduled for this campaign</p>
                 </div>
               </div>
               <button 
@@ -341,7 +342,7 @@ export default function CampaignLogs() {
                 <button
                   onClick={saveContacts}
                   disabled={savingContacts}
-                  className="bg-[#00ffff] hover:bg-[#33ffff] text-black font-bold px-7 py-2 text-xs flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(0,255,255,0.25)] disabled:opacity-50 cursor-pointer"
+                  className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold px-7 py-2 text-xs flex items-center gap-2 transition-all rounded disabled:opacity-50 cursor-pointer"
                 >
                   {savingContacts ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                   {savingContacts ? "Saving..." : "Save Contacts"}

@@ -211,10 +211,7 @@ export default function Templates() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-serif text-white flex items-center gap-3">
-          <FileText className="w-6 h-6 text-[#00ffff]" /> Script Architect
-        </h2>
+      <div className="flex items-center justify-end">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsAIModalOpen(true)}

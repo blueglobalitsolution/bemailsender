@@ -416,15 +416,7 @@ export default function SavedCSVs() {
 
   return (
     <div className="space-y-8 pb-16">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight text-white flex items-center gap-3">
-            <Database className="w-6 h-6 text-[#00ffff]" /> Saved CSVs & Contact Editor
-          </h2>
-          <p className="text-xs text-[#888888] mt-1 font-mono">
-            Manage, edit, validate, and clean your contact database directly.
-          </p>
-        </div>
+      <div className="flex items-center justify-end">
         <div className="flex items-center gap-3">
           <button
             onClick={() => {
