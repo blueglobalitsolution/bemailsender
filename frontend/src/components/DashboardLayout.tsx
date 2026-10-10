@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, Menu, X, BarChart3, PanelLeftClose, PanelLeftOpen, Plus } from "lucide-react";
+import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, Menu, X, BarChart3, PanelLeftClose, PanelLeftOpen, Plus, Inbox as InboxIcon, Sparkles, UserPlus, Upload } from "lucide-react";
 import { cn } from "../lib/utils";
 import Beams from "./Beams";
 
@@ -36,6 +36,7 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
 
   const navItems = [
     { name: "Analytics", path: "/analytics", icon: BarChart3 },
+    { name: "Inbound & Replies", path: "/inbox", icon: InboxIcon },
     { name: "Automation Wizard", path: "/wizard", icon: Wand2 },
     { name: "Script Architect", path: "/templates", icon: FileText },
     { name: "Sender Identities", path: "/identities", icon: UserCircle },
@@ -169,6 +170,8 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
                     return "Sender Identities";
                   case "saved-csvs":
                     return "Saved CSVs";
+                  case "inbox":
+                    return "Inbound Mail & Reply Center";
                   default:
                     return path ? path.replace("-", " ") : "Dashboard";
                 }
@@ -177,12 +180,80 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
           </div>
 
           <div className="flex items-center gap-3">
-            <Link 
-              to="/wizard" 
-              className="bg-[#FFFFFF] hover:bg-[#CBD5E1] text-[#161B1F] font-bold rounded-md px-4 sm:px-5 py-2 text-xs flex items-center gap-1.5 transition-all shadow-[0_2px_12px_rgba(255,255,255,0.15)] hover:shadow-[0_4px_18px_rgba(255,255,255,0.25)] cursor-pointer shrink-0"
-            >
-              <Plus className="w-3.5 h-3.5" /> Launch Campaign
-            </Link>
+            {location.pathname === "/templates" && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent("open-form-builder-modal"))}
+                  className="bg-[#222930] hover:bg-[#29323A] border border-[#2C353D] text-[#CBD5E1] hover:text-white font-medium text-xs px-3 py-2 rounded-md flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="Drag & Drop Form Builder"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Form Builder
+                </button>
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent("open-create-landing-modal"))}
+                  className="bg-[#222930] hover:bg-[#29323A] border border-[#2C353D] text-[#CBD5E1] hover:text-white font-medium text-xs px-3 py-2 rounded-md flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="Create Landing Page with HTML"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Landing Page
+                </button>
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent("open-ai-modal"))}
+                  className="bg-[#222930] hover:bg-[#29323A] border border-[#2C353D] text-[#CBD5E1] hover:text-white font-medium text-xs px-3 py-2 rounded-md flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" /> AI Writer
+                </button>
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent("open-create-template-modal"))}
+                  className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold text-xs px-3.5 py-2 rounded-md flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" /> New Template
+                </button>
+              </div>
+            )}
+
+            {location.pathname === "/identities" && (
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent("open-create-identity-modal"))}
+                className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold text-xs px-4 py-2 rounded-md flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Identity
+              </button>
+            )}
+
+            {location.pathname === "/saved-csvs" && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent("open-add-contact-modal"))}
+                  className="bg-[#222930] hover:bg-[#29323A] border border-[#2C353D] text-[#CBD5E1] hover:text-white font-medium text-xs px-3.5 py-2 rounded-md flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <UserPlus className="w-3.5 h-3.5" /> Add Contact
+                </button>
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent("open-upload-csv-modal"))}
+                  className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold text-xs px-4 py-2 rounded-md flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Upload className="w-3.5 h-3.5" /> Upload CSV
+                </button>
+              </div>
+            )}
+
+            {location.pathname === "/inbox" && (
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent("open-inbound-config-modal"))}
+                className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold text-xs px-4 py-2 rounded-md flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Webhook Settings
+              </button>
+            )}
+
+            {(location.pathname === "/analytics" || location.pathname === "/campaigns" || location.pathname === "/") && (
+              <Link 
+                to="/wizard" 
+                className="bg-[#FFFFFF] hover:bg-[#CBD5E1] text-[#161B1F] font-bold rounded-md px-4 sm:px-5 py-2 text-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" /> Launch Campaign
+              </Link>
+            )}
           </div>
         </header>
         <div className="flex-1 overflow-auto p-4 sm:p-6 md:p-8 relative z-10">

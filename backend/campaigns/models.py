@@ -203,3 +203,119 @@ class Log(models.Model):
         indexes = [
             models.Index(fields=["-created_at"]),
         ]
+
+
+class InboundConfiguration(models.Model):
+    PROVIDER_CHOICES = [
+        ("sendgrid", "SendGrid Inbound Parse"),
+        ("mailgun", "Mailgun Inbound Routing"),
+        ("ses", "Amazon SES Inbound"),
+        ("postmark", "Postmark Inbound"),
+        ("generic", "Generic Webhook (Custom JSON/Form)"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="inbound_configs"
+    )
+    name = models.CharField(max_length=255)
+    provider = models.CharField(max_length=30, choices=PROVIDER_CHOICES, default="generic")
+    domain = models.CharField(max_length=255, blank=True, null=True)
+    webhook_token = models.CharField(max_length=64, unique=True, db_index=True)
+    secret_key = models.CharField(max_length=255, blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "inbound_configurations"
+        ordering = ["-created_at"]
+
+
+class ReceivedEmail(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="received_emails"
+    )
+    config = models.ForeignKey(
+        InboundConfiguration, on_delete=models.SET_NULL, null=True, blank=True, related_name="emails"
+    )
+    campaign = models.ForeignKey(
+        Campaign, on_delete=models.SET_NULL, null=True, blank=True, related_name="received_replies"
+    )
+    sender = models.CharField(max_length=255)
+    recipient = models.CharField(max_length=255)
+    subject = models.CharField(max_length=500, blank=True, null=True)
+    body_text = models.TextField(blank=True, null=True)
+    body_html = models.TextField(blank=True, null=True)
+    headers = models.JSONField(blank=True, null=True)
+    raw_payload = models.JSONField(blank=True, null=True)
+    is_read = models.BooleanField(default=False)
+    is_starred = models.BooleanField(default=False)
+    is_reply = models.BooleanField(default=False)
+    received_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "received_emails"
+        ordering = ["-received_at"]
+        indexes = [
+            models.Index(fields=["user", "-received_at"]),
+            models.Index(fields=["sender"]),
+            models.Index(fields=["recipient"]),
+        ]
+
+
+class CustomForm(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="custom_forms")
+    name = models.CharField(max_length=255)
+    shortcode = models.CharField(max_length=100, unique=True)
+    # schema defines form fields e.g.: [{"id": "name", "label": "Full Name", "type": "text", "required": True}, ...]
+    fields_schema = models.JSONField(default=list)
+    button_text = models.CharField(max_length=100, default="Submit")
+    success_message = models.CharField(max_length=255, default="Thank you! Your submission has been received.")
+    redirect_url = models.URLField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "custom_forms"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.name} ({self.shortcode})"
+
+
+class LandingPage(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="landing_pages")
+    title = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=150, unique=True)
+    html_content = models.TextField(help_text="Custom HTML containing form shortcode like {{form_xxx}}")
+    views_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "landing_pages"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title
+
+
+class FormSubmission(models.Model):
+    landing_page = models.ForeignKey(
+        LandingPage, on_delete=models.CASCADE, null=True, blank=True, related_name="submissions"
+    )
+    form = models.ForeignKey(
+        CustomForm, on_delete=models.CASCADE, related_name="submissions"
+    )
+    data = models.JSONField(help_text="Key-value pairs of submitted field values")
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    user_agent = models.TextField(blank=True, null=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "form_submissions"
+        ordering = ["-submitted_at"]
+
+    def __str__(self):
+        return f"Submission for {self.form.name} at {self.submitted_at}"
+

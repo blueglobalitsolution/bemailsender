@@ -77,7 +77,23 @@ export default function Identities() {
   useEffect(() => {
     fetchIdentities();
     fetchGroups();
-  }, []);
+
+    const handleOpenCreateIdentity = () => {
+      if (activeTab === 'identities') {
+        setIsCreating(true);
+        handleProviderChange("gmail");
+      } else {
+        resetGroupForm();
+        setIsCreatingGroup(true);
+      }
+    };
+
+    window.addEventListener("open-create-identity-modal", handleOpenCreateIdentity);
+
+    return () => {
+      window.removeEventListener("open-create-identity-modal", handleOpenCreateIdentity);
+    };
+  }, [activeTab]);
 
   // Identity handlers
   const handleProviderChange = (type: "gmail" | "custom") => {
@@ -229,45 +245,30 @@ export default function Identities() {
 
   return (
     <div className="space-y-8">
-      {/* Top action bar: Tab toggle on left, Action button on right */}
+      {/* Top tab switcher */}
       <div className="flex items-center justify-between">
-        <div className="flex gap-2 bg-[#000000] border border-[#1a1a1a] rounded-none p-1.5 w-fit">
+        <div className="flex gap-1.5 bg-[#222930] border border-[#2C353D] rounded-lg p-1 w-fit">
           <button
             onClick={() => setActiveTab('identities')}
-            className={`px-5 py-2 text-xs font-semibold rounded-none transition-all cursor-pointer ${
+            className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
               activeTab === 'identities' 
-                ? 'bg-[#00ffff] text-black shadow-[0_0_16px_rgba(0,255,255,0.35)]' 
-                : 'text-[#777777] hover:text-white'
+                ? 'bg-white text-[#161B1F] shadow-sm' 
+                : 'text-[#8E9BA8] hover:text-white'
             }`}
           >
             Sender Identities ({identities.length})
           </button>
           <button
             onClick={() => setActiveTab('groups')}
-            className={`px-5 py-2 text-xs font-semibold rounded-none transition-all cursor-pointer ${
+            className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
               activeTab === 'groups' 
-                ? 'bg-[#00ffff] text-black shadow-[0_0_16px_rgba(0,255,255,0.35)]' 
-                : 'text-[#777777] hover:text-white'
+                ? 'bg-white text-[#161B1F] shadow-sm' 
+                : 'text-[#8E9BA8] hover:text-white'
             }`}
           >
             Identity Groups ({groups.length})
           </button>
         </div>
-
-        <button
-          onClick={() => {
-            if (activeTab === 'identities') {
-              setIsCreating(true);
-              handleProviderChange("gmail");
-            } else {
-              resetGroupForm();
-              setIsCreatingGroup(true);
-            }
-          }}
-          className="bg-[#00ffff] hover:bg-[#33ffff] text-black font-semibold rounded-none px-5 py-2.5 text-xs flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(0,255,255,0.25)] hover:shadow-[0_0_28px_rgba(0,255,255,0.4)] cursor-pointer"
-        >
-          <Plus className="w-3.5 h-3.5" /> {activeTab === 'identities' ? 'Add Identity' : 'Create Group'}
-        </button>
       </div>
 
       {/* Identities Tab */}

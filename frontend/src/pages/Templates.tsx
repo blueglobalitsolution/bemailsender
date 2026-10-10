@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import { FileText, Plus, Save, Trash2, Edit3, Mail, Shield, ShieldCheck, ShieldAlert, Loader2, AlertTriangle, CheckCircle, Info, Eye, X, Sparkles } from "lucide-react";
+import { FileText, Plus, Save, Trash2, Edit3, Mail, Shield, ShieldCheck, ShieldAlert, Loader2, AlertTriangle, CheckCircle, Info, Eye, X, Sparkles, Globe, FormInput, Copy, ExternalLink, Download, Layers } from "lucide-react";
 import EmailEditor, { EditorRef } from "react-email-editor";
 import { apiFetch, getApiUrl } from "../lib/api";
 import { useToast } from "../components/Toast";
 import AIEmailWriterModal from "../components/AIEmailWriterModal";
+import FormBuilderModal, { CustomForm } from "../components/FormBuilderModal";
+import SubmissionsViewerModal from "../components/SubmissionsViewerModal";
 
 interface Template {
   id: number;
@@ -21,11 +23,27 @@ interface Identity {
   host: string;
 }
 
+interface LandingPageItem {
+  id: number;
+  title: string;
+  slug: string;
+  html_content: string;
+  views_count: number;
+  public_url: string;
+  submissions_count: number;
+  created_at: string;
+}
+
 export default function Templates() {
   const toast = useToast();
+  const [activeTab, setActiveTab] = useState<"templates" | "landing-pages" | "forms">("templates");
   const [templates, setTemplates] = useState<Template[]>([]);
   const [identities, setIdentities] = useState<Identity[]>([]);
+  const [landingPages, setLandingPages] = useState<LandingPageItem[]>([]);
+  const [customForms, setCustomForms] = useState<CustomForm[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Template states
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
@@ -36,6 +54,20 @@ export default function Templates() {
   const [spamScore, setSpamScore] = useState<{ score: number; report: string } | null>(null);
   const [spamChecking, setSpamChecking] = useState(false);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+
+  // Landing Page creation/edit states
+  const [isCreatingLanding, setIsCreatingLanding] = useState(false);
+  const [editingLandingId, setEditingLandingId] = useState<number | null>(null);
+  const [landingTitle, setLandingTitle] = useState("");
+  const [landingHtml, setLandingHtml] = useState("");
+  const [savingLanding, setSavingLanding] = useState(false);
+
+  // Form builder modal state
+  const [isFormBuilderOpen, setIsFormBuilderOpen] = useState(false);
+  const [editingFormItem, setEditingFormItem] = useState<CustomForm | null>(null);
+
+  // Submissions viewer modal state
+  const [viewingSubmissionsPage, setViewingSubmissionsPage] = useState<{ id: number; title: string; slug: string } | null>(null);
 
   const stripHtml = (html: string) => {
     if (!html) return "";
@@ -79,10 +111,167 @@ export default function Templates() {
     }
   };
 
+  const fetchLandingPages = async () => {
+    try {
+      const res = await apiFetch("/api/landing-pages/");
+      if (res.ok) {
+        setLandingPages(await res.json());
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchCustomForms = async () => {
+    try {
+      const res = await apiFetch("/api/forms/");
+      if (res.ok) {
+        setCustomForms(await res.json());
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchTemplates();
     fetchIdentities();
+    fetchLandingPages();
+    fetchCustomForms();
+
+    const handleOpenAI = () => setIsAIModalOpen(true);
+    const handleOpenCreate = () => {
+      setActiveTab("templates");
+      setNewTemplate({ name: "", subject: "", body: "", type: 'email', design: undefined });
+      setEditingId(null);
+      setIsCreating(true);
+    };
+
+    const handleOpenFormBuilder = () => {
+      setActiveTab("forms");
+      setEditingFormItem(null);
+      setIsFormBuilderOpen(true);
+    };
+
+    const handleOpenCreateLanding = () => {
+      setActiveTab("landing-pages");
+      setEditingLandingId(null);
+      setLandingTitle("");
+      setLandingHtml(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Special Offer</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 40px 20px; text-align: center; }
+    .container { max-width: 600px; margin: 0 auto; background: #1e293b; padding: 40px; border-radius: 16px; border: 1px solid #334155; }
+    h1 { font-size: 28px; margin-bottom: 12px; color: #ffffff; }
+    p { font-size: 15px; color: #94a3b8; line-height: 1.6; margin-bottom: 30px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Exclusive Access & Free Consultation</h1>
+    <p>Fill out the form below to receive your custom strategy guide directly to your inbox.</p>
+    
+    <!-- Paste your form shortcode below, e.g. {{form_xxx}} -->
+    
+  </div>
+</body>
+</html>`);
+      setIsCreatingLanding(true);
+    };
+
+    window.addEventListener("open-ai-modal", handleOpenAI);
+    window.addEventListener("open-create-template-modal", handleOpenCreate);
+    window.addEventListener("open-form-builder-modal", handleOpenFormBuilder);
+    window.addEventListener("open-create-landing-modal", handleOpenCreateLanding);
+
+    return () => {
+      window.removeEventListener("open-ai-modal", handleOpenAI);
+      window.removeEventListener("open-create-template-modal", handleOpenCreate);
+      window.removeEventListener("open-form-builder-modal", handleOpenFormBuilder);
+      window.removeEventListener("open-create-landing-modal", handleOpenCreateLanding);
+    };
   }, []);
+
+  const handleSaveLanding = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!landingTitle.trim() || !landingHtml.trim()) {
+      toast.error("Please provide Title and HTML content");
+      return;
+    }
+
+    try {
+      setSavingLanding(true);
+      const url = editingLandingId ? `/api/landing-pages/${editingLandingId}/` : "/api/landing-pages/";
+      const method = editingLandingId ? "PUT" : "POST";
+
+      const res = await apiFetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: landingTitle.trim(),
+          html_content: landingHtml,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success(editingLandingId ? "Landing page updated!" : "Landing page published successfully!");
+        setIsCreatingLanding(false);
+        setEditingLandingId(null);
+        fetchLandingPages();
+      } else {
+        const err = await res.json();
+        toast.error(Object.values(err).flat().join(" ") || "Failed to save landing page");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Network error saving landing page");
+    } finally {
+      setSavingLanding(false);
+    }
+  };
+
+  const handleDeleteLanding = (id: number) => {
+    toast.confirm("Are you sure you want to delete this landing page?", async () => {
+      try {
+        const res = await apiFetch(`/api/landing-pages/${id}/`, { method: "DELETE" });
+        if (res.ok) {
+          toast.success("Landing page deleted");
+          fetchLandingPages();
+        } else {
+          toast.error("Failed to delete landing page");
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error("Network error deleting landing page");
+      }
+    });
+  };
+
+  const handleDeleteForm = (id: number) => {
+    toast.confirm("Are you sure you want to delete this form?", async () => {
+      try {
+        const res = await apiFetch(`/api/forms/${id}/`, { method: "DELETE" });
+        if (res.ok) {
+          toast.success("Form deleted");
+          fetchCustomForms();
+        } else {
+          toast.error("Failed to delete form");
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error("Network error deleting form");
+      }
+    });
+  };
+
+  const copyToClipboard = (text: string, msg: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(msg);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -211,28 +400,46 @@ export default function Templates() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-end">
-        <div className="flex items-center gap-3">
+      {/* Tab Switcher */}
+      <div className="flex items-center justify-between border-b border-[#2C353D] pb-4">
+        <div className="flex gap-1.5 bg-[#222930] border border-[#2C353D] rounded-lg p-1 w-fit">
           <button
-            onClick={() => setIsAIModalOpen(true)}
-            className="bg-[#111111] hover:bg-[#1a1a1a] text-[#00ffff] font-semibold rounded-none px-4 py-2.5 text-xs flex items-center gap-2 transition-all cursor-pointer border border-[#00ffff]/40 hover:border-[#00ffff] shadow-[0_0_15px_rgba(0,255,255,0.15)]"
+            onClick={() => setActiveTab("templates")}
+            className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === "templates"
+                ? "bg-white text-[#161B1F] shadow-sm font-bold"
+                : "text-[#8E9BA8] hover:text-white"
+            }`}
           >
-            <Sparkles className="w-3.5 h-3.5" /> AI Email Writer
+            <Mail className="w-3.5 h-3.5" /> Email Templates ({templates.length})
           </button>
           <button
-            onClick={() => {
-              setNewTemplate({ name: "", subject: "", body: "", type: 'email', design: undefined });
-              setEditingId(null);
-              setIsCreating(true);
-            }}
-            className="bg-[#19b3d2] hover:bg-[#20c4e6] text-black font-semibold rounded-none px-5 py-2.5 text-xs flex items-center gap-2 transition-all cursor-pointer border border-[#1499b4]"
+            onClick={() => setActiveTab("landing-pages")}
+            className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === "landing-pages"
+                ? "bg-white text-[#161B1F] shadow-sm font-bold"
+                : "text-[#8E9BA8] hover:text-white"
+            }`}
           >
-            <Plus className="w-3.5 h-3.5" /> New Template
+            <Globe className="w-3.5 h-3.5" /> Landing Pages ({landingPages.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("forms")}
+            className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === "forms"
+                ? "bg-white text-[#161B1F] shadow-sm font-bold"
+                : "text-[#8E9BA8] hover:text-white"
+            }`}
+          >
+            <FormInput className="w-3.5 h-3.5" /> Lead Forms ({customForms.length})
           </button>
         </div>
       </div>
 
-      {isCreating && (
+      {/* TAB 1: EMAIL TEMPLATES */}
+      {activeTab === "templates" && (
+        <>
+          {isCreating && (
         <div className="skeuo-card p-6">
           <h3 className="text-lg font-bold mb-4 skeuo-text">{editingId ? "Edit Template" : "Create New Template"}</h3>
           <form onSubmit={handleSave} className="space-y-6">
@@ -441,7 +648,410 @@ export default function Templates() {
             No templates found. Create one to get started!
           </div>
         )}
-      </div>
+          </div>
+        </>
+      )}
+
+      {/* TAB 2: CUSTOM LANDING PAGES */}
+      {activeTab === "landing-pages" && (
+        <div className="space-y-6">
+          {isCreatingLanding && (
+            <div className="bg-[#1E252D] border border-[#2C353D] rounded-2xl p-6 shadow-xl">
+              <div className="flex items-center justify-between mb-5 border-b border-[#2C353D] pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
+                    <Globe className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white tracking-tight">
+                      {editingLandingId ? "Edit Custom Landing Page" : "Create New Custom Landing Page"}
+                    </h3>
+                    <p className="text-xs text-[#8E9BA8]">
+                      Paste custom HTML and insert any form shortcode like <code className="text-white bg-[#161B1F] px-1 py-0.5 rounded">{"{{form_xxx}}"}</code>
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsCreatingLanding(false)}
+                  className="text-[#8E9BA8] hover:text-white p-1 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveLanding} className="space-y-5">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1] mb-1.5">
+                    Landing Page Title *
+                  </label>
+                  <input
+                    type="text"
+                    value={landingTitle}
+                    onChange={(e) => setLandingTitle(e.target.value)}
+                    placeholder="e.g. Free Strategy Consultation & Webinar"
+                    className="w-full bg-[#161B1F] border border-[#2C353D] rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-white transition-all"
+                    required
+                  />
+                </div>
+
+                {/* Side-by-Side: Left HTML Editor, Right Live Real-Time Preview */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
+                  {/* Left Column: HTML Code Input */}
+                  <div className="flex flex-col space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1]">
+                        Raw HTML Content (with Shortcodes) *
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="text-[11px] text-[#8E9BA8]">Insert Shortcode:</span>
+                      {customForms.length === 0 ? (
+                        <span className="text-[11px] text-amber-400 font-medium">No forms yet</span>
+                      ) : (
+                        customForms.slice(0, 3).map((f) => (
+                          <button
+                            key={f.id}
+                            type="button"
+                            onClick={() => {
+                              const sc = `{{${f.shortcode}}}`;
+                              setLandingHtml((prev) => prev + `\n${sc}\n`);
+                              toast.info(`Inserted ${sc}`);
+                            }}
+                            className="text-[11px] bg-[#161B1F] hover:bg-[#26303A] border border-[#2C353D] px-2 py-0.5 rounded text-white font-mono cursor-pointer"
+                            title="Click to append to HTML"
+                          >
+                            + {`{{${f.shortcode}}}`}
+                          </button>
+                        ))
+                      )}
+                    </div>
+
+                    <textarea
+                      value={landingHtml}
+                      onChange={(e) => setLandingHtml(e.target.value)}
+                      rows={18}
+                      placeholder="<!DOCTYPE html><html>... paste full HTML here ...</html>"
+                      className="w-full font-mono text-xs bg-[#161B1F] border border-[#2C353D] rounded-xl p-4 text-emerald-300 focus:outline-none focus:border-white transition-all flex-1 min-h-[420px]"
+                      required
+                    />
+                  </div>
+
+                  {/* Right Column: Live Instant Side Preview */}
+                  <div className="flex flex-col space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1] flex items-center gap-2">
+                        <Eye className="w-3.5 h-3.5 text-emerald-400" /> Live Real-Time Preview
+                      </label>
+                      <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        Interactive
+                      </span>
+                    </div>
+
+                    <div className="border border-[#2C353D] rounded-xl overflow-hidden bg-black flex-1 min-h-[420px] shadow-inner relative">
+                      {landingHtml.trim() ? (
+                        <iframe
+                          srcDoc={landingHtml}
+                          title="Live Preview"
+                          className="w-full h-full border-0 block"
+                          style={{ minHeight: "440px", height: "100%", width: "100%" }}
+                          sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-center p-6 text-[#8E9BA8]">
+                          <Eye className="w-8 h-8 mb-2 opacity-40" />
+                          <p className="text-xs">Paste your HTML on the left to see live preview here</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#2C353D]">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreatingLanding(false)}
+                    className="px-4 py-2 text-xs font-semibold text-[#8E9BA8] hover:text-white rounded-lg hover:bg-[#222930] transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingLanding}
+                    className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold px-5 py-2.5 rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md disabled:opacity-50"
+                  >
+                    {savingLanding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                    {editingLandingId ? "Update Landing Page" : "Publish Landing Page"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Landing Pages List */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {landingPages.map((page) => (
+              <div
+                key={page.id}
+                className="bg-[#1E252D] border border-[#2C353D] hover:border-[#3E4A56] rounded-2xl p-5 shadow-lg flex flex-col justify-between transition-all"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center border border-white/20">
+                        <Globe className="w-4 h-4 text-white" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-white text-base line-clamp-1" title={page.title}>
+                          {page.title}
+                        </h4>
+                        <span className="text-[11px] text-[#8E9BA8] font-mono">
+                          /p/{page.slug}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          setEditingLandingId(page.id);
+                          setLandingTitle(page.title);
+                          setLandingHtml(page.html_content);
+                          setIsCreatingLanding(true);
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }}
+                        className="p-1.5 text-[#8E9BA8] hover:text-white hover:bg-[#26303A] rounded-md transition-colors"
+                        title="Edit Page HTML"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteLanding(page.id)}
+                        className="p-1.5 text-[#8E9BA8] hover:text-red-400 hover:bg-[#26303A] rounded-md transition-colors"
+                        title="Delete Landing Page"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Public Link Box */}
+                  <div className="p-2.5 bg-[#161B1F] border border-[#2C353D] rounded-lg mb-4 flex items-center justify-between gap-2">
+                    <div className="truncate text-[11px] text-[#CBD5E1] font-mono select-all">
+                      {window.location.origin}/p/{page.slug}
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          copyToClipboard(`${window.location.origin}/p/${page.slug}`, "Public link copied!")
+                        }
+                        className="p-1 text-[#8E9BA8] hover:text-white hover:bg-[#222930] rounded cursor-pointer"
+                        title="Copy Public Link to share in email"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                      <a
+                        href={`/p/${page.slug}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-1 text-[#8E9BA8] hover:text-white hover:bg-[#222930] rounded cursor-pointer"
+                        title="Open Live Public Page"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Stats Counter: Page Clicks & Form Submissions */}
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    <div className="bg-[#161B1F] border border-[#2C353D] p-3 rounded-xl text-center">
+                      <p className="text-[11px] text-[#8E9BA8] font-semibold uppercase tracking-wider mb-0.5">
+                        Page Views / Clicks
+                      </p>
+                      <p className="text-xl font-bold text-white">{page.views_count}</p>
+                    </div>
+                    <div className="bg-[#161B1F] border border-[#2C353D] p-3 rounded-xl text-center">
+                      <p className="text-[11px] text-[#8E9BA8] font-semibold uppercase tracking-wider mb-0.5">
+                        Leads Captured
+                      </p>
+                      <p className="text-xl font-bold text-emerald-400">{page.submissions_count}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer Action: View & Download Leads */}
+                <div className="pt-3 border-t border-[#2C353D] flex items-center justify-between">
+                  <button
+                    onClick={() =>
+                      setViewingSubmissionsPage({ id: page.id, title: page.title, slug: page.slug })
+                    }
+                    className="w-full bg-[#222930] hover:bg-[#29323A] border border-[#2C353D] text-white font-semibold py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5 text-white" /> View Submissions ({page.submissions_count})
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {landingPages.length === 0 && !isCreatingLanding && (
+              <div className="col-span-full py-16 text-center border border-dashed border-[#2C353D] rounded-2xl bg-[#1E252D]/40">
+                <Globe className="w-10 h-10 text-[#8E9BA8] mx-auto mb-3 opacity-60" />
+                <h4 className="text-base font-bold text-white mb-1">No Custom Landing Pages Yet</h4>
+                <p className="text-xs text-[#8E9BA8] max-w-sm mx-auto mb-4">
+                  Paste your own HTML code, embed dynamic lead capture forms via shortcodes, and track clicks and submissions live.
+                </p>
+                <button
+                  onClick={() => {
+                    setEditingLandingId(null);
+                    setLandingTitle("");
+                    setLandingHtml(`<!DOCTYPE html>
+<html>
+<head>
+  <style>body { font-family: sans-serif; background: #0f172a; color: white; padding: 40px; text-align: center; }</style>
+</head>
+<body>
+  <h1>Welcome to our Offer</h1>
+  <p>Fill out the form below:</p>
+  {{form_xxx}}
+</body>
+</html>`);
+                    setIsCreatingLanding(true);
+                  }}
+                  className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold px-4 py-2 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Create First Landing Page
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: LEAD FORMS / FORM BUILDER */}
+      {activeTab === "forms" && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between p-4 bg-[#1E252D] border border-[#2C353D] rounded-2xl">
+            <div>
+              <h4 className="text-sm font-bold text-white">Drag & Drop Form Builder Library</h4>
+              <p className="text-xs text-[#8E9BA8]">
+                Create customizable lead forms and copy their shortcodes to paste inside any Landing Page HTML.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setEditingFormItem(null);
+                setIsFormBuilderOpen(true);
+              }}
+              className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" /> New Lead Form
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {customForms.map((form) => (
+              <div
+                key={form.id}
+                className="bg-[#1E252D] border border-[#2C353D] hover:border-[#3E4A56] rounded-2xl p-5 shadow-lg flex flex-col justify-between transition-all"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center border border-white/20">
+                        <FormInput className="w-4 h-4 text-white" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-white text-base line-clamp-1">{form.name}</h4>
+                        <span className="text-[11px] text-[#8E9BA8]">
+                          {form.fields_schema?.length || 0} fields configured
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          setEditingFormItem(form);
+                          setIsFormBuilderOpen(true);
+                        }}
+                        className="p-1.5 text-[#8E9BA8] hover:text-white hover:bg-[#26303A] rounded-md transition-colors"
+                        title="Edit Form"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteForm(form.id)}
+                        className="p-1.5 text-[#8E9BA8] hover:text-red-400 hover:bg-[#26303A] rounded-md transition-colors"
+                        title="Delete Form"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Form Shortcode Banner */}
+                  <div className="p-3 bg-[#161B1F] border border-[#2C353D] rounded-xl mb-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#8E9BA8]">
+                        Embed Shortcode
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(`{{${form.shortcode}}}`, "Shortcode copied to clipboard!")}
+                        className="text-[11px] text-white hover:underline flex items-center gap-1 cursor-pointer font-medium"
+                      >
+                        <Copy className="w-3 h-3" /> Copy
+                      </button>
+                    </div>
+                    <code className="text-xs font-mono text-white bg-[#1A2026] px-2 py-1 rounded block border border-[#2C353D]">
+                      {`{{${form.shortcode}}}`}
+                    </code>
+                  </div>
+
+                  {/* Fields list */}
+                  <div className="space-y-1.5 mb-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#8E9BA8]">Fields:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(form.fields_schema || []).map((f) => (
+                        <span
+                          key={f.id}
+                          className="text-[11px] px-2 py-0.5 rounded bg-[#161B1F] border border-[#2C353D] text-[#CBD5E1]"
+                        >
+                          {f.label} {f.required && "*"}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-[#2C353D] flex items-center justify-between text-xs text-[#8E9BA8]">
+                  <span>Total Submissions:</span>
+                  <span className="font-bold text-white">{form.submissions_count || 0}</span>
+                </div>
+              </div>
+            ))}
+
+            {customForms.length === 0 && (
+              <div className="col-span-full py-16 text-center border border-dashed border-[#2C353D] rounded-2xl bg-[#1E252D]/40">
+                <FormInput className="w-10 h-10 text-[#8E9BA8] mx-auto mb-3 opacity-60" />
+                <h4 className="text-base font-bold text-white mb-1">No Lead Capture Forms Built Yet</h4>
+                <p className="text-xs text-[#8E9BA8] max-w-sm mx-auto mb-4">
+                  Build custom forms using drag and drop fields, and generate shortcodes for your landing pages.
+                </p>
+                <button
+                  onClick={() => {
+                    setEditingFormItem(null);
+                    setIsFormBuilderOpen(true);
+                  }}
+                  className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold px-4 py-2 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Launch Form Builder
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Right-Side Template Live Preview Drawer with Slide Animation */}
       {previewTemplate && (
@@ -580,6 +1190,30 @@ export default function Templates() {
           window.scrollTo({ top: 0, behavior: "smooth" });
         }}
       />
+
+      {/* Form Builder Modal */}
+      <FormBuilderModal
+        isOpen={isFormBuilderOpen}
+        onClose={() => {
+          setIsFormBuilderOpen(false);
+          setEditingFormItem(null);
+        }}
+        editingForm={editingFormItem}
+        onSaved={() => {
+          fetchCustomForms();
+        }}
+      />
+
+      {/* Leads / Submissions Viewer Modal */}
+      {viewingSubmissionsPage && (
+        <SubmissionsViewerModal
+          isOpen={!!viewingSubmissionsPage}
+          onClose={() => setViewingSubmissionsPage(null)}
+          pageId={viewingSubmissionsPage.id}
+          pageTitle={viewingSubmissionsPage.title}
+          pageSlug={viewingSubmissionsPage.slug}
+        />
+      )}
     </div>
   );
 }

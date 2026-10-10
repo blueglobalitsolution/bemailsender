@@ -7,6 +7,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
+from django.db import models
 from django.conf import settings
 from .serializers import (
     UserSerializer,
@@ -57,17 +58,17 @@ class LoginView(generics.GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        email = serializer.validated_data["email"]
+        email = serializer.validated_data["email"].strip().lower()
         password = serializer.validated_data["password"]
 
-        # Look up user directly from the database by email
+        # Look up user by email or username
         try:
-            user_obj = User.objects.get(email__iexact=email)
-            if user_obj.check_password(password):
+            user_obj = User.objects.filter(models.Q(email__iexact=email) | models.Q(username__iexact=email)).first()
+            if user_obj and user_obj.check_password(password):
                 user = user_obj
             else:
                 user = None
-        except User.DoesNotExist:
+        except Exception:
             user = None
 
         if not user:

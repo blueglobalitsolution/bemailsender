@@ -53,7 +53,31 @@ export default function SavedCSVs() {
     }
   };
 
-  useEffect(() => { fetchCsvs(); }, []);
+  useEffect(() => { 
+    fetchCsvs(); 
+
+    const handleOpenAddContact = () => {
+      setIsAddingContact(true);
+      setIsUploading(false);
+      setAddContactTargetId(csvs.length > 0 ? csvs[0].id : "new");
+      resetAddContactForm();
+    };
+
+    const handleOpenUploadCsv = () => {
+      setIsUploading(true);
+      setIsAddingContact(false);
+      setNewName("");
+      setNewFile(null);
+    };
+
+    window.addEventListener("open-add-contact-modal", handleOpenAddContact);
+    window.addEventListener("open-upload-csv-modal", handleOpenUploadCsv);
+
+    return () => {
+      window.removeEventListener("open-add-contact-modal", handleOpenAddContact);
+      window.removeEventListener("open-upload-csv-modal", handleOpenUploadCsv);
+    };
+  }, [csvs]);
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -416,27 +440,6 @@ export default function SavedCSVs() {
 
   return (
     <div className="space-y-8 pb-16">
-      <div className="flex items-center justify-end">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => {
-              setIsAddingContact(true);
-              setIsUploading(false);
-              setAddContactTargetId(csvs.length > 0 ? csvs[0].id : "new");
-              resetAddContactForm();
-            }}
-            className="bg-[#111111] hover:bg-[#1a1a1a] text-[#00ffff] hover:text-white border border-[#00ffff]/40 font-semibold rounded-none px-4 py-2.5 text-xs flex items-center gap-2 transition-all cursor-pointer shadow-[0_0_12px_rgba(0,255,255,0.15)]"
-          >
-            <UserPlus className="w-3.5 h-3.5" /> + Add Contact
-          </button>
-          <button
-            onClick={() => { setIsUploading(true); setIsAddingContact(false); setNewName(""); setNewFile(null); }}
-            className="bg-[#00ffff] hover:bg-[#33ffff] text-black font-semibold rounded-none px-5 py-2.5 text-xs flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(0,255,255,0.25)] hover:shadow-[0_0_28px_rgba(0,255,255,0.4)] cursor-pointer"
-          >
-            <Upload className="w-3.5 h-3.5" /> Upload CSV
-          </button>
-        </div>
-      </div>
 
       {/* Add Single Contact Modal / Form */}
       {isAddingContact && (

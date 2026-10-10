@@ -11,6 +11,8 @@ import CampaignLogs from "./pages/CampaignLogs";
 import Identities from "./pages/Identities";
 import SavedCSVs from "./pages/SavedCSVs";
 import Analytics from "./pages/Analytics";
+import Inbox from "./pages/Inbox";
+import PublicLandingPage from "./pages/PublicLandingPage";
 import { ToastProvider } from "./components/Toast";
 
 export default function App() {
@@ -28,6 +30,7 @@ export default function App() {
   return (
     <ToastProvider>
       <Routes>
+        <Route path="/p/:slug" element={<PublicLandingPage />} />
         <Route path="/login" element={<Login setAuth={setIsAuthenticated} />} />
         <Route path="/register" element={<Navigate to="/login" replace />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -36,6 +39,7 @@ export default function App() {
           <Route path="/" element={<DashboardLayout setAuth={setIsAuthenticated} />}>
             <Route index element={<Navigate to="/analytics" replace />} />
             <Route path="analytics" element={<Analytics />} />
+            <Route path="inbox" element={<Inbox />} />
             <Route path="campaigns" element={<Analytics />} />
             <Route path="campaigns/:id/logs" element={<CampaignLogs />} />
             <Route path="wizard" element={<Wizard />} />

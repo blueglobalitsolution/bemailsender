@@ -1,6 +1,29 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import TemplateViewSet, IdentityViewSet, IdentityGroupViewSet, SavedCsvViewSet, CampaignViewSet, LogViewSet, health_check, check_spam_score, track_open, verify_emails, check_bounces, scan_csv, get_analytics, ai_generate_email
+from .views import (
+    TemplateViewSet,
+    IdentityViewSet,
+    IdentityGroupViewSet,
+    SavedCsvViewSet,
+    CampaignViewSet,
+    LogViewSet,
+    InboundConfigurationViewSet,
+    ReceivedEmailViewSet,
+    CustomFormViewSet,
+    LandingPageViewSet,
+    public_landing_page_data,
+    public_landing_page_html,
+    public_form_submit,
+    inbound_webhook,
+    health_check,
+    check_spam_score,
+    ai_generate_email,
+    track_open,
+    verify_emails,
+    check_bounces,
+    scan_csv,
+    get_analytics,
+)
 
 router = DefaultRouter()
 router.register(r"templates", TemplateViewSet, basename="template")
@@ -9,6 +32,10 @@ router.register(r"identity-groups", IdentityGroupViewSet, basename="identitygrou
 router.register(r"saved-csvs", SavedCsvViewSet, basename="savedcsv")
 router.register(r"campaigns", CampaignViewSet, basename="campaign")
 router.register(r"logs", LogViewSet, basename="log")
+router.register(r"inbound/configs", InboundConfigurationViewSet, basename="inboundconfig")
+router.register(r"inbound/emails", ReceivedEmailViewSet, basename="receivedemail")
+router.register(r"forms", CustomFormViewSet, basename="customform")
+router.register(r"landing-pages", LandingPageViewSet, basename="landingpage")
 
 urlpatterns = [
     path("health/", health_check, name="health_check"),
@@ -19,5 +46,10 @@ urlpatterns = [
     path("campaigns/verify-emails/", verify_emails, name="verify-emails"),
     path("campaigns/check-bounces/", check_bounces, name="check-bounces"),
     path("campaigns/scan-csv/", scan_csv, name="scan-csv"),
+    path("inbound/webhook/<str:token>/", inbound_webhook, name="inbound-webhook"),
+    path("public/page/<slug:slug>/", public_landing_page_data, name="public-landing-page"),
+    path("public/html/<slug:slug>/", public_landing_page_html, name="public-landing-page-html"),
+    path("public/form-submit/<str:shortcode>/", public_form_submit, name="public-form-submit"),
     path("", include(router.urls)),
 ]
+

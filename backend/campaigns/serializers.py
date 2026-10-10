@@ -1,6 +1,19 @@
 import csv, io
 from rest_framework import serializers
-from .models import Template, Identity, IdentityGroup, Campaign, CampaignContact, SavedCsv, Log
+from .models import (
+    Template,
+    Identity,
+    IdentityGroup,
+    Campaign,
+    CampaignContact,
+    SavedCsv,
+    Log,
+    InboundConfiguration,
+    ReceivedEmail,
+    CustomForm,
+    LandingPage,
+    FormSubmission,
+)
 
 
 class TemplateSerializer(serializers.ModelSerializer):
@@ -209,3 +222,138 @@ class CampaignListSerializer(serializers.ModelSerializer):
             "total_failed",
             "created_at",
         ]
+
+
+class InboundConfigurationSerializer(serializers.ModelSerializer):
+    webhook_url = serializers.SerializerMethodField()
+    emails_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InboundConfiguration
+        fields = [
+            "id",
+            "name",
+            "provider",
+            "domain",
+            "webhook_token",
+            "secret_key",
+            "is_active",
+            "webhook_url",
+            "emails_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "webhook_token", "webhook_url", "emails_count", "created_at", "updated_at"]
+
+    def get_webhook_url(self, obj):
+        request = self.context.get("request")
+        path = f"/api/inbound/webhook/{obj.webhook_token}/"
+        if request:
+            return request.build_absolute_uri(path)
+        return path
+
+    def get_emails_count(self, obj):
+        return obj.emails.count()
+
+
+class ReceivedEmailSerializer(serializers.ModelSerializer):
+    campaign_name = serializers.CharField(source="campaign.name", read_only=True, default=None)
+    config_name = serializers.CharField(source="config.name", read_only=True, default=None)
+    provider = serializers.CharField(source="config.provider", read_only=True, default=None)
+
+    class Meta:
+        model = ReceivedEmail
+        fields = [
+            "id",
+            "sender",
+            "recipient",
+            "subject",
+            "body_text",
+            "body_html",
+            "headers",
+            "is_read",
+            "is_starred",
+            "is_reply",
+            "campaign",
+            "campaign_name",
+            "config",
+            "config_name",
+            "provider",
+            "received_at",
+        ]
+        read_only_fields = ["id", "sender", "recipient", "subject", "body_text", "body_html", "headers", "campaign_name", "config_name", "provider", "received_at"]
+
+
+class CustomFormSerializer(serializers.ModelSerializer):
+    submissions_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomForm
+        fields = [
+            "id",
+            "name",
+            "shortcode",
+            "fields_schema",
+            "button_text",
+            "success_message",
+            "redirect_url",
+            "submissions_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "shortcode", "submissions_count", "created_at", "updated_at"]
+
+    def get_submissions_count(self, obj):
+        return obj.submissions.count()
+
+
+class FormSubmissionSerializer(serializers.ModelSerializer):
+    form_name = serializers.CharField(source="form.name", read_only=True)
+    page_title = serializers.CharField(source="landing_page.title", read_only=True, default=None)
+
+    class Meta:
+        model = FormSubmission
+        fields = [
+            "id",
+            "landing_page",
+            "page_title",
+            "form",
+            "form_name",
+            "data",
+            "ip_address",
+            "user_agent",
+            "submitted_at",
+        ]
+        read_only_fields = ["id", "submitted_at"]
+
+
+class LandingPageSerializer(serializers.ModelSerializer):
+    public_url = serializers.SerializerMethodField()
+    submissions_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LandingPage
+        fields = [
+            "id",
+            "title",
+            "slug",
+            "html_content",
+            "views_count",
+            "public_url",
+            "submissions_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "slug", "views_count", "public_url", "submissions_count", "created_at", "updated_at"]
+
+    def get_public_url(self, obj):
+        request = self.context.get("request")
+        path = f"/p/{obj.slug}"
+        if request:
+            # build frontend URL or relative path
+            return request.build_absolute_uri(path)
+        return path
+
+    def get_submissions_count(self, obj):
+        return obj.submissions.count()
+

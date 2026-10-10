@@ -10,6 +10,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.conf import settings
 from django.http import HttpResponse
+from django.views.decorators.clickjacking import xframe_options_exempt
 from django.db import models, transaction
 import json
 import csv
@@ -18,7 +19,21 @@ import datetime
 import dns.resolver
 from django.core.mail import get_connection, EmailMessage
 
-from .models import Template, Identity, IdentityGroup, Campaign, CampaignContact, SavedCsv, Log, TrackedOpen
+from .models import (
+    Template,
+    Identity,
+    IdentityGroup,
+    Campaign,
+    CampaignContact,
+    SavedCsv,
+    Log,
+    TrackedOpen,
+    InboundConfiguration,
+    ReceivedEmail,
+    CustomForm,
+    LandingPage,
+    FormSubmission,
+)
 from .serializers import (
     TemplateSerializer,
     IdentitySerializer,
@@ -28,6 +43,11 @@ from .serializers import (
     CampaignListSerializer,
     CampaignContactSerializer,
     LogSerializer,
+    InboundConfigurationSerializer,
+    ReceivedEmailSerializer,
+    CustomFormSerializer,
+    LandingPageSerializer,
+    FormSubmissionSerializer,
 )
 
 
@@ -1037,3 +1057,472 @@ def ai_generate_email(request):
         custom_instruction=instruction
     )
     return Response(result, status=status.HTTP_200_OK)
+
+
+class InboundConfigurationViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = InboundConfigurationSerializer
+
+    def get_queryset(self):
+        return InboundConfiguration.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        import secrets
+        token = secrets.token_hex(20)
+        serializer.save(user=self.request.user, webhook_token=token)
+
+
+class ReceivedEmailViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ReceivedEmailSerializer
+    http_method_names = ["get", "patch", "delete"]
+
+    def get_queryset(self):
+        queryset = ReceivedEmail.objects.filter(user=self.request.user)
+        config_id = self.request.query_params.get("config_id")
+        campaign_id = self.request.query_params.get("campaign_id")
+        is_read = self.request.query_params.get("is_read")
+        search = self.request.query_params.get("search")
+
+        if config_id:
+            queryset = queryset.filter(config_id=config_id)
+        if campaign_id:
+            queryset = queryset.filter(campaign_id=campaign_id)
+        if is_read is not None:
+            queryset = queryset.filter(is_read=(is_read.lower() == "true"))
+        if search:
+            queryset = queryset.filter(
+                models.Q(subject__icontains=search)
+                | models.Q(sender__icontains=search)
+                | models.Q(body_text__icontains=search)
+            )
+        return queryset
+
+    @action(detail=True, methods=["post"])
+    def toggle_star(self, request, pk=None):
+        email_obj = self.get_object()
+        email_obj.is_starred = not email_obj.is_starred
+        email_obj.save()
+        return Response({"is_starred": email_obj.is_starred})
+
+    @action(detail=True, methods=["post"])
+    def mark_read(self, request, pk=None):
+        email_obj = self.get_object()
+        email_obj.is_read = True
+        email_obj.save()
+        return Response({"is_read": True})
+
+
+@api_view(["POST", "GET"])
+@permission_classes([AllowAny])
+def inbound_webhook(request, token):
+    """
+    Universal Inbound Webhook endpoint for receiving emails from
+    SendGrid, Mailgun, Amazon SES, Postmark, or Generic HTTP POST.
+    """
+    try:
+        config = InboundConfiguration.objects.get(webhook_token=token, is_active=True)
+    except InboundConfiguration.DoesNotExist:
+        return Response({"error": "Invalid or inactive webhook token"}, status=status.HTTP_404_NOT_FOUND)
+
+    # Some providers like SendGrid or SES may send verification GET / HEAD requests
+    if request.method == "GET":
+        return Response({"status": "active", "provider": config.provider, "domain": config.domain})
+
+    sender = ""
+    recipient = ""
+    subject = ""
+    body_text = ""
+    body_html = ""
+    headers = {}
+    raw_payload = {}
+
+    provider = config.provider.lower()
+
+    try:
+        if provider == "sendgrid":
+            # SendGrid Inbound Parse posts multipart/form-data
+            sender = request.data.get("from", "")
+            recipient = request.data.get("to", "")
+            subject = request.data.get("subject", "")
+            body_text = request.data.get("text", "")
+            body_html = request.data.get("html", "")
+            raw_headers = request.data.get("headers", "")
+            if isinstance(raw_headers, str):
+                headers = {"raw": raw_headers[:1000]}
+            raw_payload = {"sender": sender, "recipient": recipient, "subject": subject}
+
+        elif provider == "mailgun":
+            # Mailgun Inbound Routes
+            sender = request.data.get("sender") or request.data.get("From", "")
+            recipient = request.data.get("recipient") or request.data.get("To", "")
+            subject = request.data.get("subject", "")
+            body_text = request.data.get("body-plain", "")
+            body_html = request.data.get("body-html", "")
+            raw_payload = {"sender": sender, "recipient": recipient, "subject": subject}
+
+        elif provider == "ses":
+            # Amazon SES SNS notification (JSON)
+            payload = request.data
+            if isinstance(payload, str):
+                try:
+                    payload = json.loads(payload)
+                except:
+                    payload = {}
+            # Handle SNS subscription confirmation
+            if payload.get("Type") == "SubscriptionConfirmation":
+                subscribe_url = payload.get("SubscribeURL")
+                if subscribe_url:
+                    http_requests.get(subscribe_url, timeout=5)
+                return Response({"message": "SNS subscription confirmed"})
+
+            mail = payload.get("mail", {})
+            sender = mail.get("source", "")
+            destinations = mail.get("destination", [])
+            recipient = destinations[0] if destinations else ""
+            common_headers = mail.get("commonHeaders", {})
+            subject = common_headers.get("subject", "")
+            content = payload.get("content", "")
+            body_text = content or payload.get("Message", "")
+            raw_payload = mail
+
+        elif provider == "postmark":
+            # Postmark Inbound Webhook JSON
+            sender = request.data.get("From", "")
+            recipient = request.data.get("To", "")
+            subject = request.data.get("Subject", "")
+            body_text = request.data.get("TextBody", "")
+            body_html = request.data.get("HtmlBody", "")
+            raw_payload = {"From": sender, "To": recipient, "Subject": subject}
+
+        else:
+            # Generic / Custom Webhook (JSON or Form)
+            sender = request.data.get("from") or request.data.get("sender") or ""
+            recipient = request.data.get("to") or request.data.get("recipient") or ""
+            subject = request.data.get("subject", "")
+            body_text = request.data.get("body_text") or request.data.get("text") or request.data.get("body") or ""
+            body_html = request.data.get("body_html") or request.data.get("html") or ""
+            raw_payload = request.data if isinstance(request.data, dict) else {}
+
+        # Clean email addresses (e.g., "John Doe <john@example.com>" -> "john@example.com")
+        extracted_sender_email = sender
+        match = re.search(r"[\w\.-]+@[\w\.-]+", sender)
+        if match:
+            extracted_sender_email = match.group(0)
+
+        # Check if this email is a reply to an active/sent campaign
+        matched_campaign = None
+        is_reply = False
+
+        if extracted_sender_email:
+            # Check CampaignContacts where recipient matches sender
+            recent_contact = CampaignContact.objects.filter(
+                campaign__user=config.user,
+                recipient__iexact=extracted_sender_email,
+                status="sent"
+            ).order_by("-updated_at").first()
+
+            if recent_contact:
+                matched_campaign = recent_contact.campaign
+                is_reply = True
+
+        # Store received email in database
+        received_email = ReceivedEmail.objects.create(
+            user=config.user,
+            config=config,
+            campaign=matched_campaign,
+            sender=sender,
+            recipient=recipient,
+            subject=subject,
+            body_text=body_text,
+            body_html=body_html,
+            headers=headers,
+            raw_payload=raw_payload,
+            is_reply=is_reply,
+            is_read=False,
+        )
+
+        return Response({
+            "success": True,
+            "message": "Email received and processed successfully",
+            "email_id": received_email.id,
+            "is_reply": is_reply,
+            "campaign_id": matched_campaign.id if matched_campaign else None,
+        }, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CustomFormViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = CustomFormSerializer
+
+    def get_queryset(self):
+        return CustomForm.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        # Generate a unique readable shortcode e.g. {{form_xyz}}
+        import uuid
+        code = f"form_{uuid.uuid4().hex[:6]}"
+        serializer.save(user=self.request.user, shortcode=code)
+
+
+class LandingPageViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = LandingPageSerializer
+
+    def get_queryset(self):
+        return LandingPage.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        import uuid
+        # Generate slug from title or random string
+        title = serializer.validated_data.get("title", "page")
+        slug_base = re.sub(r"[^\w\s-]", "", title).strip().lower()
+        slug_base = re.sub(r"[-\s]+", "-", slug_base)
+        if not slug_base:
+            slug_base = "landing"
+        slug = f"{slug_base}-{uuid.uuid4().hex[:6]}"
+        serializer.save(user=self.request.user, slug=slug)
+
+    @action(detail=True, methods=["get"])
+    def submissions(self, request, pk=None):
+        page = self.get_object()
+        submissions = FormSubmission.objects.filter(landing_page=page).order_by("-submitted_at")
+        serializer = FormSubmissionSerializer(submissions, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["get"])
+    def export_csv(self, request, pk=None):
+        page = self.get_object()
+        submissions = FormSubmission.objects.filter(landing_page=page).order_by("-submitted_at")
+        
+        # Collect all unique field keys across submissions
+        field_keys = set()
+        for s in submissions:
+            if isinstance(s.data, dict):
+                field_keys.update(s.data.keys())
+        field_keys = sorted(list(field_keys))
+
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="leads_{page.slug}.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow(["ID", "Submitted At", "IP Address"] + field_keys)
+
+        for s in submissions:
+            row = [
+                s.id,
+                s.submitted_at.strftime("%Y-%m-%d %H:%M:%S"),
+                s.ip_address or ""
+            ]
+            for key in field_keys:
+                row.append(s.data.get(key, "") if isinstance(s.data, dict) else "")
+            writer.writerow(row)
+
+        return response
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def public_landing_page_data(request, slug):
+    """
+    Public API: Returns the HTML and any embedded form schema for rendering on the public route.
+    Increments view count.
+    """
+    try:
+        page = LandingPage.objects.get(slug=slug)
+        # Atomically increment views count
+        LandingPage.objects.filter(id=page.id).update(views_count=models.F("views_count") + 1)
+        page.refresh_from_db()
+
+        # Find shortcodes in HTML like {{form_abc123}}
+        shortcodes = re.findall(r"\{\{(form_[a-zA-Z0-9_-]+)\}\}", page.html_content)
+        forms_data = []
+        if shortcodes:
+            forms = CustomForm.objects.filter(shortcode__in=shortcodes)
+            forms_data = CustomFormSerializer(forms, many=True).data
+
+        return Response({
+            "id": page.id,
+            "title": page.title,
+            "slug": page.slug,
+            "html_content": page.html_content,
+            "views_count": page.views_count,
+            "forms": forms_data,
+        })
+    except LandingPage.DoesNotExist:
+        return Response({"error": "Landing page not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+@xframe_options_exempt
+def public_landing_page_html(request, slug):
+    """
+    Public Endpoint: Directly serves the standalone HTML page with 100% full visual fidelity,
+    supporting external stylesheets, inline scripts, tailwind, etc., while dynamically injecting 
+    the interactive form in place of shortcodes.
+    """
+    try:
+        page = LandingPage.objects.get(slug=slug)
+        # Atomically increment views count
+        LandingPage.objects.filter(id=page.id).update(views_count=models.F("views_count") + 1)
+        page.refresh_from_db()
+
+        # Find shortcodes in HTML like {{form_abc123}}
+        shortcodes = re.findall(r"\{\{(form_[a-zA-Z0-9_-]+)\}\}", page.html_content)
+        rendered_html = page.html_content
+
+        for sc in shortcodes:
+            form_obj = CustomForm.objects.filter(shortcode=sc).first()
+            if form_obj:
+                # Generate standalone HTML/JS form
+                fields_html = ""
+                for idx, f in enumerate(form_obj.fields_schema or []):
+                    f_id = f.get("id") or f.get("label") or f"f_{idx}"
+                    f_label = f.get("label", "Field")
+                    f_req = "required" if f.get("required") else ""
+                    f_req_mark = '<span style="color:#ef4444;">*</span>' if f.get("required") else ""
+                    f_type = f.get("type", "text")
+                    f_ph = f.get("placeholder", "")
+
+                    if f_type == "textarea":
+                        input_html = f'<textarea name="{f_id}" placeholder="{f_ph}" {f_req} rows="3" style="width:100%;box-sizing:border-box;padding:10px 14px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#f8fafc;font-size:14px;resize:none;outline:none;margin-top:4px;"></textarea>'
+                    elif f_type == "select":
+                        opts = "".join([f'<option value="{opt}">{opt}</option>' for opt in (f.get("options") or [])])
+                        input_html = f'<select name="{f_id}" {f_req} style="width:100%;box-sizing:border-box;padding:10px 14px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#f8fafc;font-size:14px;outline:none;margin-top:4px;"><option value="">Select option...</option>{opts}</select>'
+                    else:
+                        input_html = f'<input type="{f_type}" name="{f_id}" placeholder="{f_ph}" {f_req} style="width:100%;box-sizing:border-box;padding:10px 14px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#f8fafc;font-size:14px;outline:none;margin-top:4px;" />'
+
+                    fields_html += f'''
+                    <div style="margin-bottom:14px;text-align:left;">
+                        <label style="display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;margin-bottom:4px;">
+                            {f_label} {f_req_mark}
+                        </label>
+                        {input_html}
+                    </div>
+                    '''
+
+                form_markup = f'''
+                <div id="embed-form-{sc}" style="max-width:540px;margin:28px auto;padding:28px;background:rgba(15,23,42,0.95);border:1px solid #334155;border-radius:16px;box-shadow:0 20px 40px -15px rgba(0,0,0,0.5);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#f8fafc;box-sizing:border-box;">
+                    <h3 style="margin:0 0 16px 0;font-size:18px;font-weight:700;color:#ffffff;text-align:left;border-bottom:1px solid #1e293b;padding-bottom:10px;">{form_obj.name}</h3>
+                    <form id="form-{sc}" onsubmit="handleEmbedSubmit(event, '{sc}', {page.id});">
+                        {fields_html}
+                        <button type="submit" id="btn-{sc}" style="width:100%;margin-top:8px;padding:12px 20px;border-radius:8px;border:none;background:#ffffff;color:#0f172a;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 12px rgba(255,255,255,0.15);">
+                            {form_obj.button_text or "Submit"}
+                        </button>
+                    </form>
+                    <div id="msg-{sc}" style="display:none;padding:16px;margin-top:14px;border-radius:8px;font-size:14px;font-weight:600;text-align:center;"></div>
+                </div>
+                '''
+                rendered_html = rendered_html.replace(f"{{{{{sc}}}}}", form_markup)
+            else:
+                rendered_html = rendered_html.replace(f"{{{{{sc}}}}}", "")
+
+        # Inject submission script right before </body>
+        injection_script = f'''
+        <script>
+        async function handleEmbedSubmit(event, shortcode, landingPageId) {{
+            event.preventDefault();
+            const form = event.target;
+            const btn = document.getElementById("btn-" + shortcode);
+            const msgBox = document.getElementById("msg-" + shortcode);
+            
+            const formData = new FormData(form);
+            const dataObj = {{}};
+            formData.forEach((val, key) => {{ dataObj[key] = val; }});
+
+            btn.disabled = true;
+            btn.innerText = "Submitting...";
+
+            try {{
+                const res = await fetch("/api/public/form-submit/" + shortcode + "/", {{
+                    method: "POST",
+                    headers: {{ "Content-Type": "application/json" }},
+                    body: JSON.stringify({{ landing_page_id: landingPageId, data: dataObj }})
+                }});
+                const resData = await res.json();
+                if (res.ok) {{
+                    form.style.display = "none";
+                    msgBox.style.display = "block";
+                    msgBox.style.background = "rgba(16, 185, 129, 0.15)";
+                    msgBox.style.color = "#34d399";
+                    msgBox.style.border = "1px solid rgba(16, 185, 129, 0.3)";
+                    msgBox.innerText = resData.message || "Thank you! Submission received.";
+                    if (resData.redirect_url) {{
+                        setTimeout(() => {{ window.location.href = resData.redirect_url; }}, 1500);
+                    }}
+                }} else {{
+                    alert(resData.error || "Submission error. Please try again.");
+                    btn.disabled = false;
+                    btn.innerText = "Submit";
+                }}
+            }} catch (err) {{
+                alert("Network error submitting form.");
+                btn.disabled = false;
+                btn.innerText = "Submit";
+            }}
+        }}
+        </script>
+        '''
+
+        if "</body>" in rendered_html:
+            rendered_html = rendered_html.replace("</body>", f"{injection_script}</body>")
+        else:
+            rendered_html += injection_script
+
+        return HttpResponse(rendered_html, content_type="text/html; charset=utf-8")
+
+    except LandingPage.DoesNotExist:
+        return HttpResponse("<h1>404 - Landing Page Not Found</h1>", status=404, content_type="text/html")
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def public_form_submit(request, shortcode):
+    """
+    Public API: Submits form entries from a public landing page.
+    """
+    try:
+        form = CustomForm.objects.get(shortcode=shortcode)
+    except CustomForm.DoesNotExist:
+        return Response({"error": "Form not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    landing_page_id = request.data.get("landing_page_id")
+    landing_page = None
+    if landing_page_id:
+        try:
+            landing_page = LandingPage.objects.get(id=landing_page_id)
+        except LandingPage.DoesNotExist:
+            pass
+
+    submitted_data = request.data.get("data", {})
+    if not isinstance(submitted_data, dict):
+        return Response({"error": "Invalid form payload"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Get client IP
+    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(",")[0]
+    else:
+        ip = request.META.get("REMOTE_ADDR")
+
+    user_agent = request.META.get("HTTP_USER_AGENT", "")
+
+    submission = FormSubmission.objects.create(
+        landing_page=landing_page,
+        form=form,
+        data=submitted_data,
+        ip_address=ip,
+        user_agent=user_agent,
+    )
+
+    return Response({
+        "success": True,
+        "message": form.success_message,
+        "redirect_url": form.redirect_url or None,
+        "submission_id": submission.id,
+    }, status=status.HTTP_201_CREATED)
+
