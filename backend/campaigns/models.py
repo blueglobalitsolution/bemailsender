@@ -310,6 +310,16 @@ class FormSubmission(models.Model):
     data = models.JSONField(help_text="Key-value pairs of submitted field values")
     ip_address = models.GenericIPAddressField(blank=True, null=True)
     user_agent = models.TextField(blank=True, null=True)
+    # AI Lead Qualification fields
+    is_qualified = models.BooleanField(null=True, blank=True, help_text="True if qualified, False if disqualified, null if pending")
+    qualification_score = models.IntegerField(default=0, help_text="Lead score between 0 and 100")
+    qualification_status = models.CharField(max_length=50, default="unprocessed", choices=[
+        ("qualified", "Qualified"),
+        ("review", "Needs Review"),
+        ("disqualified", "Disqualified"),
+        ("unprocessed", "Unprocessed"),
+    ])
+    qualification_reason = models.TextField(blank=True, null=True, help_text="AI evaluation rationale from Laya + Llama")
     submitted_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

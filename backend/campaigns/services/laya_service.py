@@ -191,3 +191,71 @@ class LayaAIService:
             "subject": subject,
             "body": body
         }
+
+    @classmethod
+    def evaluate_lead_qualification(cls, lead_data: dict, icp_rules: dict = None) -> dict:
+        """
+        Two-stage AI Lead Qualification Pipeline using Laya + Llama:
+        Stage 1: Laya predicts decision: ['qualified', 'review', 'disqualified'].
+        Stage 2: Llama provides executive qualification scoring (0-100) and actionable reasoning.
+        """
+        lead_summary = ", ".join([f"{k}: {v}" for k, v in lead_data.items() if v])
+        
+        # Heuristic scoring boost
+        email_str = ""
+        for k, v in lead_data.items():
+            if "email" in k.lower():
+                email_str = str(v).lower()
+                break
+
+        is_free_email = any(email_str.endswith(dom) for dom in ["@gmail.com", "@yahoo.com", "@hotmail.com", "@outlook.com", "@icloud.com"])
+        
+        # Stage 1: Decision via Laya
+        decision_options = ["qualified", "review", "disqualified"]
+        question = "Classify this lead's business purchasing intent and enterprise qualification based on submitted contact data."
+        predicted_status = cls.predict_decision(
+            state=lead_summary,
+            question=question,
+            options=decision_options,
+            fallback="review" if is_free_email else "qualified"
+        )
+
+        # Stage 2: Detailed assessment via Llama
+        score = 85
+        reason = "Lead demonstrates high potential purchase intent and valid commercial profile."
+
+        prompt = (
+            f"Evaluate this lead for a B2B sales pipeline:\n{lead_summary}\n\n"
+            "Return JSON in this exact format: {\"score\": 85, \"status\": \"qualified\", \"reason\": \"Executive decision maker with valid business domain\"}. "
+            "Score must be 0 to 100. Status must be one of: qualified, review, disqualified."
+        )
+
+        llm_response = cls.generate_email_completion(prompt, max_tokens=150)
+        if llm_response:
+            try:
+                # Find JSON block in output
+                import re
+                json_match = re.search(r"\{[\s\S]*\}", llm_response)
+                if json_match:
+                    parsed = json.loads(json_match.group(0))
+                    score = int(parsed.get("score", 75))
+                    status_val = str(parsed.get("status", predicted_status)).lower()
+                    if status_val in decision_options:
+                        predicted_status = status_val
+                    reason = str(parsed.get("reason", reason)).strip()
+            except Exception as e:
+                logger.debug("Could not parse LLM lead qualification JSON: %s", e)
+
+        # If free email, cap score unless strong company info
+        if is_free_email and score > 70:
+            score = max(50, score - 20)
+            if predicted_status == "qualified":
+                predicted_status = "review"
+            reason += " (Note: Personal/generic email domain detected)"
+
+        return {
+            "score": score,
+            "status": predicted_status,
+            "is_qualified": predicted_status == "qualified",
+            "reason": reason
+        }

@@ -322,9 +322,13 @@ class FormSubmissionSerializer(serializers.ModelSerializer):
             "data",
             "ip_address",
             "user_agent",
+            "is_qualified",
+            "qualification_score",
+            "qualification_status",
+            "qualification_reason",
             "submitted_at",
         ]
-        read_only_fields = ["id", "submitted_at"]
+        read_only_fields = ["id", "is_qualified", "qualification_score", "qualification_status", "qualification_reason", "submitted_at"]
 
 
 class LandingPageSerializer(serializers.ModelSerializer):

@@ -19,6 +19,8 @@ import datetime
 import dns.resolver
 from django.core.mail import get_connection, EmailMessage
 
+from .services.laya_service import LayaAIService
+
 from .models import (
     Template,
     Identity,
@@ -1290,14 +1292,53 @@ class LandingPageViewSet(viewsets.ModelViewSet):
     def submissions(self, request, pk=None):
         page = self.get_object()
         submissions = FormSubmission.objects.filter(landing_page=page).order_by("-submitted_at")
+        
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            submissions = submissions.filter(qualification_status=status_filter)
+        elif request.query_params.get("qualified_only") == "true":
+            submissions = submissions.filter(is_qualified=True)
+            
         serializer = FormSubmissionSerializer(submissions, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def evaluate_leads(self, request, pk=None):
+        page = self.get_object()
+        submissions = FormSubmission.objects.filter(landing_page=page)
+        
+        # Optionally re-evaluate all or only unprocessed
+        reevaluate_all = request.data.get("all", False)
+        if not reevaluate_all:
+            submissions = submissions.filter(qualification_status="unprocessed")
+
+        count = 0
+        for s in submissions:
+            eval_res = LayaAIService.evaluate_lead_qualification(s.data or {})
+            s.qualification_status = eval_res.get("status", "review")
+            s.qualification_score = eval_res.get("score", 70)
+            s.is_qualified = eval_res.get("is_qualified", False)
+            s.qualification_reason = eval_res.get("reason", "")
+            s.save()
+            count += 1
+
+        all_submissions = FormSubmission.objects.filter(landing_page=page).order_by("-submitted_at")
+        serializer = FormSubmissionSerializer(all_submissions, many=True)
+        return Response({
+            "success": True,
+            "evaluated_count": count,
+            "submissions": serializer.data
+        })
 
     @action(detail=True, methods=["get"])
     def export_csv(self, request, pk=None):
         page = self.get_object()
         submissions = FormSubmission.objects.filter(landing_page=page).order_by("-submitted_at")
         
+        qualified_only = request.query_params.get("qualified_only") == "true"
+        if qualified_only:
+            submissions = submissions.filter(is_qualified=True)
+
         # Collect all unique field keys across submissions
         field_keys = set()
         for s in submissions:
@@ -1306,15 +1347,19 @@ class LandingPageViewSet(viewsets.ModelViewSet):
         field_keys = sorted(list(field_keys))
 
         response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = f'attachment; filename="leads_{page.slug}.csv"'
+        filename_prefix = "qualified_leads" if qualified_only else "leads"
+        response["Content-Disposition"] = f'attachment; filename="{filename_prefix}_{page.slug}.csv"'
 
         writer = csv.writer(response)
-        writer.writerow(["ID", "Submitted At", "IP Address"] + field_keys)
+        writer.writerow(["ID", "Submitted At", "Status", "Score", "Reason", "IP Address"] + field_keys)
 
         for s in submissions:
             row = [
                 s.id,
                 s.submitted_at.strftime("%Y-%m-%d %H:%M:%S"),
+                s.qualification_status,
+                s.qualification_score,
+                s.qualification_reason or "",
                 s.ip_address or ""
             ]
             for key in field_keys:
@@ -1511,12 +1556,24 @@ def public_form_submit(request, shortcode):
 
     user_agent = request.META.get("HTTP_USER_AGENT", "")
 
+    # Run AI Lead Qualification Pipeline (Laya + Llama)
+    eval_res = {}
+    try:
+        eval_res = LayaAIService.evaluate_lead_qualification(submitted_data)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Failed to evaluate lead qualification: %s", e)
+
     submission = FormSubmission.objects.create(
         landing_page=landing_page,
         form=form,
         data=submitted_data,
         ip_address=ip,
         user_agent=user_agent,
+        qualification_status=eval_res.get("status", "unprocessed"),
+        qualification_score=eval_res.get("score", 0),
+        is_qualified=eval_res.get("is_qualified", False),
+        qualification_reason=eval_res.get("reason", ""),
     )
 
     return Response({

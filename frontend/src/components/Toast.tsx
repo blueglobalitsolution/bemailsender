@@ -74,27 +74,29 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             return (
               <div
                 key={toast.id}
-                className="pointer-events-auto flex flex-col gap-3 p-4 rounded-none border border-rose-500/50 bg-[#120808] text-white text-xs shadow-[0_10px_35px_rgba(0,0,0,0.8)] animate-in fade-in slide-in-from-bottom-5 duration-200"
+                className="pointer-events-auto flex flex-col gap-3 p-4 rounded-xl border border-[#2C353D] bg-[#161B1F]/95 backdrop-blur-md text-white text-xs shadow-2xl animate-in fade-in slide-in-from-bottom-5 duration-200 ring-1 ring-white/5"
               >
-                <div className="flex items-start gap-2.5">
-                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                  <div className="flex-1 font-mono font-medium leading-snug">
+                <div className="flex items-start gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                  </div>
+                  <div className="flex-1 font-medium text-[#CBD5E1] leading-relaxed pt-0.5">
                     {toast.message}
                   </div>
                   <button
                     onClick={() => removeToast(toast.id)}
-                    className="text-[#666666] hover:text-white p-0.5 transition-colors cursor-pointer shrink-0"
+                    className="text-[#8E9BA8] hover:text-white p-1 rounded-md hover:bg-[#222930] transition-colors cursor-pointer shrink-0"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <div className="flex items-center justify-end gap-2 pt-1 font-mono">
+                <div className="flex items-center justify-end gap-2 pt-1 border-t border-[#232B32]/80 mt-1">
                   <button
                     onClick={() => {
                       if (toast.onCancel) toast.onCancel();
                       removeToast(toast.id);
                     }}
-                    className="px-3 py-1.5 bg-[#1a1a1a] hover:bg-[#252525] text-[#aaaaaa] hover:text-white border border-[#333333] text-[11px] transition-all cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-lg bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white border border-[#2C353D] text-xs font-medium transition-all cursor-pointer shadow-sm"
                   >
                     {toast.cancelLabel || "Cancel"}
                   </button>
@@ -103,7 +105,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                       if (toast.onConfirm) toast.onConfirm();
                       removeToast(toast.id);
                     }}
-                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold border border-rose-500 text-[11px] rounded transition-all cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold border border-rose-500/60 text-xs transition-all cursor-pointer shadow-sm"
                   >
                     {toast.confirmLabel || "Delete"}
                   </button>
@@ -112,36 +114,53 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             );
           }
 
+          const iconMap = {
+            success: <CheckCircle2 className="w-4 h-4 text-emerald-400" />,
+            error: <AlertCircle className="w-4 h-4 text-rose-400" />,
+            warning: <AlertTriangle className="w-4 h-4 text-amber-400" />,
+            info: <Info className="w-4 h-4 text-cyan-400" />,
+          };
+
+          const iconBgMap = {
+            success: "bg-emerald-500/10 border-emerald-500/25",
+            error: "bg-rose-500/10 border-rose-500/25",
+            warning: "bg-amber-500/10 border-amber-500/25",
+            info: "bg-cyan-500/10 border-cyan-500/25",
+          };
+
+          const badgeBorder = {
+            success: "border-emerald-500/30",
+            error: "border-rose-500/30",
+            warning: "border-amber-500/30",
+            info: "border-cyan-500/30",
+          };
+
           return (
             <div
               key={toast.id}
-              className={`pointer-events-auto flex items-start gap-3 p-4 rounded-none border text-xs shadow-2xl transition-all animate-in fade-in slide-in-from-bottom-5 duration-200 ${
+              className={`pointer-events-auto flex items-start gap-3 p-3.5 rounded-xl border bg-[#161B1F]/95 backdrop-blur-md text-xs shadow-2xl transition-all animate-in fade-in slide-in-from-bottom-5 duration-200 ring-1 ring-white/5 ${
                 toast.type === "success"
-                  ? "bg-[#0c1a17] border-emerald-500/40 text-emerald-300"
+                  ? `${badgeBorder.success}`
                   : toast.type === "error"
-                  ? "bg-[#1f0d0d] border-rose-500/40 text-rose-300"
+                  ? `${badgeBorder.error}`
                   : toast.type === "warning"
-                  ? "bg-[#1f1a0d] border-amber-500/40 text-amber-300"
-                  : "bg-[#0b1619] border-[#19b3d2]/40 text-[#19b3d2]"
+                  ? `${badgeBorder.warning}`
+                  : `${badgeBorder.info}`
               }`}
             >
-              <div className="shrink-0 mt-0.5">
-                {toast.type === "success" ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                ) : toast.type === "error" ? (
-                  <AlertCircle className="w-4 h-4 text-rose-400" />
-                ) : toast.type === "warning" ? (
-                  <AlertTriangle className="w-4 h-4 text-amber-400" />
-                ) : (
-                  <Info className="w-4 h-4 text-[#19b3d2]" />
-                )}
+              <div
+                className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 mt-0.5 ${
+                  iconBgMap[toast.type as keyof typeof iconBgMap] || iconBgMap.info
+                }`}
+              >
+                {iconMap[toast.type as keyof typeof iconMap] || iconMap.info}
               </div>
-              <div className="flex-1 font-medium leading-relaxed break-words text-white font-mono">
+              <div className="flex-1 font-medium leading-relaxed break-words text-[#CBD5E1] pt-0.5">
                 {toast.message}
               </div>
               <button
                 onClick={() => removeToast(toast.id)}
-                className="text-[#666666] hover:text-white p-0.5 transition-colors cursor-pointer shrink-0 ml-1"
+                className="text-[#8E9BA8] hover:text-white p-1 rounded-md hover:bg-[#222930] transition-colors cursor-pointer shrink-0 ml-1"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
