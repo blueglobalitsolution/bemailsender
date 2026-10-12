@@ -215,9 +215,9 @@ export default function Inbox() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-6.5rem)] font-sans">
+    <div className="flex flex-col h-full w-full font-sans">
       {/* Main Mail Container */}
-      <div className="flex-1 flex flex-col md:flex-row bg-[#222930] border border-[#2C353D] rounded-lg overflow-hidden min-h-0">
+      <div className="flex-1 flex flex-col md:flex-row bg-[#222930] border-t border-[#2C353D] overflow-hidden min-h-0 w-full h-full">
         {/* Left Column: Email List + Filter Controls */}
         <div className="w-full md:w-96 lg:w-[420px] border-r border-[#2C353D] flex flex-col shrink-0 bg-[#1C2227]">
           {/* Filter Tabs */}

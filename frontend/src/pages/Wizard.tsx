@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Wand2, User, Users, FileText, Settings, ArrowRight, ArrowLeft, Upload, CheckCircle, Loader2, X, Clock, AlertCircle, Shield, ShieldCheck, ShieldAlert, Globe, Calendar, Shuffle, Target, Sparkles, Eye } from "lucide-react";
 import { apiFetch, getApiUrl } from "../lib/api";
@@ -92,7 +93,27 @@ export default function Wizard() {
       .then((data) => setSavedCsvs(data));
   }, []);
 
-  const handleNext = () => setStep((s) => Math.min(s + 1, 4));
+  const handleNext = () => {
+    if (step === 1) {
+      if (!identityId && !identityGroupId) {
+        toast.error("Please select a Sender Identity or Identity Group");
+        return;
+      }
+    }
+    if (step === 2) {
+      if (!csvFile && !savedCsvId) {
+        toast.error("Please upload or select an audience CSV");
+        return;
+      }
+    }
+    if (step === 3) {
+      if (!templateId) {
+        toast.error("Please select an Email Template to continue");
+        return;
+      }
+    }
+    setStep((s) => Math.min(s + 1, 4));
+  };
   const handlePrev = () => setStep((s) => Math.max(s - 1, 1));
 
   const pollProgress = async (id: number) => {
@@ -688,51 +709,70 @@ export default function Wizard() {
                   No email templates found. Please create one in Script Architect first.
                 </div>
               ) : (
-                templates.map((t) => (
-                  <div
-                    key={t.id}
-                    onClick={() => {
-                      setTemplateId(t.id.toString());
-                      setPreviewTemplate(t);
-                    }}
-                    className={`p-5 cursor-pointer transition-all border relative flex flex-col justify-between group ${
-                      templateId === t.id.toString()
-                        ? 'bg-[#00ffff]/10 border-[#00ffff] shadow-[0_0_20px_rgba(0,255,255,0.25)]'
-                        : 'bg-[#0a0a0a] border-[#1e1e1e] hover:border-[#3a3a3a]'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex justify-between items-start mb-2 gap-2">
-                        <h4 className="font-serif text-lg text-white font-medium line-clamp-1" title={t.name}>{t.name}</h4>
-                        {templateId === t.id.toString() && <CheckCircle className="w-4 h-4 text-[#00ffff] shrink-0" />}
-                      </div>
-                      {t.subject && (
-                        <p className="text-xs text-[#888888] font-medium mb-3 line-clamp-1" title={t.subject}>
-                          <span className="text-[#555555]">Subject:</span> {t.subject}
+                templates.map((t) => {
+                  const isSelected = templateId === t.id.toString();
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => {
+                        setTemplateId(t.id.toString());
+                        toast.success(`Selected template: ${t.name}`);
+                      }}
+                      className={`p-5 cursor-pointer transition-all border relative flex flex-col justify-between group rounded-none ${
+                        isSelected
+                          ? 'bg-[#00ffff]/10 border-[#00ffff] shadow-[0_0_20px_rgba(0,255,255,0.25)]'
+                          : 'bg-[#0a0a0a] border-[#1e1e1e] hover:border-[#3a3a3a]'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex justify-between items-start mb-2 gap-2">
+                          <h4 className="font-serif text-lg text-white font-medium line-clamp-1" title={t.name}>
+                            {t.name}
+                          </h4>
+                          {isSelected && <CheckCircle className="w-4 h-4 text-[#00ffff] shrink-0" />}
+                        </div>
+                        {t.subject && (
+                          <p className="text-xs text-[#888888] font-medium mb-3 line-clamp-1" title={t.subject}>
+                            <span className="text-[#555555]">Subject:</span> {t.subject}
+                          </p>
+                        )}
+                        <p className="text-xs text-[#777777] line-clamp-3 leading-relaxed mb-4">
+                          {stripHtml(t.body) || "No plain text excerpt available."}
                         </p>
-                      )}
-                      <p className="text-xs text-[#777777] line-clamp-3 leading-relaxed mb-4">
-                        {stripHtml(t.body) || "No plain text excerpt available."}
-                      </p>
-                    </div>
+                      </div>
 
-                    <div className="pt-3 border-t border-[#141414] flex items-center justify-between">
-                      <span className={`text-[10px] font-mono uppercase tracking-wider ${templateId === t.id.toString() ? 'text-[#00ffff]' : 'text-[#555555]'}`}>
-                        {templateId === t.id.toString() ? "✓ Selected" : "Click to view"}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPreviewTemplate(t);
-                        }}
-                        className="text-xs font-medium text-[#00ffff] hover:text-white flex items-center gap-1.5 px-2.5 py-1 bg-[#00ffff]/10 hover:bg-[#00ffff]/20 border border-[#00ffff]/30 transition-all cursor-pointer"
-                      >
-                        <Eye className="w-3.5 h-3.5" /> Preview
-                      </button>
+                      <div className="pt-3 border-t border-[#141414] flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTemplateId(t.id.toString());
+                            toast.success(`Selected template: ${t.name}`);
+                          }}
+                          className={`text-xs font-semibold px-3 py-1.5 transition-all cursor-pointer flex items-center gap-1.5 ${
+                            isSelected
+                              ? 'bg-[#00ffff] text-black font-bold'
+                              : 'bg-[#161B1F] text-[#CBD5E1] hover:text-white border border-[#2C353D] hover:bg-[#222930]'
+                          }`}
+                        >
+                          <CheckCircle className={`w-3.5 h-3.5 ${isSelected ? 'text-black' : 'text-[#8E9BA8]'}`} />
+                          {isSelected ? 'Selected' : 'Select'}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPreviewTemplate(t);
+                          }}
+                          className="text-xs font-medium text-[#00ffff] hover:text-white flex items-center gap-1.5 px-3 py-1.5 bg-[#00ffff]/10 hover:bg-[#00ffff]/20 border border-[#00ffff]/30 transition-all cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5" /> Preview
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -1159,61 +1199,62 @@ export default function Wizard() {
         </div>
       )}
 
-      {/* Right-Side Template Live Preview Drawer */}
-      {previewTemplate && (
-        <div className="fixed inset-0 z-50 overflow-hidden">
-          {/* Backdrop */}
+      {/* Right-Side Template Live Preview Drawer with Flush Alignment & No Blur */}
+      {previewTemplate && createPortal(
+        <div className="fixed inset-0 z-[9999] overflow-hidden">
+          {/* Solid Dark Backdrop - NO BLUR */}
           <div
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
+            className="fixed inset-0 bg-black/60 transition-opacity animate-in fade-in duration-200"
             onClick={() => setPreviewTemplate(null)}
           />
 
-          <div className="fixed inset-y-0 right-0 max-w-full flex pl-8 sm:pl-16">
-            <div className="w-screen max-w-2xl lg:max-w-3xl bg-[#0c0c0c] border-l border-[#1f1f1f] flex flex-col shadow-[0_0_60px_rgba(0,0,0,0.9)] animate-in slide-in-from-right duration-300">
+          {/* Drawer anchored firmly to the right side */}
+          <div className="fixed inset-y-0 right-0 flex max-w-full">
+            <div className="w-screen max-w-2xl lg:max-w-3xl h-full bg-[#161B1F] border-l border-[#2C353D] flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
               {/* Drawer Header */}
-              <div className="p-6 border-b border-[#1c1c1c] flex items-start justify-between bg-[#000000]/70 backdrop-blur-md">
+              <div className="px-6 py-5 border-b border-[#2C353D] flex items-start justify-between bg-[#1A2026] shrink-0">
                 <div className="pr-4 flex-1">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-[#00ffff] bg-[#00ffff]/10 px-2 py-0.5 border border-[#00ffff]/30">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/20 font-semibold">
                       Live Preview
                     </span>
                     {templateId === previewTemplate.id.toString() && (
-                      <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 bg-emerald-950/40 px-2 py-0.5 border border-emerald-500/30 flex items-center gap-1">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 bg-emerald-950/40 px-2.5 py-0.5 rounded border border-emerald-500/30 flex items-center gap-1 font-semibold">
                         <CheckCircle className="w-3 h-3" /> Selected
                       </span>
                     )}
                   </div>
-                  <h3 className="text-2xl font-serif text-white tracking-tight leading-snug">{previewTemplate.name}</h3>
+                  <h3 className="text-xl font-bold text-white tracking-tight">{previewTemplate.name}</h3>
                   {previewTemplate.subject && (
-                    <div className="mt-2 p-2.5 bg-[#050505] border border-[#1a1a1a] text-xs">
-                      <span className="text-[#666666] font-mono uppercase text-[10px] block mb-0.5">Subject Line:</span>
-                      <p className="text-[#ededed] font-medium">{previewTemplate.subject}</p>
+                    <div className="mt-2.5 p-3 bg-[#14181C] border border-[#2C353D] rounded-xl text-xs">
+                      <span className="text-[#8E9BA8] font-bold uppercase text-[10px] tracking-wider block mb-1">Subject Line</span>
+                      <p className="text-[#E2E8F0] font-medium">{previewTemplate.subject}</p>
                     </div>
                   )}
                 </div>
                 <button
                   onClick={() => setPreviewTemplate(null)}
-                  className="p-2 text-[#777777] hover:text-white bg-[#111111] hover:bg-[#1a1a1a] border border-[#222222] transition-colors cursor-pointer shrink-0 ml-2"
+                  className="p-2 text-[#8E9BA8] hover:text-white bg-[#222930] hover:bg-[#2C353D] border border-[#2C353D] rounded-lg transition-colors cursor-pointer shrink-0"
                   title="Close Preview"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
               {/* Drawer Body - Live HTML Rendered in iframe */}
-              <div className="flex-1 overflow-hidden p-6 flex flex-col bg-[#050505]">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-mono uppercase tracking-wider text-[#666666]">
+              <div className="flex-1 overflow-hidden p-6 flex flex-col bg-[#14181C]">
+                <div className="flex items-center justify-between mb-2.5 px-0.5 shrink-0">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#CBD5E1]">
                     Email Content Canvas
                   </span>
-                  <span className="text-[11px] font-mono text-[#555555]">
+                  <span className="text-[11px] font-mono text-[#8E9BA8]">
                     Rendered HTML
                   </span>
                 </div>
-                <div className="flex-1 bg-white rounded-none overflow-hidden border border-[#222222] shadow-2xl relative">
+                <div className="flex-1 bg-white rounded-xl overflow-hidden border border-[#2C353D] shadow-xl relative">
                   <iframe
                     srcDoc={previewTemplate.body}
-                    className="w-full h-full border-0 bg-white"
+                    className="w-full h-full border-0 bg-white block"
                     title="Creative Email Preview"
                     sandbox="allow-same-origin allow-popups"
                   />
@@ -1221,11 +1262,11 @@ export default function Wizard() {
               </div>
 
               {/* Drawer Footer Actions */}
-              <div className="p-5 border-t border-[#1a1a1a] bg-[#000000] flex items-center justify-between gap-4">
+              <div className="px-6 py-4 border-t border-[#2C353D] bg-[#1A2026] flex items-center justify-between gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setPreviewTemplate(null)}
-                  className="px-6 py-3 border border-[#222222] text-[#888888] hover:text-white hover:bg-[#111111] text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer"
+                  className="px-4 py-2 border border-[#2C353D] bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white text-xs font-semibold rounded-lg transition-all cursor-pointer"
                 >
                   Close
                 </button>
@@ -1236,15 +1277,17 @@ export default function Wizard() {
                     setPreviewTemplate(null);
                     setStep(4);
                   }}
-                  className="px-8 py-3 bg-[#00ffff] hover:bg-[#20e8e8] text-black text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(0,255,255,0.3)] cursor-pointer"
+                  className="px-5 py-2.5 bg-white hover:bg-[#CBD5E1] text-[#161B1F] text-xs font-bold rounded-lg flex items-center gap-2 transition-all cursor-pointer shadow-md"
                 >
-                  <CheckCircle className="w-4 h-4" /> Select & Continue <ArrowRight className="w-4 h-4" />
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Select & Continue <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
 }
+
