@@ -1583,3 +1583,180 @@ def public_form_submit(request, shortcode):
         "submission_id": submission.id,
     }, status=status.HTTP_201_CREATED)
 
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def scrape_leads(request):
+    """
+    Endpoint to trigger live Bing Local / Maps lead extraction and website contact scraping.
+    Accepts: { query: 'Dentists', location: 'Austin, TX', limit: 20 }
+    """
+    import asyncio
+    from .scraper import scrape_bing_leads
+
+    query = request.data.get("query", "").strip()
+    location = request.data.get("location", "").strip()
+    limit = int(request.data.get("limit", 50))
+    offset = int(request.data.get("offset", 0))
+    exclude_domains = request.data.get("exclude_domains", [])
+
+    if not query:
+        return Response({"error": "Keyword / Query is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    limit = max(1, min(limit, 100))
+
+    try:
+        leads = asyncio.run(scrape_bing_leads(
+            query=query,
+            location=location,
+            limit=limit,
+            offset=offset,
+            exclude_domains=exclude_domains
+        ))
+        return Response({
+            "success": True,
+            "total_found": len(leads),
+            "leads": leads,
+            "offset": offset,
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": f"Scraping failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def qualify_scraped_leads(request):
+    """
+    Separate Mechanism: Evaluates and qualifies scraped leads using Laya AI.
+    Accepts: { leads: [...], target_category: 'Software & IT Companies', location: 'Mumbai' }
+    Returns leads with qualification_status ('qualified' | 'disqualified'), score, and reason.
+    """
+    from .services.laya_service import LayaAIService
+
+    leads = request.data.get("leads", [])
+    target_category = request.data.get("target_category", "").strip()
+    location = request.data.get("location", "").strip()
+
+    if not leads or not isinstance(leads, list):
+        return Response({"error": "No leads provided to qualify."}, status=status.HTTP_400_BAD_REQUEST)
+
+    qualified_results = []
+    qualified_count = 0
+
+    for lead in leads:
+        qual = LayaAIService.qualify_scraped_business(
+            title=lead.get("name", ""),
+            domain=lead.get("domain", ""),
+            snippet=lead.get("description", ""),
+            target_category=target_category,
+            location=location,
+            about_text=lead.get("about_text", ""),
+            emails=lead.get("all_emails", [])
+        )
+        is_qual = qual.get("is_qualified", False)
+        if is_qual:
+            qualified_count += 1
+
+        updated_lead = dict(lead)
+        updated_lead["qualification_status"] = qual.get("status", "qualified" if is_qual else "disqualified")
+        updated_lead["qualification_score"] = qual.get("score", 85 if is_qual else 30)
+        updated_lead["qualification_reason"] = qual.get("reason", "")
+        updated_lead["is_qualified"] = is_qual
+
+        # Intelligent Contact & Decision Maker Extraction
+        dm_name = qual.get("decision_maker_name", "")
+        dm_title = qual.get("decision_maker_title", "")
+        dm_email = qual.get("decision_maker_email", "")
+
+        updated_lead["decision_maker_name"] = dm_name
+        updated_lead["decision_maker_title"] = dm_title
+        updated_lead["decision_maker_email"] = dm_email
+
+        # If a specific personal/decision maker email was found, promote it as primary email
+        if dm_email and (not updated_lead.get("email") or any(updated_lead.get("email", "").startswith(p) for p in ["info@", "support@", "admin@", "contact@"])):
+            updated_lead["email"] = dm_email
+
+        qualified_results.append(updated_lead)
+
+    return Response({
+        "success": True,
+        "total": len(qualified_results),
+        "qualified_count": qualified_count,
+        "disqualified_count": len(qualified_results) - qualified_count,
+        "leads": qualified_results,
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def save_scraped_leads_to_csv(request):
+    """
+    Saves selected scraped leads directly into ReachEngine's SavedCSV collection.
+    Accepts: { name: 'Austin Dentists Leads', leads: [...] }
+    """
+    name = request.data.get("name", "").strip()
+    leads = request.data.get("leads", [])
+
+    if not name:
+        name = f"Leads - {datetime.datetime.now().strftime('%b %d, %Y %H:%M')}"
+
+    if not leads or not isinstance(leads, list):
+        return Response({"error": "No leads provided to save."}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Prepare standard CSV content with Decision Maker intelligence
+    columns = [
+        "business_name",
+        "decision_maker_name",
+        "decision_maker_title",
+        "email",
+        "website",
+        "domain",
+        "description",
+        "qualification_status",
+        "qualification_score"
+    ]
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(columns)
+
+    valid_rows = 0
+    for lead in leads:
+        writer.writerow([
+            lead.get("name", ""),
+            lead.get("decision_maker_name", ""),
+            lead.get("decision_maker_title", ""),
+            lead.get("email", ""),
+            lead.get("website", ""),
+            lead.get("domain", ""),
+            lead.get("description", "").replace("\n", " "),
+            lead.get("qualification_status", ""),
+            lead.get("qualification_score", ""),
+        ])
+        valid_rows += 1
+
+    csv_content = output.getvalue()
+
+    # Handle unique constraint per user & name
+    base_name = name
+    counter = 1
+    while SavedCsv.objects.filter(user=request.user, name=name).exists():
+        name = f"{base_name} ({counter})"
+        counter += 1
+
+    saved_csv = SavedCsv.objects.create(
+        user=request.user,
+        name=name,
+        csv_content=csv_content,
+        columns=columns,
+        row_count=valid_rows,
+    )
+
+    return Response({
+        "success": True,
+        "id": saved_csv.id,
+        "name": saved_csv.name,
+        "row_count": saved_csv.row_count,
+        "message": f"Successfully saved {valid_rows} leads into Saved CSVs!",
+    }, status=status.HTTP_201_CREATED)
+
+

@@ -259,3 +259,186 @@ class LayaAIService:
             "is_qualified": predicted_status == "qualified",
             "reason": reason
         }
+
+    @classmethod
+    def extract_decision_maker_and_contact(cls, title: str, domain: str, snippet: str, about_text: str, emails: list, target_category: str) -> dict:
+        """
+        Intelligent Contact & Decision Maker Extraction:
+        Parses About Us, Team bio, snippet, and company info to extract:
+        - Owner / Doctor / Founder / CEO Full Name (e.g. Dr. Ashish Patel)
+        - Exact Designation / Title (e.g. Chief Dentist, Founder & CEO)
+        - Specific decision maker direct email (resolving obfuscated emails)
+        Combines pattern heuristics with LLaMA executive extraction.
+        """
+        combined_text = f"{title}. {snippet}. {about_text}"
+        
+        dm_name = ""
+        dm_title = ""
+        dm_email = ""
+
+        # 1. Heuristic Pattern Matches (Fast, high precision)
+        import re
+
+        # Doctor pattern (e.g. "Dr. Ashish Patel", "Dr. Rajesh Sharma")
+        doc_match = re.search(r"\b(Dr\.\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\b", combined_text)
+        if doc_match:
+            dm_name = doc_match.group(1).strip()
+            # Look for dental / medical title
+            if re.search(r"\b(Chief Dentist|Dentist|Orthodontist|Implantologist|Surgeon|Director|Founder|Owner)\b", combined_text, re.I):
+                t_match = re.search(r"\b(Chief Dentist|Orthodontist|Implantologist|Surgeon|Founder & Director|Director|Dentist)\b", combined_text, re.I)
+                dm_title = t_match.group(1) if t_match else "Doctor / Specialist"
+            else:
+                dm_title = "Doctor / Specialist"
+
+        # Founder / CEO pattern if no doctor found
+        if not dm_name:
+            exec_match = re.search(
+                r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\s*(?:[-–,|]\s*|\s+is\s+the\s+|\s+as\s+)?(Founder\s*(?:&\s*CEO)?|Co-Founder|Chief Executive Officer|CEO|Managing Director|Director|Owner|Principal)\b",
+                combined_text,
+                re.I
+            )
+            if exec_match:
+                dm_name = exec_match.group(1).strip()
+                dm_title = exec_match.group(2).strip()
+
+        # 2. De-obfuscate or map specific personal email
+        if emails:
+            # Check for email matching decision maker's name
+            first_name = dm_name.split()[1].lower() if ("Dr." in dm_name and len(dm_name.split()) > 1) else (dm_name.split()[0].lower() if dm_name else "")
+            for em in emails:
+                em_user = em.split("@")[0].lower()
+                if first_name and first_name in em_user:
+                    dm_email = em
+                    break
+            if not dm_email:
+                non_generic = [e for e in emails if not any(e.startswith(p) for p in ["info@", "support@", "admin@", "contact@", "help@"])]
+                dm_email = non_generic[0] if non_generic else emails[0]
+
+        # 3. LLaMA Semantic Extraction for enhanced accuracy
+        if about_text and len(about_text) > 40:
+            prompt = (
+                f"Extract the primary decision maker (Owner, Founder, Doctor, CEO, Managing Director) from this business profile:\n"
+                f"Business: {title}\n"
+                f"Domain: {domain}\n"
+                f"Industry: {target_category}\n"
+                f"About/Team Info: {about_text[:800]}\n"
+                f"Emails: {', '.join(emails[:3])}\n\n"
+                "Return JSON in this exact format:\n"
+                "{\n"
+                '  "decision_maker_name": "Full Name or null",\n'
+                '  "decision_maker_title": "Designation or null",\n'
+                '  "decision_maker_email": "direct email or null"\n'
+                "}\n"
+                "Only return actual person names mentioned in the text. Do not invent names."
+            )
+            try:
+                llm_res = cls.generate_email_completion(prompt, max_tokens=120)
+                if llm_res:
+                    match = re.search(r"\{[\s\S]*\}", llm_res)
+                    if match:
+                        data = json.loads(match.group(0))
+                        llm_name = (data.get("decision_maker_name") or "").strip()
+                        llm_title = (data.get("decision_maker_title") or "").strip()
+                        llm_em = (data.get("decision_maker_email") or "").strip()
+                        if llm_name and llm_name.lower() not in ["null", "none", "n/a", ""]:
+                            dm_name = llm_name
+                        if llm_title and llm_title.lower() not in ["null", "none", "n/a", ""]:
+                            dm_title = llm_title
+                        if llm_em and "@" in llm_em and llm_em.lower() not in ["null", "none", "n/a", ""]:
+                            dm_email = llm_em
+            except Exception as e:
+                logger.debug("LLaMA decision maker extraction error: %s", e)
+
+        return {
+            "decision_maker_name": dm_name,
+            "decision_maker_title": dm_title,
+            "decision_maker_email": dm_email,
+        }
+
+    @classmethod
+    def qualify_scraped_business(cls, title: str, domain: str, snippet: str, target_category: str, location: str, about_text: str = "", emails: list = None) -> dict:
+        """
+        AI Lead Qualification for Scraped Candidates:
+        Uses Laya decision model + heuristic validation to filter out blogs, articles, and directory junk,
+        and extracts Decision Maker & intelligent contact details for qualified companies.
+        """
+        summary = f"Business: {title} | Domain: {domain} | Snippet: {snippet[:250]} | Target: {target_category} in {location}"
+
+        # Fast heuristic checks first
+        t_low = title.lower()
+        s_low = snippet.lower()
+        d_low = domain.lower()
+
+        # Obvious junk/tutorials and listicle directories
+        junk_indicators = [
+            "what is ", "definition", "tutorial", "meaning of", "types of",
+            "wikipedia", "geeksforgeeks", "tutorialspoint", "computerhope",
+            "w3schools", "how to ", "difference between", "guide:",
+            # Aggregator / Directory listicles
+            "top 10", "top 20", "top 30", "top 50", "top 100", "top 101", "100 top", "101 ",
+            "best startup", "the manifest", "themanifest.com", "techbehemoths", "f6s.com", "clutch.co",
+            "goodfirms", "directory", "list of top", "ranking", "rankings", "rankexdigital",
+            "lexifo.com", "justdial", "sulekha", "indiamart", "yellowpages", "crunchbase",
+            "glassdoor", "ambitionbox", "indeed.com", "naukri.com", "trustpilot"
+        ]
+        
+        import re
+        is_listicle_pattern = bool(re.search(r"^(?:\d+\s+top|\d+\s+best|top\s+\d+|\d+\s*[a-z]*\s*based)", t_low))
+
+        if is_listicle_pattern or any(j in t_low or j in s_low or j in d_low for j in junk_indicators):
+            return {
+                "is_qualified": False,
+                "status": "disqualified",
+                "score": 25,
+                "reason": "Aggregator directory / listicle ranking, not a direct business",
+                "decision_maker_name": "",
+                "decision_maker_title": "",
+                "decision_maker_email": "",
+            }
+
+        # Ask Laya AI
+        question = f"Is this a legitimate commercial business / service matching '{target_category}' in '{location}' or is it an article/junk?"
+        options = ["qualified_business", "junk_or_article"]
+
+        is_valid = True
+        try:
+            choice = cls.predict_decision(
+                state=summary,
+                question=question,
+                options=options,
+                fallback="qualified_business"
+            )
+            is_valid = (choice == "qualified_business")
+        except Exception as e:
+            logger.debug("Laya lead qualification error: %s", e)
+
+        if not is_valid:
+            return {
+                "is_qualified": False,
+                "status": "disqualified",
+                "score": 35,
+                "reason": "Filtered as non-direct business",
+                "decision_maker_name": "",
+                "decision_maker_title": "",
+                "decision_maker_email": "",
+            }
+
+        # For qualified businesses, extract Decision Maker & direct contact
+        dm_info = cls.extract_decision_maker_and_contact(
+            title=title,
+            domain=domain,
+            snippet=snippet,
+            about_text=about_text,
+            emails=emails or [],
+            target_category=target_category
+        )
+
+        return {
+            "is_qualified": True,
+            "status": "qualified",
+            "score": 90,
+            "reason": f"Direct commercial entity with verified profile",
+            "decision_maker_name": dm_info.get("decision_maker_name", ""),
+            "decision_maker_title": dm_info.get("decision_maker_title", ""),
+            "decision_maker_email": dm_info.get("decision_maker_email", ""),
+        }

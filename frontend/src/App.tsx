@@ -14,6 +14,7 @@ import Analytics from "./pages/Analytics";
 import Inbox from "./pages/Inbox";
 import PublicLandingPage from "./pages/PublicLandingPage";
 import LandingPages from "./pages/LandingPages";
+import LeadScraper from "./pages/LeadScraper";
 import { ToastProvider } from "./components/Toast";
 
 export default function App() {
@@ -48,6 +49,7 @@ export default function App() {
             <Route path="landing-pages" element={<LandingPages />} />
             <Route path="identities" element={<Identities />} />
             <Route path="saved-csvs" element={<SavedCSVs />} />
+            <Route path="lead-scraper" element={<LeadScraper />} />
           </Route>
         ) : (
           <Route path="*" element={<Navigate to="/login" replace />} />

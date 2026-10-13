@@ -23,6 +23,8 @@ from .views import (
     check_bounces,
     scan_csv,
     get_analytics,
+    scrape_leads,
+    save_scraped_leads_to_csv,
 )
 
 router = DefaultRouter()
@@ -46,6 +48,8 @@ urlpatterns = [
     path("campaigns/verify-emails/", verify_emails, name="verify-emails"),
     path("campaigns/check-bounces/", check_bounces, name="check-bounces"),
     path("campaigns/scan-csv/", scan_csv, name="scan-csv"),
+    path("scraper/search/", scrape_leads, name="scrape-leads"),
+    path("scraper/save-csv/", save_scraped_leads_to_csv, name="save-scraped-leads-csv"),
     path("inbound/webhook/<str:token>/", inbound_webhook, name="inbound-webhook"),
     path("public/page/<slug:slug>/", public_landing_page_data, name="public-landing-page"),
     path("public/html/<slug:slug>/", public_landing_page_html, name="public-landing-page-html"),

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, Menu, X, BarChart3, PanelLeftClose, PanelLeftOpen, Plus, Inbox as InboxIcon, Sparkles, UserPlus, Upload, Globe } from "lucide-react";
+import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, Menu, X, BarChart3, PanelLeftClose, PanelLeftOpen, Plus, Inbox as InboxIcon, Sparkles, UserPlus, Upload, Globe, Compass } from "lucide-react";
 import { cn } from "../lib/utils";
 import Beams from "./Beams";
 
@@ -37,6 +37,7 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
   const navItems = [
     { name: "Analytics", path: "/analytics", icon: BarChart3 },
     { name: "Inbound & Replies", path: "/inbox", icon: InboxIcon },
+    { name: "Find Leads", path: "/lead-scraper", icon: Compass },
     { name: "Automation Wizard", path: "/wizard", icon: Wand2 },
     { name: "Email Templates", path: "/templates", icon: FileText },
     { name: "Landing Pages & Forms", path: "/landing-pages", icon: Globe },
@@ -173,6 +174,8 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
                     return "Sender Identities";
                   case "saved-csvs":
                     return "Saved CSVs";
+                  case "lead-scraper":
+                    return "Find Leads";
                   case "inbox":
                     return "Inbound Mail & Reply Center";
                   default:
