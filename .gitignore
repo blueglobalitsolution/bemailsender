@@ -1,63 +1,93 @@
-# Python
+# Python & Virtual Environments
 __pycache__/
 *.py[cod]
-*.pyo
-*.egg-info/
-dist/
-build/
-*.egg
-.venv/
-venv/
-env/
-
-# Node
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Environment
-.env
-.env.local
-.env.*.local
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-.ruff_cache/
-Bugs/
-
-
-# Docker
-Dockerfile*
-docker-compose*.yml
-.dockerignore
-.docker/
-
-# Compiled binaries
+*$py.class
 *.so
-*.wasm
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+*.manifest
+*.spec
 
-# Database backups
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Django & Celery
+*.log
+local_settings.py
+db.sqlite3
 *.sqlite3
+*.sqlite3-journal
 *.sqlite3.backup
 *.backup
 *.sql
 *.db
+celerybeat-schedule
+celerybeat.pid
 backend/media/
 backend/staticfiles/
+staticfiles/
+media/
 frontend/uploads/
 uploads/
 *.csv
 
-# Knowledge Graphs & Tooling Artifacts
+# Node & Frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+frontend/dist/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.crt
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.ruff_cache/
+Bugs/
+
+# Docker
+.docker/
+
+# Knowledge Graphs, Agent & AI Tooling Artifacts
 graphify-out/
 .agents/
 .gemini/
 plans/
+scratch/
