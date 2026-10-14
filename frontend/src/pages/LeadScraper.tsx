@@ -15,6 +15,16 @@ import {
   XCircle,
   PlusCircle,
   UserCheck,
+  Linkedin,
+  Twitter,
+  Building2,
+  Users,
+  Cpu,
+  Layers,
+  Zap,
+  Eye,
+  Copy,
+  Check,
 } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { useToast } from "../components/Toast";
@@ -34,6 +44,18 @@ interface ScrapedLead {
   decision_maker_name?: string;
   decision_maker_title?: string;
   decision_maker_email?: string;
+  // Free Apollo-style Enrichment fields
+  is_enriched?: boolean;
+  enriching?: boolean;
+  technologies?: string[];
+  company_size?: string;
+  industry?: string;
+  linkedin_url?: string;
+  twitter_url?: string;
+  github_url?: string;
+  email_pattern?: string;
+  predicted_email?: string;
+  summary?: string;
 }
 
 const BUSINESS_CATEGORIES = [
@@ -73,6 +95,11 @@ export default function LeadScraper() {
   const [qualifying, setQualifying] = useState(false);
   const [qualificationDone, setQualificationDone] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "qualified" | "disqualified">("all");
+
+  // Lead Enrichment state (Apollo-style Free Enrichment)
+  const [enrichingBatch, setEnrichingBatch] = useState(false);
+  const [selectedLeadForDetail, setSelectedLeadForDetail] = useState<ScrapedLead | null>(null);
+  const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
 
   // Save to CSV modal
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
@@ -244,6 +271,93 @@ export default function LeadScraper() {
       toast.error(err.message || "Failed to qualify leads with AI");
     } finally {
       setQualifying(false);
+    }
+  };
+
+  // Step 3: Free Apollo-style Lead Enrichment Layer
+  const handleEnrichLead = async (originalIndex: number) => {
+    const targetLead = leads[originalIndex];
+    if (!targetLead || targetLead.enriching) return;
+
+    setLeads((prev) =>
+      prev.map((l, idx) => (idx === originalIndex ? { ...l, enriching: true } : l))
+    );
+
+    try {
+      const res = await apiFetch("/api/scraper/enrich/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lead: targetLead }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Enrichment failed");
+      }
+
+      const data = await res.json();
+      const enrichedLead: ScrapedLead = data.lead;
+
+      setLeads((prev) =>
+        prev.map((l, idx) => (idx === originalIndex ? { ...enrichedLead, enriching: false } : l))
+      );
+
+      if (selectedLeadForDetail && leads[originalIndex]?.domain === selectedLeadForDetail.domain) {
+        setSelectedLeadForDetail({ ...enrichedLead, enriching: false });
+      }
+
+      toast.success(
+        `Enriched ${enrichedLead.name}! Found ${enrichedLead.technologies?.length || 0} tech tags & decision maker details.`
+      );
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to enrich lead");
+      setLeads((prev) =>
+        prev.map((l, idx) => (idx === originalIndex ? { ...l, enriching: false } : l))
+      );
+    }
+  };
+
+  const handleBulkEnrichLeads = async () => {
+    const indicesToEnrich = selectedLeads.size > 0
+      ? Array.from(selectedLeads)
+      : leads.slice(0, 10).map((_, i) => i);
+
+    if (indicesToEnrich.length === 0) return;
+
+    setEnrichingBatch(true);
+    try {
+      const batchPayload = indicesToEnrich.map((idx) => leads[idx]);
+      const res = await apiFetch("/api/scraper/enrich/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leads: batchPayload }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Batch enrichment failed");
+      }
+
+      const data = await res.json();
+      const enrichedList: ScrapedLead[] = data.leads || [];
+
+      setLeads((prev) => {
+        const next = [...prev];
+        indicesToEnrich.forEach((origIdx, i) => {
+          if (enrichedList[i]) {
+            next[origIdx] = enrichedList[i];
+          }
+        });
+        return next;
+      });
+
+      toast.success(`Successfully enriched ${enrichedList.length} leads with tech stacks & decision makers!`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Bulk enrichment failed");
+    } finally {
+      setEnrichingBatch(false);
     }
   };
 
@@ -511,7 +625,7 @@ export default function LeadScraper() {
             <button
               type="button"
               onClick={handleQualifyLeads}
-              disabled={qualifying}
+              disabled={qualifying || enrichingBatch}
               className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white font-bold text-xs px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
             >
               {qualifying ? (
@@ -523,6 +637,28 @@ export default function LeadScraper() {
                 <>
                   <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                   <span>{qualificationDone ? "Re-qualify with AI" : "Qualify Leads with AI"}</span>
+                </>
+              )}
+            </button>
+
+            {/* Free Apollo-style Lead Enrichment Button */}
+            <button
+              type="button"
+              onClick={handleBulkEnrichLeads}
+              disabled={enrichingBatch || qualifying}
+              className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 disabled:opacity-50 text-white font-bold text-xs px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+            >
+              {enrichingBatch ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Enriching Profiles...</span>
+                </>
+              ) : (
+                <>
+                  <Zap className="w-3.5 h-3.5 text-yellow-300" />
+                  <span>
+                    Enrich {selectedLeads.size > 0 ? `${selectedLeads.size} Selected` : "Top Leads"}
+                  </span>
                 </>
               )}
             </button>
@@ -569,15 +705,18 @@ export default function LeadScraper() {
               <thead className="bg-[#161B1F] text-[#8E9BA8] uppercase tracking-wider font-semibold border-b border-[#2C353D]">
                 <tr>
                   <th className="p-4 w-12 text-center">#</th>
-                  <th className="p-4">Business Name</th>
-                  <th className="p-4">Contact Email</th>
-                  <th className="p-4">Website</th>
+                  <th className="p-4">Business & Intelligence</th>
+                  <th className="p-4">Decision Maker & Socials</th>
+                  <th className="p-4">Contact & Email Pattern</th>
+                  <th className="p-4">Tech Stack</th>
+                  <th className="p-4 text-center">Enrichment</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#2C353D]/50 text-[#CBD5E1]">
                 {filteredLeads.map(({ lead, originalIndex }) => {
                   const isChecked = selectedLeads.has(originalIndex);
                   const hasEmail = Boolean(lead.email);
+                  const isEnriched = Boolean(lead.is_enriched);
 
                   return (
                     <tr
@@ -596,92 +735,196 @@ export default function LeadScraper() {
                         />
                       </td>
 
-                      <td className="p-4 font-semibold text-white max-w-sm">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate" title={lead.name}>
+                      <td className="p-4 font-semibold text-white max-w-xs">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="truncate max-w-[200px]" title={lead.name}>
                             {lead.name}
                           </span>
 
-                          {/* Show qualification status ONLY after the qualification mechanism has run */}
+                          {/* Company Size & Industry pill */}
+                          {lead.company_size && (
+                            <span className="text-[10px] font-normal bg-[#222930] text-[#94A3B8] border border-[#2C353D] px-1.5 py-0.5 rounded">
+                              {lead.company_size}
+                            </span>
+                          )}
+
+                          {/* Show qualification status */}
                           {qualificationDone && lead.is_qualified === true && (
                             <span
-                              className="text-[10px] shrink-0 font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1"
-                              title={lead.qualification_reason || "AI Qualified Business"}
+                              className="text-[10px] shrink-0 font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded-full flex items-center gap-1"
+                              title={lead.qualification_reason || "AI Qualified"}
                             >
-                              <ShieldCheck className="w-2.5 h-2.5" /> Qualified ({lead.qualification_score || 85}%)
+                              <ShieldCheck className="w-2.5 h-2.5" /> Qualified
                             </span>
                           )}
 
                           {qualificationDone && lead.is_qualified === false && (
                             <span
-                              className="text-[10px] shrink-0 font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded-full flex items-center gap-1"
-                              title={lead.qualification_reason || "Disqualified lead"}
+                              className="text-[10px] shrink-0 font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20 px-1.5 py-0.5 rounded-full flex items-center gap-1"
+                              title={lead.qualification_reason || "Disqualified"}
                             >
                               <XCircle className="w-2.5 h-2.5" /> Disqualified
                             </span>
                           )}
                         </div>
 
-                        {/* Decision Maker extracted by LLaMA during qualification */}
-                        {lead.decision_maker_name && (
-                          <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-teal-300 bg-teal-500/10 border border-teal-500/20 px-2 py-0.5 rounded-md w-fit font-medium">
-                            <UserCheck className="w-3 h-3 text-teal-400 shrink-0" />
-                            <span>{lead.decision_maker_name}</span>
-                            {lead.decision_maker_title && (
-                              <span className="text-[#8E9BA8] font-normal">• {lead.decision_maker_title}</span>
-                            )}
+                        {/* Website link */}
+                        {lead.website && (
+                          <div className="mt-1">
+                            <a
+                              href={lead.website}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-[11px] text-sky-400 hover:text-sky-300 inline-flex items-center gap-1 font-mono truncate max-w-[200px]"
+                            >
+                              <Globe className="w-3 h-3 shrink-0" />
+                              <span className="truncate">{lead.domain || lead.website}</span>
+                              <ExternalLink className="w-2.5 h-2.5 shrink-0 opacity-60" />
+                            </a>
                           </div>
                         )}
 
-                        {/* Description or qualification reason */}
-                        {qualificationDone && lead.is_qualified === false && lead.qualification_reason ? (
-                          <p className="text-[11px] text-rose-400/80 font-normal mt-0.5">
-                            {lead.qualification_reason}
-                          </p>
-                        ) : lead.description ? (
+                        {/* Description */}
+                        {lead.description ? (
                           <p className="text-[11px] text-[#8E9BA8] line-clamp-1 font-normal mt-0.5">
                             {lead.description}
                           </p>
                         ) : null}
                       </td>
 
-                      <td className="p-4">
+                      {/* Decision Maker & Socials */}
+                      <td className="p-4 max-w-xs">
+                        {lead.decision_maker_name ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 text-xs text-white font-medium">
+                              <UserCheck className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                              <span className="truncate">{lead.decision_maker_name}</span>
+                            </div>
+                            {lead.decision_maker_title && (
+                              <p className="text-[11px] text-[#8E9BA8] truncate">
+                                {lead.decision_maker_title}
+                              </p>
+                            )}
+
+                            {/* Direct LinkedIn Badge */}
+                            {lead.linkedin_url && (
+                              <a
+                                href={lead.linkedin_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 text-[10px] text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 px-2 py-0.5 rounded transition-colors font-medium mt-0.5"
+                              >
+                                <Linkedin className="w-3 h-3" />
+                                <span>LinkedIn Profile</span>
+                                <ExternalLink className="w-2 h-2 opacity-70" />
+                              </a>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[#64748B] italic text-[11px]">
+                            {isEnriched ? "No executive found" : "Click Enrich to extract"}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Contact & Corporate Pattern */}
+                      <td className="p-4 max-w-xs">
                         {hasEmail ? (
-                          <div className="space-y-0.5">
-                            <div className="flex items-center gap-1.5 text-emerald-400 font-mono font-medium">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 text-emerald-400 font-mono font-medium text-xs">
                               <Mail className="w-3.5 h-3.5 shrink-0" />
-                              <span className="truncate max-w-[260px]" title={lead.email}>
+                              <span className="truncate max-w-[200px]" title={lead.email}>
                                 {lead.email}
                               </span>
                             </div>
-                            {lead.decision_maker_name && lead.decision_maker_email && (
-                              <span className="text-[10px] text-teal-400/90 font-sans flex items-center gap-1">
-                                Decision Maker Direct
+
+                            {/* Pattern badge */}
+                            {lead.email_pattern && (
+                              <div className="text-[10px] text-violet-300 bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 rounded font-mono w-fit">
+                                Pattern: {lead.email_pattern}
+                              </div>
+                            )}
+                          </div>
+                        ) : lead.predicted_email ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 text-amber-400 font-mono font-medium text-xs">
+                              <Mail className="w-3.5 h-3.5 shrink-0" />
+                              <span className="truncate max-w-[200px]" title={lead.predicted_email}>
+                                {lead.predicted_email}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-amber-400/80 font-sans">
+                              (Predicted from pattern)
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-[#64748B] italic text-[11px]">No direct email</span>
+                        )}
+                      </td>
+
+                      {/* Tech Stack & Tools */}
+                      <td className="p-4 max-w-xs">
+                        {lead.technologies && lead.technologies.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 max-w-[180px]">
+                            {lead.technologies.slice(0, 3).map((tech) => (
+                              <span
+                                key={tech}
+                                className="text-[10px] bg-[#161B1F] text-[#CBD5E1] border border-[#2C353D] px-1.5 py-0.5 rounded font-mono"
+                              >
+                                {tech}
+                              </span>
+                            ))}
+                            {lead.technologies.length > 3 && (
+                              <span className="text-[10px] bg-[#222930] text-[#8E9BA8] px-1.5 py-0.5 rounded">
+                                +{lead.technologies.length - 3}
                               </span>
                             )}
                           </div>
                         ) : (
-                          <span className="text-[#64748B] italic">No direct email found</span>
+                          <span className="text-[#64748B] text-[11px]">—</span>
                         )}
                       </td>
 
-                      <td className="p-4 max-w-[220px]">
-                        {lead.website ? (
-                          <a
-                            href={lead.website}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-sky-400 hover:text-sky-300 flex items-center gap-1 font-mono truncate"
-                            title={lead.website}
+                      {/* Enrichment Actions */}
+                      <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleEnrichLead(originalIndex)}
+                            disabled={lead.enriching}
+                            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer shadow-sm ${
+                              isEnriched
+                                ? "bg-[#222930] hover:bg-[#2C353D] text-violet-300 border border-violet-500/30"
+                                : "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white"
+                            }`}
+                            title={isEnriched ? "Re-enrich profile" : "Enrich with tech & executive details"}
                           >
-                            <Globe className="w-3.5 h-3.5 shrink-0" />
-                            <span className="truncate">{lead.domain || lead.website}</span>
-                            <ExternalLink className="w-2.5 h-2.5 shrink-0 opacity-60" />
-                          </a>
-                        ) : (
-                          <span className="text-[#64748B]">—</span>
-                        )}
+                            {lead.enriching ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                <span>Enriching...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Zap className="w-3 h-3 text-yellow-300" />
+                                <span>{isEnriched ? "Re-enrich" : "Enrich"}</span>
+                              </>
+                            )}
+                          </button>
+
+                          {isEnriched && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedLeadForDetail(lead)}
+                              className="p-1.5 rounded-lg bg-[#161B1F] hover:bg-[#2C353D] border border-[#2C353D] text-[#8E9BA8] hover:text-white transition-colors cursor-pointer"
+                              title="View Apollo Profile"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -768,6 +1011,231 @@ export default function LeadScraper() {
               >
                 {savingCsv ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
                 Save & Add to Audience
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Apollo-Style Enriched Lead Profile Modal */}
+      {selectedLeadForDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-[#1C2227] border border-[#2C353D] rounded-2xl w-full max-w-2xl p-6 sm:p-7 shadow-2xl space-y-6 text-white max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-[#2C353D] pb-4">
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2.5 py-0.5 rounded-full mb-1">
+                  <Zap className="w-3 h-3 text-yellow-300" /> Free Apollo-Style Lead Intelligence
+                </div>
+                <h2 className="text-xl font-bold text-white tracking-tight">
+                  {selectedLeadForDetail.name}
+                </h2>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-[#8E9BA8]">
+                  {selectedLeadForDetail.website && (
+                    <a
+                      href={selectedLeadForDetail.website}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sky-400 hover:text-sky-300 flex items-center gap-1 font-mono"
+                    >
+                      <Globe className="w-3.5 h-3.5" />
+                      <span>{selectedLeadForDetail.domain || selectedLeadForDetail.website}</span>
+                      <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                    </a>
+                  )}
+                  {selectedLeadForDetail.industry && (
+                    <span className="bg-[#222930] px-2 py-0.5 rounded border border-[#2C353D] text-[#CBD5E1]">
+                      {selectedLeadForDetail.industry}
+                    </span>
+                  )}
+                  {selectedLeadForDetail.company_size && (
+                    <span className="bg-[#222930] px-2 py-0.5 rounded border border-[#2C353D] text-[#CBD5E1] flex items-center gap-1">
+                      <Users className="w-3 h-3 text-teal-400" />
+                      {selectedLeadForDetail.company_size} Employees
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedLeadForDetail(null)}
+                className="text-[#8E9BA8] hover:text-white p-1.5 rounded-lg hover:bg-[#2C353D] transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Decision Maker Card */}
+            <div className="bg-[#161B1F] border border-[#2C353D] rounded-xl p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center text-white font-bold text-base shadow-md">
+                    {selectedLeadForDetail.decision_maker_name
+                      ? selectedLeadForDetail.decision_maker_name.charAt(0)
+                      : "E"}
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                      {selectedLeadForDetail.decision_maker_name || "Decision Maker Identified"}
+                      {selectedLeadForDetail.linkedin_url && (
+                        <a
+                          href={selectedLeadForDetail.linkedin_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sky-400 hover:text-sky-300"
+                          title="View Verified LinkedIn Profile"
+                        >
+                          <Linkedin className="w-4 h-4" />
+                        </a>
+                      )}
+                    </h4>
+                    <p className="text-xs text-[#8E9BA8]">
+                      {selectedLeadForDetail.decision_maker_title || "Executive / Founder"}
+                    </p>
+                  </div>
+                </div>
+
+                {selectedLeadForDetail.linkedin_url && (
+                  <a
+                    href={selectedLeadForDetail.linkedin_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="hidden sm:inline-flex items-center gap-1.5 text-xs text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 px-3 py-1.5 rounded-lg transition-colors font-medium"
+                  >
+                    <Linkedin className="w-3.5 h-3.5" />
+                    <span>View LinkedIn Profile</span>
+                    <ExternalLink className="w-3 h-3 opacity-70" />
+                  </a>
+                )}
+              </div>
+
+              {/* Email & Pattern Details */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[#2C353D]/50 text-xs">
+                <div className="bg-[#1C2227] p-3 rounded-lg border border-[#2C353D]/60 space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-[#8E9BA8] tracking-wider">
+                    Direct Corporate Email
+                  </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-emerald-400 truncate font-medium">
+                      {selectedLeadForDetail.email || selectedLeadForDetail.predicted_email || "No direct email"}
+                    </span>
+                    {(selectedLeadForDetail.email || selectedLeadForDetail.predicted_email) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const em = selectedLeadForDetail.email || selectedLeadForDetail.predicted_email || "";
+                          navigator.clipboard.writeText(em);
+                          setCopiedEmail(em);
+                          setTimeout(() => setCopiedEmail(null), 2000);
+                        }}
+                        className="text-[#8E9BA8] hover:text-white p-1 rounded"
+                        title="Copy Email"
+                      >
+                        {copiedEmail === (selectedLeadForDetail.email || selectedLeadForDetail.predicted_email) ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-[#1C2227] p-3 rounded-lg border border-[#2C353D]/60 space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-[#8E9BA8] tracking-wider">
+                    Corporate Email Pattern
+                  </span>
+                  <p className="font-mono text-violet-300 font-medium">
+                    {selectedLeadForDetail.email_pattern || "{first}@{domain}"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Detected Technology Stack */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[#CBD5E1] flex items-center gap-1.5">
+                <Cpu className="w-3.5 h-3.5 text-indigo-400" /> Detected Technology Stack & Digital Tools
+              </h4>
+              {selectedLeadForDetail.technologies && selectedLeadForDetail.technologies.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {selectedLeadForDetail.technologies.map((t) => (
+                    <span
+                      key={t}
+                      className="px-2.5 py-1 rounded-lg bg-[#161B1F] border border-[#2C353D] text-xs font-mono text-white flex items-center gap-1.5 shadow-sm"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-[#8E9BA8] italic">No public script signatures detected.</p>
+              )}
+            </div>
+
+            {/* Company Social Media Links */}
+            {(selectedLeadForDetail.linkedin_url || selectedLeadForDetail.twitter_url || selectedLeadForDetail.github_url) && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#CBD5E1] flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5 text-sky-400" /> Social Channels & Presence
+                </h4>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {selectedLeadForDetail.linkedin_url && (
+                    <a
+                      href={selectedLeadForDetail.linkedin_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1.5 bg-[#161B1F] hover:bg-[#222930] border border-[#2C353D] px-3 py-1.5 rounded-lg text-sky-400 transition-colors"
+                    >
+                      <Linkedin className="w-3.5 h-3.5" /> LinkedIn
+                    </a>
+                  )}
+                  {selectedLeadForDetail.twitter_url && (
+                    <a
+                      href={selectedLeadForDetail.twitter_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1.5 bg-[#161B1F] hover:bg-[#222930] border border-[#2C353D] px-3 py-1.5 rounded-lg text-sky-300 transition-colors"
+                    >
+                      <Twitter className="w-3.5 h-3.5" /> Twitter / X
+                    </a>
+                  )}
+                  {selectedLeadForDetail.github_url && (
+                    <a
+                      href={selectedLeadForDetail.github_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1.5 bg-[#161B1F] hover:bg-[#222930] border border-[#2C353D] px-3 py-1.5 rounded-lg text-white transition-colors"
+                    >
+                      <Globe className="w-3.5 h-3.5" /> GitHub
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* AI Summary / Overview */}
+            {selectedLeadForDetail.summary && (
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#CBD5E1]">
+                  Company Overview & Value Proposition
+                </h4>
+                <div className="bg-[#161B1F] border border-[#2C353D] rounded-xl p-3.5 text-xs text-[#CBD5E1] leading-relaxed">
+                  {selectedLeadForDetail.summary}
+                </div>
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#2C353D]">
+              <button
+                type="button"
+                onClick={() => setSelectedLeadForDetail(null)}
+                className="px-4 py-2 border border-[#2C353D] bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+              >
+                Close
               </button>
             </div>
           </div>

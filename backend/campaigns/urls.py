@@ -24,6 +24,8 @@ from .views import (
     scan_csv,
     get_analytics,
     scrape_leads,
+    qualify_scraped_leads,
+    enrich_scraped_leads,
     save_scraped_leads_to_csv,
 )
 
@@ -49,6 +51,8 @@ urlpatterns = [
     path("campaigns/check-bounces/", check_bounces, name="check-bounces"),
     path("campaigns/scan-csv/", scan_csv, name="scan-csv"),
     path("scraper/search/", scrape_leads, name="scrape-leads"),
+    path("scraper/qualify/", qualify_scraped_leads, name="qualify-scraped-leads"),
+    path("scraper/enrich/", enrich_scraped_leads, name="enrich-scraped-leads"),
     path("scraper/save-csv/", save_scraped_leads_to_csv, name="save-scraped-leads-csv"),
     path("inbound/webhook/<str:token>/", inbound_webhook, name="inbound-webhook"),
     path("public/page/<slug:slug>/", public_landing_page_data, name="public-landing-page"),

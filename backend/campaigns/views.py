@@ -1703,12 +1703,17 @@ def save_scraped_leads_to_csv(request):
     if not leads or not isinstance(leads, list):
         return Response({"error": "No leads provided to save."}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Prepare standard CSV content with Decision Maker intelligence
+    # Prepare standard CSV content with Decision Maker & Enrichment intelligence
     columns = [
         "business_name",
         "decision_maker_name",
         "decision_maker_title",
         "email",
+        "linkedin_url",
+        "company_size",
+        "industry",
+        "technologies",
+        "email_pattern",
         "website",
         "domain",
         "description",
@@ -1721,11 +1726,17 @@ def save_scraped_leads_to_csv(request):
 
     valid_rows = 0
     for lead in leads:
+        tech_str = ", ".join(lead.get("technologies", [])) if isinstance(lead.get("technologies"), list) else lead.get("technologies", "")
         writer.writerow([
             lead.get("name", ""),
             lead.get("decision_maker_name", ""),
             lead.get("decision_maker_title", ""),
             lead.get("email", ""),
+            lead.get("linkedin_url", ""),
+            lead.get("company_size", ""),
+            lead.get("industry", ""),
+            tech_str,
+            lead.get("email_pattern", ""),
             lead.get("website", ""),
             lead.get("domain", ""),
             lead.get("description", "").replace("\n", " "),
@@ -1758,5 +1769,48 @@ def save_scraped_leads_to_csv(request):
         "row_count": saved_csv.row_count,
         "message": f"Successfully saved {valid_rows} leads into Saved CSVs!",
     }, status=status.HTTP_201_CREATED)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def enrich_scraped_leads(request):
+    """
+    Free Apollo-Style Lead Enrichment Layer:
+    Performs deep multi-channel enrichment without any paid APIs:
+    - DuckDuckGo LinkedIn dorking
+    - Deep website crawl (/about, /team, /contact)
+    - Wappalyzer-grade Tech detection (React, Shopify, WordPress, Stripe, etc.)
+    - Smart Corporate Email Pattern discovery & verification
+    - LLaMA / Laya AI profile synthesis (Decision Maker, Company Size, Industry)
+    Accepts: { "lead": {...} } OR { "leads": [...] }
+    """
+    import asyncio
+    from .services.enrichment_service import enrich_single_lead, enrich_batch_leads
+
+    single_lead = request.data.get("lead")
+    multiple_leads = request.data.get("leads")
+
+    if single_lead and isinstance(single_lead, dict):
+        try:
+            enriched = asyncio.run(enrich_single_lead(single_lead))
+            return Response({"success": True, "lead": enriched}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": f"Enrichment failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    if multiple_leads and isinstance(multiple_leads, list):
+        if len(multiple_leads) > 50:
+            return Response({"error": "Cannot enrich more than 50 leads at once."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            enriched_list = asyncio.run(enrich_batch_leads(multiple_leads, max_concurrent=5))
+            return Response({
+                "success": True,
+                "total": len(enriched_list),
+                "leads": enriched_list
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": f"Batch enrichment failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return Response({"error": "Must provide 'lead' object or 'leads' list to enrich."}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
