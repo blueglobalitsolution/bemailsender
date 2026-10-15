@@ -235,9 +235,17 @@ export default function SubmissionsViewerModal({
   const qualifiedPercentage = submissions.length > 0 ? Math.round((qualifiedCount / submissions.length) * 100) : 0;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-6 md:pl-16 z-50">
-        <div className="w-screen max-w-5xl xl:max-w-6xl bg-[#12161A] border-l border-[#2C353D] shadow-[-20px_0_60px_rgba(0,0,0,0.85)] flex flex-col h-full animate-in slide-in-from-right duration-300 ease-out">
+    <div className="fixed inset-0 z-50 overflow-hidden">
+      {/* Backdrop overlay without blur */}
+      <div 
+        onClick={onClose}
+        className="fixed inset-0 bg-black/40 transition-opacity animate-in fade-in duration-200 cursor-pointer"
+        aria-hidden="true"
+      />
+
+      {/* Slide-over panel */}
+      <div className="fixed inset-y-0 right-0 max-w-full flex pl-6 md:pl-16 z-50 pointer-events-none">
+        <div className="w-screen max-w-5xl xl:max-w-6xl bg-[#12161A] border-l border-[#2C353D] shadow-[-20px_0_60px_rgba(0,0,0,0.85)] flex flex-col h-full animate-in slide-in-from-right duration-300 ease-out pointer-events-auto">
           
           {/* Header */}
           <div className="px-6 py-4 border-b border-[#2C353D] bg-[#161B1F] flex flex-wrap items-center justify-between gap-4">
