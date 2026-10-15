@@ -16,8 +16,7 @@ import {
   ExternalLink, 
   RefreshCw,
   Send,
-  ShieldCheck,
-  Globe
+  ShieldCheck
 } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { useToast } from "../components/Toast";
@@ -64,9 +63,14 @@ export default function Identities() {
   const [brevoMode, setBrevoMode] = useState<BrevoSubMode>("api");
   const [showPassword, setShowPassword] = useState(false);
 
-  const [testingConnection, setTestingConnection] = useState(false);
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
-  const [testingCardId, setTestingCardId] = useState<number | null>(null);
+  // Send Test Email Popup State
+  const [testModalOpen, setTestModalOpen] = useState(false);
+  const [testTargetIdentity, setTestTargetIdentity] = useState<Identity | null>(null);
+  const [testRecipientName, setTestRecipientName] = useState("");
+  const [testRecipientEmail, setTestRecipientEmail] = useState("");
+  const [sendingTestEmail, setSendingTestEmail] = useState(false);
+  const [testModalError, setTestModalError] = useState<string | null>(null);
+  const [testModalSuccess, setTestModalSuccess] = useState<string | null>(null);
 
   const [newIdentity, setNewIdentity] = useState({
     name: "",
@@ -137,7 +141,6 @@ export default function Identities() {
   const handleProviderSelect = (type: ProviderType, mode: BrevoSubMode = "api") => {
     setProvider(type);
     setBrevoMode(mode);
-    setTestResult(null);
 
     if (type === "brevo") {
       if (mode === "api") {
@@ -178,7 +181,6 @@ export default function Identities() {
   const resetIdentityForm = () => {
     setIsCreating(false);
     setEditingIdentityId(null);
-    setTestResult(null);
     setNewIdentity({
       name: "",
       host: "api.brevo.com",
@@ -198,7 +200,6 @@ export default function Identities() {
   const handleIdentityEdit = (identity: Identity) => {
     setEditingIdentityId(identity.id);
     setIsCreating(true);
-    setTestResult(null);
 
     const h = (identity.host || "").toLowerCase();
     if (h === "api.brevo.com" || h === "brevo" || h.includes("brevo")) {
@@ -227,29 +228,78 @@ export default function Identities() {
     });
   };
 
-  // Live test connection inside form
-  const handleTestConnection = async () => {
-    if (!newIdentity.smtp_pass && !editingIdentityId) {
+  // Open test popup from the form
+  const openTestModalFromForm = () => {
+    if (!newIdentity.smtp_user.trim()) {
+      toast.error("Please enter sender email address first");
+      return;
+    }
+    if (!editingIdentityId && !newIdentity.smtp_pass.trim()) {
       toast.error(provider === "brevo" && brevoMode === "api" ? "Please enter your Brevo API key first" : "Please enter your password first");
       return;
     }
+    setTestTargetIdentity(null);
+    setTestModalError(null);
+    setTestModalSuccess(null);
+    setTestModalOpen(true);
+  };
 
-    setTestingConnection(true);
-    setTestResult(null);
+  // Open test popup from an identity card in the list
+  const openTestModalFromCard = (identity: Identity) => {
+    setTestTargetIdentity(identity);
+    setTestModalError(null);
+    setTestModalSuccess(null);
+    setTestModalOpen(true);
+  };
+
+  // Handle actual sending of the test email
+  const handleSendTestEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testRecipientEmail.trim()) {
+      setTestModalError("Please enter recipient email");
+      return;
+    }
+
+    setSendingTestEmail(true);
+    setTestModalError(null);
+    setTestModalSuccess(null);
 
     try {
-      const endpoint = editingIdentityId 
-        ? `/api/identities/${editingIdentityId}/test/` 
-        : "/api/identities/test-new/";
-
-      const payload = {
-        host: newIdentity.host,
-        port: parseInt(newIdentity.port) || 587,
-        smtp_user: newIdentity.smtp_user,
-        smtp_pass: newIdentity.smtp_pass,
-        use_tls: provider === "custom" ? !newIdentity.secure : true,
-        use_ssl: provider === "custom" ? newIdentity.secure : false,
+      let endpoint = "";
+      let payload: any = {
+        recipient_email: testRecipientEmail.trim(),
+        recipient_name: testRecipientName.trim(),
       };
+
+      if (testTargetIdentity) {
+        endpoint = `/api/identities/${testTargetIdentity.id}/test/`;
+      } else if (editingIdentityId) {
+        endpoint = `/api/identities/${editingIdentityId}/test/`;
+        payload = {
+          ...payload,
+          host: newIdentity.host,
+          port: parseInt(newIdentity.port) || 587,
+          smtp_user: newIdentity.smtp_user,
+          smtp_pass: newIdentity.smtp_pass,
+          smtp_from_name: newIdentity.smtp_from_name,
+          smtp_from_email: newIdentity.smtp_from_email,
+          use_tls: provider === "custom" ? !newIdentity.secure : true,
+          use_ssl: provider === "custom" ? newIdentity.secure : false,
+        };
+      } else {
+        endpoint = "/api/identities/test-new/";
+        payload = {
+          ...payload,
+          host: newIdentity.host,
+          port: parseInt(newIdentity.port) || 587,
+          smtp_user: newIdentity.smtp_user,
+          smtp_pass: newIdentity.smtp_pass,
+          smtp_from_name: newIdentity.smtp_from_name,
+          smtp_from_email: newIdentity.smtp_from_email,
+          use_tls: provider === "custom" ? !newIdentity.secure : true,
+          use_ssl: provider === "custom" ? newIdentity.secure : false,
+        };
+      }
 
       const res = await apiFetch(endpoint, {
         method: "POST",
@@ -259,40 +309,25 @@ export default function Identities() {
 
       const data = await res.json();
       if (res.ok && data.success) {
-        setTestResult({ success: true, message: data.message || "Connection verified successfully!" });
-        toast.success(data.message || "Connection verified successfully!");
+        const msg = data.message || `Test email successfully sent to ${testRecipientEmail}!`;
+        setTestModalSuccess(msg);
+        toast.success(msg);
+        fetchIdentities();
+        setTimeout(() => {
+          setTestModalOpen(false);
+          setTestModalSuccess(null);
+        }, 1600);
       } else {
-        setTestResult({ success: false, message: data.message || "Connection failed. Please check your credentials." });
-        toast.error(data.message || "Connection failed.");
+        const errMsg = data.message || "Failed to send test email. Please check your credentials.";
+        setTestModalError(errMsg);
+        toast.error(errMsg);
       }
     } catch (err: any) {
-      setTestResult({ success: false, message: err.message || "Network error while testing connection." });
-      toast.error("Network error while testing connection.");
+      const errMsg = err.message || "Network error while sending test email.";
+      setTestModalError(errMsg);
+      toast.error(errMsg);
     } finally {
-      setTestingConnection(false);
-    }
-  };
-
-  // Test connection directly from identity card
-  const handleTestCardConnection = async (id: number) => {
-    setTestingCardId(id);
-    try {
-      const res = await apiFetch(`/api/identities/${id}/test/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        toast.success(data.message || "Identity verified!");
-        fetchIdentities();
-      } else {
-        toast.error(data.message || "Verification failed. Check credentials.");
-      }
-    } catch (err) {
-      toast.error("Network error testing connection.");
-    } finally {
-      setTestingCardId(null);
+      setSendingTestEmail(false);
     }
   };
 
@@ -857,42 +892,14 @@ export default function Identities() {
                   )}
                 </div>
 
-                {/* Inline Test Result Banner */}
-                {testResult && (
-                  <div className={`p-4 rounded-xl border flex items-start gap-3 ${
-                    testResult.success 
-                      ? "bg-teal-500/10 border-teal-500/40 text-teal-200" 
-                      : "bg-red-500/10 border-red-500/40 text-red-200"
-                  }`}>
-                    {testResult.success ? (
-                      <CheckCircle2 className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
-                    ) : (
-                      <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-                    )}
-                    <div className="text-xs">
-                      <p className="font-bold">{testResult.success ? "Connection Verified!" : "Connection Failed"}</p>
-                      <p className="mt-0.5 break-all">{testResult.message}</p>
-                    </div>
-                  </div>
-                )}
-
                 {/* Action buttons */}
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-[#1e242a]">
                   <button
                     type="button"
-                    onClick={handleTestConnection}
-                    disabled={testingConnection}
-                    className="w-full sm:w-auto px-5 py-2.5 rounded-full text-xs font-bold border border-teal-500/40 text-teal-300 hover:bg-teal-500/10 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    onClick={openTestModalFromForm}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-full text-xs font-bold border border-teal-500/40 text-teal-300 hover:bg-teal-500/10 transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    {testingConnection ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" /> Verifying Credentials...
-                      </>
-                    ) : (
-                      <>
-                        <ShieldCheck className="w-4 h-4 text-teal-400" /> Test Connection Now
-                      </>
-                    )}
+                    <Send className="w-3.5 h-3.5 text-teal-400" /> Test Connection (Send Test Email)
                   </button>
 
                   <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
@@ -919,7 +926,6 @@ export default function Identities() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {identities.map((identity) => {
               const pInfo = getProviderInfo(identity);
-              const isVerifying = testingCardId === identity.id;
               const percentUsed = Math.min(100, Math.round(((identity.daily_sent || 0) / (identity.daily_limit || 300)) * 100));
 
               return (
@@ -936,12 +942,11 @@ export default function Identities() {
                       </span>
                       <div className="flex items-center gap-1.5">
                         <button 
-                          onClick={() => handleTestCardConnection(identity.id)} 
-                          disabled={isVerifying}
-                          title="Test Connection"
-                          className="p-1.5 bg-[#111] hover:bg-[#1a1a1a] text-gray-400 hover:text-teal-400 border border-[#222] hover:border-teal-500/40 rounded-md transition-all cursor-pointer disabled:opacity-50"
+                          onClick={() => openTestModalFromCard(identity)} 
+                          title="Send Test Email"
+                          className="px-2.5 py-1 bg-[#111] hover:bg-teal-500/10 text-teal-400 hover:text-teal-300 border border-teal-500/30 rounded-md transition-all cursor-pointer text-xs font-semibold flex items-center gap-1"
                         >
-                          <RefreshCw className={`w-3.5 h-3.5 ${isVerifying ? "animate-spin text-teal-400" : ""}`} />
+                          <Send className="w-3 h-3" /> Test
                         </button>
                         <button 
                           onClick={() => handleIdentityEdit(identity)} 
@@ -1121,6 +1126,113 @@ export default function Identities() {
             )}
           </div>
         </>
+      )}
+
+      {/* Send Test Email Modal */}
+      {testModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="skeuo-card max-w-md w-full p-6 md:p-8 border border-[#00ffff]/40 shadow-[0_0_40px_rgba(0,255,255,0.15)] relative">
+            <div className="flex items-start justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-500/40 flex items-center justify-center text-teal-300">
+                  <Send className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Send Test Email</h3>
+                  <p className="text-xs text-gray-400">
+                    Verify real inbox delivery and connection
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTestModalOpen(false)}
+                className="text-gray-400 hover:text-white p-1 rounded-md hover:bg-white/5 transition-colors cursor-pointer text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3 rounded-lg bg-[#0f1418] border border-[#232b32] text-xs text-gray-300 mb-5 flex items-center justify-between">
+              <span className="text-gray-400">Sending via:</span>
+              <span className="font-semibold text-teal-300 font-mono truncate max-w-[220px]">
+                {testTargetIdentity ? testTargetIdentity.name : (newIdentity.name || (provider === "brevo" ? "Brevo API" : "Custom SMTP"))}
+              </span>
+            </div>
+
+            <form onSubmit={handleSendTestEmail} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+                  Recipient Name
+                </label>
+                <input
+                  type="text"
+                  value={testRecipientName}
+                  onChange={(e) => setTestRecipientName(e.target.value)}
+                  placeholder="e.g., Bhavan Badhe"
+                  className="w-full skeuo-input py-2.5 px-3.5 text-white text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+                  Recipient Email Address <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={testRecipientEmail}
+                  onChange={(e) => setTestRecipientEmail(e.target.value)}
+                  placeholder="e.g., you@domain.com"
+                  required
+                  className="w-full skeuo-input py-2.5 px-3.5 text-white text-sm"
+                />
+                <p className="text-[11px] text-gray-500 mt-1">
+                  We will send a formatted test message to this inbox.
+                </p>
+              </div>
+
+              {testModalError && (
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div className="flex-1 break-all">{testModalError}</div>
+                </div>
+              )}
+
+              {testModalSuccess && (
+                <div className="p-3 rounded-lg bg-teal-500/10 border border-teal-500/30 text-teal-300 text-xs flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div className="flex-1">{testModalSuccess}</div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#1e242a]">
+                <button
+                  type="button"
+                  onClick={() => setTestModalOpen(false)}
+                  disabled={sendingTestEmail}
+                  className="px-4 py-2 rounded-full text-xs font-semibold bg-[#111] hover:bg-[#1a1a1a] text-gray-400 hover:text-white border border-[#222] transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={sendingTestEmail}
+                  className="bg-[#00ffff] hover:bg-[#33ffff] text-black font-bold px-6 py-2 rounded-full text-xs shadow-[0_0_20px_rgba(0,255,255,0.25)] flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {sendingTestEmail ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Sending Email...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5" /> Send Test Email
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

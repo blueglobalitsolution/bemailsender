@@ -112,6 +112,12 @@ class IdentityViewSet(viewsets.ModelViewSet):
         if not password:
             password = instance.get_decrypted_password()
 
+        from_name = request.data.get("smtp_from_name") or instance.smtp_from_name or ""
+        from_email = request.data.get("smtp_from_email") or instance.smtp_from_email or username
+
+        recipient_email = request.data.get("recipient_email", "").strip()
+        recipient_name = request.data.get("recipient_name", "").strip()
+
         use_tls = request.data.get("use_tls", instance.use_tls)
         use_ssl = request.data.get("use_ssl", instance.use_ssl)
 
@@ -123,6 +129,62 @@ class IdentityViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             try:
+                # If recipient email provided, send real test email
+                if recipient_email:
+                    sender_payload = {"email": from_email}
+                    if from_name:
+                        sender_payload["name"] = from_name
+
+                    html_body = f"""
+                    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 28px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; color: #1e293b;">
+                      <div style="text-align: center; margin-bottom: 20px;">
+                        <div style="display: inline-block; padding: 8px 18px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 9999px; color: #065f46; font-weight: bold; font-size: 13px; margin-bottom: 12px;">
+                          ✅ Brevo API Test Email
+                        </div>
+                        <h2 style="margin: 0; color: #0f172a; font-size: 20px;">Connection Verified!</h2>
+                        <p style="margin: 6px 0 0 0; color: #64748b; font-size: 13px;">Hi {recipient_name or 'there'}, your Brevo provider is connected and sending emails properly.</p>
+                      </div>
+                      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; font-size: 13px; line-height: 1.6; margin-bottom: 20px;">
+                        <div><strong>Provider:</strong> Brevo REST API v3</div>
+                        <div><strong>Sender:</strong> {from_name} &lt;{from_email}&gt;</div>
+                        <div><strong>Recipient:</strong> {recipient_email}</div>
+                      </div>
+                      <p style="text-align: center; font-size: 11px; color: #94a3b8; margin: 0;">Sent via BEmailSender</p>
+                    </div>
+                    """
+                    payload = {
+                        "sender": sender_payload,
+                        "to": [{"email": recipient_email, "name": recipient_name or "Test Recipient"}],
+                        "subject": "✅ Test Email: Brevo Connection Verified",
+                        "htmlContent": html_body,
+                        "textContent": f"Hi {recipient_name or 'there'}, your Brevo provider is connected and sending emails properly!",
+                    }
+                    resp = http_requests.post(
+                        "https://api.brevo.com/v3/smtp/email",
+                        headers={"api-key": str(password).strip(), "accept": "application/json", "content-type": "application/json"},
+                        json=payload,
+                        timeout=15,
+                    )
+                    if resp.status_code in [200, 201, 202]:
+                        from django.utils import timezone
+                        instance.last_verified_at = timezone.now()
+                        instance.save(update_fields=["last_verified_at"])
+                        return Response({
+                            "success": True,
+                            "message": f"Test email sent successfully to {recipient_email} via Brevo API!",
+                        })
+                    else:
+                        err_msg = resp.text
+                        try:
+                            err_msg = resp.json().get("message", resp.text)
+                        except Exception:
+                            pass
+                        return Response(
+                            {"success": False, "message": f"Brevo API error: {err_msg}"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                # Otherwise check account
                 resp = http_requests.get(
                     "https://api.brevo.com/v3/account",
                     headers={"api-key": str(password).strip(), "accept": "application/json"},
@@ -170,8 +232,44 @@ class IdentityViewSet(viewsets.ModelViewSet):
                 password=password,
                 use_tls=use_tls,
                 use_ssl=use_ssl,
-                timeout=10,
+                timeout=15,
             )
+
+            if recipient_email:
+                sender_header = f"{from_name} <{from_email}>" if from_name else from_email
+                html_body = f"""
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 28px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; color: #1e293b;">
+                  <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="display: inline-block; padding: 8px 18px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 9999px; color: #065f46; font-weight: bold; font-size: 13px; margin-bottom: 12px;">
+                      ✅ SMTP Connection Verified
+                    </div>
+                    <h2 style="margin: 0; color: #0f172a; font-size: 20px;">Connection Verified!</h2>
+                    <p style="margin: 6px 0 0 0; color: #64748b; font-size: 13px;">Hi {recipient_name or 'there'}, your SMTP server ({host}) is connected and sending emails properly.</p>
+                  </div>
+                  <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; font-size: 13px; line-height: 1.6; margin-bottom: 20px;">
+                    <div><strong>SMTP Server:</strong> {host}:{port}</div>
+                    <div><strong>Sender:</strong> {sender_header}</div>
+                    <div><strong>Recipient:</strong> {recipient_email}</div>
+                  </div>
+                  <p style="text-align: center; font-size: 11px; color: #94a3b8; margin: 0;">Sent via BEmailSender</p>
+                </div>
+                """
+                from django.core.mail import EmailMultiAlternatives
+                msg = EmailMultiAlternatives(
+                    subject=f"✅ Test Email: SMTP Connection Verified ({host})",
+                    body=f"Hi {recipient_name or 'there'}, your SMTP server ({host}) is connected and working!",
+                    from_email=sender_header,
+                    to=[recipient_email],
+                    connection=connection,
+                )
+                msg.attach_alternative(html_body, "text/html")
+                msg.send()
+
+                from django.utils import timezone
+                instance.last_verified_at = timezone.now()
+                instance.save(update_fields=["last_verified_at"])
+                return Response({"success": True, "message": f"Test email sent successfully to {recipient_email}!"})
+
             connection.open()
             connection.close()
 
@@ -194,6 +292,12 @@ class IdentityViewSet(viewsets.ModelViewSet):
         use_tls = request.data.get("use_tls", True)
         use_ssl = request.data.get("use_ssl", False)
 
+        from_name = request.data.get("smtp_from_name", "")
+        from_email = request.data.get("smtp_from_email", "") or username
+
+        recipient_email = request.data.get("recipient_email", "").strip()
+        recipient_name = request.data.get("recipient_name", "").strip()
+
         is_brevo_api = (host in ["api.brevo.com", "brevo", "brevo_api"]) or (password and str(password).strip().startswith("xkeysib-"))
         if is_brevo_api:
             if not password:
@@ -202,6 +306,58 @@ class IdentityViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             try:
+                # If recipient email provided, send real test email
+                if recipient_email:
+                    sender_payload = {"email": from_email}
+                    if from_name:
+                        sender_payload["name"] = from_name
+
+                    html_body = f"""
+                    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 28px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; color: #1e293b;">
+                      <div style="text-align: center; margin-bottom: 20px;">
+                        <div style="display: inline-block; padding: 8px 18px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 9999px; color: #065f46; font-weight: bold; font-size: 13px; margin-bottom: 12px;">
+                          ✅ Brevo API Test Email
+                        </div>
+                        <h2 style="margin: 0; color: #0f172a; font-size: 20px;">Connection Verified!</h2>
+                        <p style="margin: 6px 0 0 0; color: #64748b; font-size: 13px;">Hi {recipient_name or 'there'}, your Brevo provider is connected and sending emails properly.</p>
+                      </div>
+                      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; font-size: 13px; line-height: 1.6; margin-bottom: 20px;">
+                        <div><strong>Provider:</strong> Brevo REST API v3</div>
+                        <div><strong>Sender:</strong> {from_name} &lt;{from_email}&gt;</div>
+                        <div><strong>Recipient:</strong> {recipient_email}</div>
+                      </div>
+                      <p style="text-align: center; font-size: 11px; color: #94a3b8; margin: 0;">Sent via BEmailSender</p>
+                    </div>
+                    """
+                    payload = {
+                        "sender": sender_payload,
+                        "to": [{"email": recipient_email, "name": recipient_name or "Test Recipient"}],
+                        "subject": "✅ Test Email: Brevo Connection Verified",
+                        "htmlContent": html_body,
+                        "textContent": f"Hi {recipient_name or 'there'}, your Brevo provider is connected and sending emails properly!",
+                    }
+                    resp = http_requests.post(
+                        "https://api.brevo.com/v3/smtp/email",
+                        headers={"api-key": str(password).strip(), "accept": "application/json", "content-type": "application/json"},
+                        json=payload,
+                        timeout=15,
+                    )
+                    if resp.status_code in [200, 201, 202]:
+                        return Response({
+                            "success": True,
+                            "message": f"Test email sent successfully to {recipient_email} via Brevo API!",
+                        })
+                    else:
+                        err_msg = resp.text
+                        try:
+                            err_msg = resp.json().get("message", resp.text)
+                        except Exception:
+                            pass
+                        return Response(
+                            {"success": False, "message": f"Brevo API error: {err_msg}"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
                 resp = http_requests.get(
                     "https://api.brevo.com/v3/account",
                     headers={"api-key": str(password).strip(), "accept": "application/json"},
@@ -245,11 +401,47 @@ class IdentityViewSet(viewsets.ModelViewSet):
                 password=password,
                 use_tls=use_tls,
                 use_ssl=use_ssl,
-                timeout=10,
+                timeout=15,
             )
+
+            if recipient_email:
+                sender_header = f"{from_name} <{from_email}>" if from_name else from_email
+                html_body = f"""
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 28px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; color: #1e293b;">
+                  <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="display: inline-block; padding: 8px 18px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 9999px; color: #065f46; font-weight: bold; font-size: 13px; margin-bottom: 12px;">
+                      ✅ SMTP Connection Verified
+                    </div>
+                    <h2 style="margin: 0; color: #0f172a; font-size: 20px;">Connection Verified!</h2>
+                    <p style="margin: 6px 0 0 0; color: #64748b; font-size: 13px;">Hi {recipient_name or 'there'}, your SMTP server ({host}) is connected and sending emails properly.</p>
+                  </div>
+                  <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; font-size: 13px; line-height: 1.6; margin-bottom: 20px;">
+                    <div><strong>SMTP Server:</strong> {host}:{port}</div>
+                    <div><strong>Sender:</strong> {sender_header}</div>
+                    <div><strong>Recipient:</strong> {recipient_email}</div>
+                  </div>
+                  <p style="text-align: center; font-size: 11px; color: #94a3b8; margin: 0;">Sent via BEmailSender</p>
+                </div>
+                """
+                from django.core.mail import EmailMultiAlternatives
+                msg = EmailMultiAlternatives(
+                    subject=f"✅ Test Email: SMTP Connection Verified ({host})",
+                    body=f"Hi {recipient_name or 'there'}, your SMTP server ({host}) is connected and working!",
+                    from_email=sender_header,
+                    to=[recipient_email],
+                    connection=connection,
+                )
+                msg.attach_alternative(html_body, "text/html")
+                msg.send()
+                return Response({"success": True, "message": f"Test email sent successfully to {recipient_email}!"})
+
             connection.open()
             connection.close()
             return Response({"success": True, "message": "SMTP Connection successful"})
+        except Exception as e:
+            return Response(
+                {"success": False, "message": str(e)}, status=status.HTTP_400_BAD_REQUEST
+            )
         except Exception as e:
             return Response(
                 {"success": False, "message": str(e)}, status=status.HTTP_400_BAD_REQUEST
