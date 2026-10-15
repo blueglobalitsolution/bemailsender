@@ -172,29 +172,95 @@ class Command(BaseCommand):
 
     def send_email(self, campaign, contact, subject, body):
         identity = self.get_identity_for_send(campaign)
-
-        connection = get_connection(
-            backend="django.core.mail.backends.smtp.EmailBackend",
-            host=identity.host,
-            port=identity.port,
-            username=identity.smtp_user,
-            password=identity.get_decrypted_password(),
-            use_tls=identity.use_tls,
-            use_ssl=identity.use_ssl,
-            timeout=30,
-        )
+        api_key = identity.get_decrypted_password()
+        is_brevo_api = (identity.host in ["api.brevo.com", "brevo", "brevo_api"]) or (api_key and api_key.startswith("xkeysib-"))
 
         from_email = identity.smtp_from_email or identity.smtp_user
-        sender = from_email
-        if identity.smtp_from_name:
-            sender = f"{identity.smtp_from_name} <{from_email}>"
+        from_name = identity.smtp_from_name
 
         # Generate plain text version from HTML
         plain_text = re.sub(r"<[^>]+>", "", body)
         plain_text = html_module.unescape(plain_text)
         plain_text = re.sub(r"\n\s*\n", "\n\n", plain_text.strip())
-        # Decode common HTML entities for plain text
         plain_text = plain_text.replace("&nbsp;", " ").replace("&amp;", "&")
+
+        # Append unsubscribe link and tracking pixel
+        base_url = settings.FRONTEND_URL
+        pixel_url = f"{base_url}/api/track/open/{campaign.id}/{contact.recipient}/"
+        pixel_tag = f'<img src="{pixel_url}" width="1" height="1" alt="" style="display:none"/>'
+        unsubscribe_html = (
+            '<p style="font-size:12px;color:#999;text-align:center;margin-top:20px;">'
+            f'<a href="mailto:{from_email}?subject=unsubscribe" style="color:#999;">Unsubscribe</a>'
+            '</p>'
+        )
+        footer_html = unsubscribe_html + "\n" + pixel_tag
+        final_body = body
+        if "</body>" in final_body:
+            final_body = final_body.replace("</body>", footer_html + "\n</body>")
+        else:
+            final_body = final_body + footer_html
+
+        if is_brevo_api:
+            sender_payload = {"email": from_email}
+            if from_name:
+                sender_payload["name"] = from_name
+
+            payload = {
+                "sender": sender_payload,
+                "to": [{"email": contact.recipient}],
+                "subject": subject,
+                "htmlContent": final_body,
+                "textContent": plain_text,
+                "replyTo": {"email": from_email},
+                "headers": {
+                    "List-Unsubscribe": f"<mailto:{from_email}?subject=unsubscribe>",
+                    "Message-ID": f"<{campaign.id}.{contact.id}.{int(time.time())}@bemailsender>",
+                },
+            }
+
+            resp = requests.post(
+                "https://api.brevo.com/v3/smtp/email",
+                headers={
+                    "accept": "application/json",
+                    "api-key": api_key,
+                    "content-type": "application/json",
+                },
+                json=payload,
+                timeout=30,
+            )
+
+            if resp.status_code in [200, 201, 202]:
+                identity.daily_sent = models.F("daily_sent") + 1
+                identity.save(update_fields=["daily_sent"])
+
+                contact.status = 'sent'
+                contact.save()
+                Log.objects.create(campaign=campaign, recipient=contact.recipient, status='success', message="Email sent successfully via Brevo API")
+                return
+            else:
+                err_text = resp.text
+                try:
+                    err_json = resp.json()
+                    err_text = err_json.get("message", resp.text)
+                except Exception:
+                    pass
+                raise Exception(f"Brevo API error ({resp.status_code}): {err_text}")
+
+        # Standard SMTP send
+        connection = get_connection(
+            backend="django.core.mail.backends.smtp.EmailBackend",
+            host=identity.host,
+            port=identity.port,
+            username=identity.smtp_user,
+            password=api_key,
+            use_tls=identity.use_tls,
+            use_ssl=identity.use_ssl,
+            timeout=30,
+        )
+
+        sender = from_email
+        if from_name:
+            sender = f"{from_name} <{from_email}>"
 
         from django.utils import timezone as tz_util
         email = EmailMultiAlternatives(
@@ -210,26 +276,12 @@ class Command(BaseCommand):
                 "Reply-To": identity.smtp_user,
             },
         )
-        # Append unsubscribe link and tracking pixel
-        base_url = settings.FRONTEND_URL
-        pixel_url = f"{base_url}/api/track/open/{campaign.id}/{contact.recipient}/"
-        pixel_tag = f'<img src="{pixel_url}" width="1" height="1" alt="" style="display:none"/>'
-        unsubscribe_html = (
-            '<p style="font-size:12px;color:#999;text-align:center;margin-top:20px;">'
-            f'<a href="mailto:{identity.smtp_user}?subject=unsubscribe" style="color:#999;">Unsubscribe</a>'
-            '</p>'
-        )
-        footer_html = unsubscribe_html + "\n" + pixel_tag
-        if "</body>" in body:
-            body = body.replace("</body>", footer_html + "\n</body>")
-        else:
-            body += footer_html
-        email.attach_alternative(body, "text/html")
+        email.attach_alternative(final_body, "text/html")
         email.send()
 
         identity.daily_sent = models.F("daily_sent") + 1
         identity.save(update_fields=["daily_sent"])
-        
+
         contact.status = 'sent'
         contact.save()
         Log.objects.create(campaign=campaign, recipient=contact.recipient, status='success', message="Email sent successfully")

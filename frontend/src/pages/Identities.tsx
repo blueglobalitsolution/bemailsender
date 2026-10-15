@@ -1,6 +1,25 @@
 import React, { useState, useEffect } from "react";
-import { UserCircle, Plus, Save, Trash2, Server, Users, ChevronDown, ChevronRight, Edit2 } from "lucide-react";
-import { apiFetch, getApiUrl } from "../lib/api";
+import { 
+  Server, 
+  Trash2, 
+  Save, 
+  Edit2, 
+  ChevronDown, 
+  ChevronRight, 
+  Key, 
+  Mail, 
+  CheckCircle2, 
+  AlertCircle, 
+  Eye, 
+  EyeOff, 
+  Zap, 
+  ExternalLink, 
+  RefreshCw,
+  Send,
+  ShieldCheck,
+  Globe
+} from "lucide-react";
+import { apiFetch } from "../lib/api";
 import { useToast } from "../components/Toast";
 
 interface Identity {
@@ -9,10 +28,16 @@ interface Identity {
   host: string;
   port: number;
   smtp_user: string;
-  secure: boolean;
+  smtp_pass?: string;
+  smtp_from_name?: string;
+  smtp_from_email?: string;
+  use_tls?: boolean;
+  use_ssl?: boolean;
+  secure?: boolean;
   daily_limit: number;
   daily_sent: number;
   daily_date: string | null;
+  last_verified_at?: string | null;
 }
 
 interface IdentityGroup {
@@ -21,6 +46,9 @@ interface IdentityGroup {
   identities: Identity[];
   created_at: string;
 }
+
+type ProviderType = "brevo" | "gmail" | "custom";
+type BrevoSubMode = "api" | "smtp";
 
 export default function Identities() {
   const toast = useToast();
@@ -31,15 +59,26 @@ export default function Identities() {
   const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [editingIdentityId, setEditingIdentityId] = useState<number | null>(null);
+
+  const [provider, setProvider] = useState<ProviderType>("brevo");
+  const [brevoMode, setBrevoMode] = useState<BrevoSubMode>("api");
+  const [showPassword, setShowPassword] = useState(false);
+
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [testingCardId, setTestingCardId] = useState<number | null>(null);
+
   const [newIdentity, setNewIdentity] = useState({
     name: "",
-    host: "",
-    port: "587",
+    host: "api.brevo.com",
+    port: "443",
     smtp_user: "",
     smtp_pass: "",
+    smtp_from_name: "",
+    smtp_from_email: "",
+    daily_limit: "300",
     secure: false,
   });
-  const [provider, setProvider] = useState<"gmail" | "custom">("gmail");
 
   // Group state
   const [groups, setGroups] = useState<IdentityGroup[]>([]);
@@ -81,7 +120,7 @@ export default function Identities() {
     const handleOpenCreateIdentity = () => {
       if (activeTab === 'identities') {
         setIsCreating(true);
-        handleProviderChange("gmail");
+        handleProviderSelect("brevo", "api");
       } else {
         resetGroupForm();
         setIsCreatingGroup(true);
@@ -95,45 +134,200 @@ export default function Identities() {
     };
   }, [activeTab]);
 
-  // Identity handlers
-  const handleProviderChange = (type: "gmail" | "custom") => {
+  const handleProviderSelect = (type: ProviderType, mode: BrevoSubMode = "api") => {
     setProvider(type);
-    if (type === "gmail") {
-      setNewIdentity((prev) => ({ ...prev, host: "smtp.gmail.com", port: "587", secure: false }));
+    setBrevoMode(mode);
+    setTestResult(null);
+
+    if (type === "brevo") {
+      if (mode === "api") {
+        setNewIdentity((prev) => ({
+          ...prev,
+          host: "api.brevo.com",
+          port: "443",
+          daily_limit: prev.daily_limit || "300",
+          secure: false,
+        }));
+      } else {
+        setNewIdentity((prev) => ({
+          ...prev,
+          host: "smtp-relay.brevo.com",
+          port: "587",
+          daily_limit: prev.daily_limit || "300",
+          secure: false,
+        }));
+      }
+    } else if (type === "gmail") {
+      setNewIdentity((prev) => ({
+        ...prev,
+        host: "smtp.gmail.com",
+        port: "587",
+        daily_limit: prev.daily_limit || "500",
+        secure: false,
+      }));
     } else {
-      setNewIdentity((prev) => ({ ...prev, host: prev.host === "smtp.gmail.com" ? "" : prev.host, port: prev.port || "587" }));
+      setNewIdentity((prev) => ({
+        ...prev,
+        host: prev.host === "api.brevo.com" || prev.host === "smtp-relay.brevo.com" || prev.host === "smtp.gmail.com" ? "" : prev.host,
+        port: prev.port || "587",
+        daily_limit: prev.daily_limit || "295",
+      }));
     }
   };
 
   const resetIdentityForm = () => {
     setIsCreating(false);
     setEditingIdentityId(null);
-    setNewIdentity({ name: "", host: "", port: "587", smtp_user: "", smtp_pass: "", secure: false });
+    setTestResult(null);
+    setNewIdentity({
+      name: "",
+      host: "api.brevo.com",
+      port: "443",
+      smtp_user: "",
+      smtp_pass: "",
+      smtp_from_name: "",
+      smtp_from_email: "",
+      daily_limit: "300",
+      secure: false,
+    });
+    setProvider("brevo");
+    setBrevoMode("api");
+    setShowPassword(false);
   };
 
   const handleIdentityEdit = (identity: Identity) => {
     setEditingIdentityId(identity.id);
     setIsCreating(true);
-    const isGmail = identity.host.toLowerCase().includes("gmail");
-    setProvider(isGmail ? "gmail" : "custom");
+    setTestResult(null);
+
+    const h = (identity.host || "").toLowerCase();
+    if (h === "api.brevo.com" || h === "brevo" || h.includes("brevo")) {
+      setProvider("brevo");
+      if (h.includes("relay") || identity.port === 587) {
+        setBrevoMode("smtp");
+      } else {
+        setBrevoMode("api");
+      }
+    } else if (h.includes("gmail")) {
+      setProvider("gmail");
+    } else {
+      setProvider("custom");
+    }
+
     setNewIdentity({
       name: identity.name,
       host: identity.host,
       port: String(identity.port),
       smtp_user: identity.smtp_user,
-      smtp_pass: "", // Leave empty if keeping existing, or enter new password
-      secure: identity.secure,
+      smtp_pass: "",
+      smtp_from_name: identity.smtp_from_name || "",
+      smtp_from_email: identity.smtp_from_email || identity.smtp_user,
+      daily_limit: String(identity.daily_limit || 300),
+      secure: identity.secure || false,
     });
+  };
+
+  // Live test connection inside form
+  const handleTestConnection = async () => {
+    if (!newIdentity.smtp_pass && !editingIdentityId) {
+      toast.error(provider === "brevo" && brevoMode === "api" ? "Please enter your Brevo API key first" : "Please enter your password first");
+      return;
+    }
+
+    setTestingConnection(true);
+    setTestResult(null);
+
+    try {
+      const endpoint = editingIdentityId 
+        ? `/api/identities/${editingIdentityId}/test/` 
+        : "/api/identities/test-new/";
+
+      const payload = {
+        host: newIdentity.host,
+        port: parseInt(newIdentity.port) || 587,
+        smtp_user: newIdentity.smtp_user,
+        smtp_pass: newIdentity.smtp_pass,
+        use_tls: provider === "custom" ? !newIdentity.secure : true,
+        use_ssl: provider === "custom" ? newIdentity.secure : false,
+      };
+
+      const res = await apiFetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTestResult({ success: true, message: data.message || "Connection verified successfully!" });
+        toast.success(data.message || "Connection verified successfully!");
+      } else {
+        setTestResult({ success: false, message: data.message || "Connection failed. Please check your credentials." });
+        toast.error(data.message || "Connection failed.");
+      }
+    } catch (err: any) {
+      setTestResult({ success: false, message: err.message || "Network error while testing connection." });
+      toast.error("Network error while testing connection.");
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
+  // Test connection directly from identity card
+  const handleTestCardConnection = async (id: number) => {
+    setTestingCardId(id);
+    try {
+      const res = await apiFetch(`/api/identities/${id}/test/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(data.message || "Identity verified!");
+        fetchIdentities();
+      } else {
+        toast.error(data.message || "Verification failed. Check credentials.");
+      }
+    } catch (err) {
+      toast.error("Network error testing connection.");
+    } finally {
+      setTestingCardId(null);
+    }
   };
 
   const handleIdentitySave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newIdentity.name.trim()) {
+      toast.error("Please enter a profile name");
+      return;
+    }
+    if (!newIdentity.smtp_user.trim()) {
+      toast.error("Please enter an email address");
+      return;
+    }
+    if (!editingIdentityId && !newIdentity.smtp_pass.trim()) {
+      toast.error(provider === "brevo" && brevoMode === "api" ? "Brevo API Key is required" : "Password is required");
+      return;
+    }
+
     try {
-      const payload: any = { ...newIdentity, port: parseInt(newIdentity.port) || 587 };
-      if (editingIdentityId && !payload.smtp_pass) {
-        delete payload.smtp_pass;
+      const payload: any = {
+        name: newIdentity.name.trim(),
+        host: newIdentity.host.trim() || (provider === "brevo" ? (brevoMode === "api" ? "api.brevo.com" : "smtp-relay.brevo.com") : "smtp.gmail.com"),
+        port: parseInt(newIdentity.port) || (provider === "brevo" && brevoMode === "api" ? 443 : 587),
+        smtp_user: newIdentity.smtp_user.trim(),
+        smtp_from_name: newIdentity.smtp_from_name.trim() || undefined,
+        smtp_from_email: newIdentity.smtp_from_email.trim() || newIdentity.smtp_user.trim(),
+        daily_limit: parseInt(newIdentity.daily_limit) || (provider === "gmail" ? 500 : 300),
+        use_tls: provider === "custom" ? !newIdentity.secure : true,
+        use_ssl: provider === "custom" ? newIdentity.secure : false,
+      };
+
+      if (newIdentity.smtp_pass.trim()) {
+        payload.smtp_pass = newIdentity.smtp_pass.trim();
       }
-      
+
       const endpoint = editingIdentityId ? `/api/identities/${editingIdentityId}/` : "/api/identities/";
       const method = editingIdentityId ? "PUT" : "POST";
 
@@ -142,12 +336,14 @@ export default function Identities() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
       if (res.ok) {
         toast.success(editingIdentityId ? "Identity updated successfully." : "New identity created.");
         resetIdentityForm();
         fetchIdentities();
       } else {
-        toast.error("Failed to save identity. Please verify fields.");
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.name ? `Error: ${err.name[0]}` : "Failed to save identity. Please verify fields.");
       }
     } catch (err) {
       console.error(err);
@@ -241,7 +437,45 @@ export default function Identities() {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  if (loading) return <div className="text-center py-12 text-gray-500">Loading...</div>;
+  const getProviderInfo = (identity: Identity) => {
+    const h = (identity.host || "").toLowerCase();
+    if (h === "api.brevo.com" || h === "brevo" || (h.includes("brevo") && !h.includes("relay"))) {
+      return {
+        type: "brevo-api",
+        badge: "Brevo API",
+        badgeColor: "bg-teal-500/10 text-teal-400 border-teal-500/30",
+        icon: <Zap className="w-3.5 h-3.5 text-teal-400" />,
+        desc: "REST API v3 (Direct)"
+      };
+    }
+    if (h.includes("brevo") && h.includes("relay")) {
+      return {
+        type: "brevo-smtp",
+        badge: "Brevo SMTP",
+        badgeColor: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+        icon: <Send className="w-3.5 h-3.5 text-blue-400" />,
+        desc: "Brevo SMTP Relay (Port 587)"
+      };
+    }
+    if (h.includes("gmail")) {
+      return {
+        type: "gmail",
+        badge: "Google Gmail",
+        badgeColor: "bg-red-500/10 text-red-400 border-red-500/30",
+        icon: <span className="font-bold text-red-400 text-xs">G</span>,
+        desc: "Gmail SMTP"
+      };
+    }
+    return {
+      type: "custom",
+      badge: "Custom SMTP",
+      badgeColor: "bg-gray-500/10 text-gray-400 border-gray-500/30",
+      icon: <Server className="w-3.5 h-3.5 text-gray-400" />,
+      desc: `${identity.host}:${identity.port}`
+    };
+  };
+
+  if (loading) return <div className="text-center py-12 text-gray-500">Loading connected providers...</div>;
 
   return (
     <div className="space-y-8">
@@ -275,147 +509,536 @@ export default function Identities() {
       {activeTab === 'identities' && (
         <>
           {isCreating && (
-            <div className="skeuo-card p-8 border border-[#00ffff]/30 shadow-[0_0_24px_rgba(0,255,255,0.08)]">
+            <div className="skeuo-card p-6 md:p-8 border border-[#00ffff]/30 shadow-[0_0_24px_rgba(0,255,255,0.08)] transition-all">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold skeuo-text">
-                  {editingIdentityId ? "Edit Sender Identity" : "Add New Identity"}
-                </h3>
+                <div>
+                  <h3 className="text-xl font-bold skeuo-text flex items-center gap-2">
+                    {editingIdentityId ? "Edit Connected Provider" : "Connect Email Provider"}
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Configure Brevo (Sendinblue), Google, or any custom SMTP server to send campaigns.
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={resetIdentityForm}
-                  className="text-xs text-[#888888] hover:text-white transition-colors"
+                  className="text-xs text-[#888888] hover:text-white transition-colors px-3 py-1.5 rounded-lg bg-[#111] border border-[#222] cursor-pointer"
                 >
                   ✕ Close
                 </button>
               </div>
-              <div className="flex gap-4 mb-8">
+
+              {/* Provider Selection Tabs */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                {/* Brevo */}
                 <button
                   type="button"
-                  onClick={() => handleProviderChange("gmail")}
-                  className={`flex-1 p-5 rounded-none border transition-all flex flex-col items-center gap-2 cursor-pointer ${
-                    provider === "gmail" 
-                      ? "bg-[#00ffff]/10 border-[#00ffff] text-white shadow-[0_0_16px_rgba(0,255,255,0.2)]" 
+                  onClick={() => handleProviderSelect("brevo", "api")}
+                  className={`p-4 rounded-xl border transition-all flex flex-col items-start text-left gap-2 cursor-pointer relative ${
+                    provider === "brevo" 
+                      ? "bg-[#00ffff]/10 border-[#00ffff] text-white shadow-[0_0_20px_rgba(0,255,255,0.18)]" 
                       : "bg-[#0a0a0a] border-[#1e1e1e] text-[#888888] hover:border-[#333333] hover:text-white"
                   }`}
                 >
-                  <div className={`text-2xl font-serif font-bold ${provider === "gmail" ? "text-[#00ffff]" : "text-[#777777]"}`}>G</div>
-                  <span className="text-xs font-semibold uppercase tracking-wider">Google (Gmail)</span>
+                  <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30">
+                    Recommended
+                  </span>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-teal-500/20 border border-teal-500/40 flex items-center justify-center font-black text-teal-300 text-base">
+                      B
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-white">Brevo</div>
+                      <div className="text-[11px] text-gray-400">Sendinblue (API & SMTP)</div>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-1 leading-snug">
+                    Direct API Key connection. Bypasses port 587 blockages and high delivery rate.
+                  </p>
                 </button>
+
+                {/* Google Gmail */}
                 <button
                   type="button"
-                  onClick={() => handleProviderChange("custom")}
-                  className={`flex-1 p-5 rounded-none border transition-all flex flex-col items-center gap-2 cursor-pointer ${
-                    provider === "custom" 
-                      ? "bg-[#00ffff]/10 border-[#00ffff] text-white shadow-[0_0_16px_rgba(0,255,255,0.2)]" 
+                  onClick={() => handleProviderSelect("gmail")}
+                  className={`p-4 rounded-xl border transition-all flex flex-col items-start text-left gap-2 cursor-pointer ${
+                    provider === "gmail" 
+                      ? "bg-[#00ffff]/10 border-[#00ffff] text-white shadow-[0_0_20px_rgba(0,255,255,0.18)]" 
                       : "bg-[#0a0a0a] border-[#1e1e1e] text-[#888888] hover:border-[#333333] hover:text-white"
                   }`}
                 >
-                  <Server className={`w-6 h-6 ${provider === "custom" ? "text-[#00ffff]" : "text-[#777777]"}`} />
-                  <span className="text-xs font-semibold uppercase tracking-wider">Custom SMTP</span>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-red-500/20 border border-red-500/40 flex items-center justify-center font-bold text-red-400 text-base">
+                      G
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-white">Google (Gmail)</div>
+                      <div className="text-[11px] text-gray-400">Workspace / Personal</div>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-1 leading-snug">
+                    Use with Google 16-character App Passwords on standard Gmail SMTP.
+                  </p>
+                </button>
+
+                {/* Custom SMTP */}
+                <button
+                  type="button"
+                  onClick={() => handleProviderSelect("custom")}
+                  className={`p-4 rounded-xl border transition-all flex flex-col items-start text-left gap-2 cursor-pointer ${
+                    provider === "custom" 
+                      ? "bg-[#00ffff]/10 border-[#00ffff] text-white shadow-[0_0_20px_rgba(0,255,255,0.18)]" 
+                      : "bg-[#0a0a0a] border-[#1e1e1e] text-[#888888] hover:border-[#333333] hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-gray-500/20 border border-gray-500/40 flex items-center justify-center font-bold text-gray-300">
+                      <Server className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-white">Custom SMTP</div>
+                      <div className="text-[11px] text-gray-400">Any SMTP Provider</div>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-1 leading-snug">
+                    Connect any custom mail server, Amazon SES, SendGrid, Mailgun, or Office 365.
+                  </p>
                 </button>
               </div>
+
+              {/* Sub-mode switcher for Brevo */}
+              {provider === "brevo" && (
+                <div className="mb-6 p-4 rounded-xl bg-[#0f1418] border border-[#232b32] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-teal-400 flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5" /> Brevo Connection Mode
+                    </span>
+                    <a 
+                      href="https://app.brevo.com/settings/keys/api" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-xs text-teal-400 hover:text-teal-300 underline flex items-center gap-1"
+                    >
+                      Get Brevo API Key <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleProviderSelect("brevo", "api")}
+                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                        brevoMode === "api"
+                          ? "bg-teal-500 text-black shadow-[0_0_12px_rgba(20,184,166,0.4)]"
+                          : "bg-[#182026] text-gray-400 hover:text-white border border-[#2b353f]"
+                      }`}
+                    >
+                      <Zap className="w-3.5 h-3.5" /> Brevo API Key (Fast & Recommended)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleProviderSelect("brevo", "smtp")}
+                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                        brevoMode === "smtp"
+                          ? "bg-teal-500 text-black shadow-[0_0_12px_rgba(20,184,166,0.4)]"
+                          : "bg-[#182026] text-gray-400 hover:text-white border border-[#2b353f]"
+                      }`}
+                    >
+                      <Server className="w-3.5 h-3.5" /> Brevo SMTP Relay
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Form */}
               <form onSubmit={handleIdentitySave} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Profile Name */}
                   <div className="col-span-full">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Profile Name (Reference)</label>
-                    <input type="text" value={newIdentity.name} onChange={(e) => setNewIdentity({ ...newIdentity, name: e.target.value })} className="w-full skeuo-input py-3 px-4" placeholder="e.g., Marketing Team, Brevo SMTP" required />
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
+                      Profile Name (Reference) <span className="text-red-400">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      value={newIdentity.name} 
+                      onChange={(e) => setNewIdentity({ ...newIdentity, name: e.target.value })} 
+                      className="w-full skeuo-input py-3 px-4 text-white" 
+                      placeholder={provider === "brevo" ? "e.g., Marketing Team - Brevo API" : "e.g., Support Team Gmail"} 
+                      required 
+                    />
                   </div>
+
+                  {/* Custom SMTP host/port */}
                   {provider === "custom" && (
                     <>
                       <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">SMTP Host</label>
-                        <input type="text" value={newIdentity.host} onChange={(e) => setNewIdentity({ ...newIdentity, host: e.target.value })} className="w-full skeuo-input py-3 px-4" placeholder="smtp.example.com" required />
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
+                          SMTP Host <span className="text-red-400">*</span>
+                        </label>
+                        <input 
+                          type="text" 
+                          value={newIdentity.host} 
+                          onChange={(e) => setNewIdentity({ ...newIdentity, host: e.target.value })} 
+                          className="w-full skeuo-input py-3 px-4 text-white" 
+                          placeholder="smtp.example.com" 
+                          required 
+                        />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">SMTP Port</label>
-                        <input type="text" value={newIdentity.port} onChange={(e) => setNewIdentity({ ...newIdentity, port: e.target.value })} className="w-full skeuo-input py-3 px-4" placeholder="587" required />
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
+                          SMTP Port <span className="text-red-400">*</span>
+                        </label>
+                        <input 
+                          type="text" 
+                          value={newIdentity.port} 
+                          onChange={(e) => setNewIdentity({ ...newIdentity, port: e.target.value })} 
+                          className="w-full skeuo-input py-3 px-4 text-white" 
+                          placeholder="587" 
+                          required 
+                        />
                       </div>
                     </>
                   )}
+
+                  {/* Brevo SMTP host/port info */}
+                  {provider === "brevo" && brevoMode === "smtp" && (
+                    <>
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
+                          SMTP Host
+                        </label>
+                        <input 
+                          type="text" 
+                          value={newIdentity.host} 
+                          onChange={(e) => setNewIdentity({ ...newIdentity, host: e.target.value })} 
+                          className="w-full skeuo-input py-3 px-4 text-white font-mono text-sm" 
+                          placeholder="smtp-relay.brevo.com" 
+                          required 
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
+                          SMTP Port
+                        </label>
+                        <input 
+                          type="text" 
+                          value={newIdentity.port} 
+                          onChange={(e) => setNewIdentity({ ...newIdentity, port: e.target.value })} 
+                          className="w-full skeuo-input py-3 px-4 text-white font-mono text-sm" 
+                          placeholder="587" 
+                          required 
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Sender Display Name */}
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">{provider === "gmail" ? "Gmail Address" : "SMTP Username (Email)"}</label>
-                    <input type="email" value={newIdentity.smtp_user} onChange={(e) => setNewIdentity({ ...newIdentity, smtp_user: e.target.value })} className="w-full skeuo-input py-3 px-4" placeholder="you@example.com" required />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">{provider === "gmail" ? "Google App Password" : "SMTP Password"}</label>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
+                      Sender Name (Display Name)
+                    </label>
                     <input 
-                      type="password" 
-                      value={newIdentity.smtp_pass} 
-                      onChange={(e) => setNewIdentity({ ...newIdentity, smtp_pass: e.target.value })} 
-                      className="w-full skeuo-input py-3 px-4" 
-                      placeholder={editingIdentityId ? "Leave blank to keep existing password" : (provider === "gmail" ? "xxxx xxxx xxxx xxxx" : "Your Password")} 
-                      required={!editingIdentityId} 
+                      type="text" 
+                      value={newIdentity.smtp_from_name} 
+                      onChange={(e) => setNewIdentity({ ...newIdentity, smtp_from_name: e.target.value })} 
+                      className="w-full skeuo-input py-3 px-4 text-white" 
+                      placeholder="e.g., Bhavan Badhe or Sales Team" 
                     />
-                    {provider === "gmail" && <p className="text-[10px] text-blue-600 mt-2 font-bold uppercase">Must be a 16-digit App Password, not your login password.</p>}
+                    <p className="text-[10px] text-gray-500 mt-1">Name seen by the recipient in their inbox header.</p>
                   </div>
+
+                  {/* Sender Email / Username */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
+                      {provider === "brevo" 
+                        ? (brevoMode === "api" ? "Sender Email (Verified in Brevo)" : "Brevo Account Email") 
+                        : (provider === "gmail" ? "Gmail Address" : "SMTP Username / Email")} <span className="text-red-400">*</span>
+                    </label>
+                    <input 
+                      type="email" 
+                      value={newIdentity.smtp_user} 
+                      onChange={(e) => setNewIdentity({ 
+                        ...newIdentity, 
+                        smtp_user: e.target.value,
+                        smtp_from_email: newIdentity.smtp_from_email || e.target.value 
+                      })} 
+                      className="w-full skeuo-input py-3 px-4 text-white" 
+                      placeholder="you@yourdomain.com" 
+                      required 
+                    />
+                    {provider === "brevo" && (
+                      <p className="text-[10px] text-teal-400 mt-1">
+                        Must be a verified sender in your Brevo account (Settings → Senders & IP).
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Password / API Key */}
+                  <div className="col-span-full">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
+                        {provider === "brevo" 
+                          ? (brevoMode === "api" ? "Brevo API Key" : "Brevo Master SMTP Key") 
+                          : (provider === "gmail" ? "Google 16-Digit App Password" : "SMTP Password")} <span className="text-red-400">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="text-xs text-gray-400 hover:text-white flex items-center gap-1 cursor-pointer"
+                      >
+                        {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        {showPassword ? "Hide" : "Show"}
+                      </button>
+                    </div>
+
+                    <div className="relative">
+                      <input 
+                        type={showPassword ? "text" : "password"} 
+                        value={newIdentity.smtp_pass} 
+                        onChange={(e) => setNewIdentity({ ...newIdentity, smtp_pass: e.target.value })} 
+                        className="w-full skeuo-input py-3 px-4 text-white font-mono text-sm pr-10" 
+                        placeholder={
+                          editingIdentityId 
+                            ? "•••••••• (Leave blank to keep existing key/password)" 
+                            : (provider === "brevo" 
+                                ? (brevoMode === "api" ? "xkeysib-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" : "xsmtpsib-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx") 
+                                : (provider === "gmail" ? "xxxx xxxx xxxx xxxx" : "Your SMTP Password"))
+                        } 
+                        required={!editingIdentityId} 
+                      />
+                      <div className="absolute right-3 top-3.5 text-gray-500">
+                        <Key className="w-4 h-4" />
+                      </div>
+                    </div>
+
+                    {provider === "brevo" && brevoMode === "api" && (
+                      <p className="text-[11px] text-gray-400 mt-2">
+                        💡 Where to get it: Log into <a href="https://app.brevo.com/settings/keys/api" target="_blank" rel="noopener noreferrer" className="text-teal-400 underline">Brevo Dashboard → Settings → SMTP & API → API Keys</a> and copy your key (starts with <span className="font-mono text-teal-300">xkeysib-</span>).
+                      </p>
+                    )}
+                    {provider === "gmail" && (
+                      <p className="text-[11px] text-blue-400 mt-2 font-medium">
+                        Must be a Google App Password from <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="underline font-bold">Google Security</a>, not your standard Google login password.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Daily Limit */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
+                      Daily Send Limit
+                    </label>
+                    <input 
+                      type="number" 
+                      value={newIdentity.daily_limit} 
+                      onChange={(e) => setNewIdentity({ ...newIdentity, daily_limit: e.target.value })} 
+                      className="w-full skeuo-input py-3 px-4 text-white" 
+                      placeholder="300" 
+                    />
+                    <p className="text-[10px] text-gray-500 mt-1">
+                      Brevo Free tier sends up to 300 emails/day. Gmail allows up to 500/day.
+                    </p>
+                  </div>
+
+                  {/* Custom SMTP SSL checkbox */}
                   {provider === "custom" && (
-                    <div className="col-span-full">
+                    <div className="flex items-center pt-6">
                       <label className="flex items-center gap-3 cursor-pointer">
-                        <input type="checkbox" checked={newIdentity.secure} onChange={(e) => setNewIdentity({ ...newIdentity, secure: e.target.checked })} className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                        <span className="text-sm font-bold text-gray-700 skeuo-text">Use Secure Connection (SSL on Port 465)</span>
+                        <input 
+                          type="checkbox" 
+                          checked={newIdentity.secure} 
+                          onChange={(e) => setNewIdentity({ ...newIdentity, secure: e.target.checked })} 
+                          className="w-5 h-5 rounded border-gray-600 bg-black/40 text-teal-500 focus:ring-teal-500" 
+                        />
+                        <span className="text-sm font-semibold text-gray-300">
+                          Use Secure SSL Connection (Port 465)
+                        </span>
                       </label>
                     </div>
                   )}
                 </div>
-                <div className="flex justify-end gap-4 mt-6">
-                  <button type="button" onClick={resetIdentityForm} className="bg-[#111111] hover:bg-[#1a1a1a] text-[#888888] hover:text-white px-5 py-2.5 rounded-full text-xs font-semibold border border-[#222222] transition-all cursor-pointer">Cancel</button>
-                  <button type="submit" className="bg-[#00ffff] hover:bg-[#33ffff] text-black font-semibold rounded-full px-7 py-2.5 text-xs flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(0,255,255,0.25)] hover:shadow-[0_0_28px_rgba(0,255,255,0.4)] cursor-pointer">
-                    <Save className="w-4 h-4" /> {editingIdentityId ? "Update Identity" : "Save Identity"}
+
+                {/* Inline Test Result Banner */}
+                {testResult && (
+                  <div className={`p-4 rounded-xl border flex items-start gap-3 ${
+                    testResult.success 
+                      ? "bg-teal-500/10 border-teal-500/40 text-teal-200" 
+                      : "bg-red-500/10 border-red-500/40 text-red-200"
+                  }`}>
+                    {testResult.success ? (
+                      <CheckCircle2 className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                    )}
+                    <div className="text-xs">
+                      <p className="font-bold">{testResult.success ? "Connection Verified!" : "Connection Failed"}</p>
+                      <p className="mt-0.5 break-all">{testResult.message}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-[#1e242a]">
+                  <button
+                    type="button"
+                    onClick={handleTestConnection}
+                    disabled={testingConnection}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-full text-xs font-bold border border-teal-500/40 text-teal-300 hover:bg-teal-500/10 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {testingConnection ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" /> Verifying Credentials...
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="w-4 h-4 text-teal-400" /> Test Connection Now
+                      </>
+                    )}
                   </button>
+
+                  <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                    <button 
+                      type="button" 
+                      onClick={resetIdentityForm} 
+                      className="bg-[#111111] hover:bg-[#1a1a1a] text-[#888888] hover:text-white px-5 py-2.5 rounded-full text-xs font-semibold border border-[#222222] transition-all cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      className="bg-[#00ffff] hover:bg-[#33ffff] text-black font-semibold rounded-full px-7 py-2.5 text-xs flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(0,255,255,0.25)] hover:shadow-[0_0_28px_rgba(0,255,255,0.4)] cursor-pointer"
+                    >
+                      <Save className="w-4 h-4" /> {editingIdentityId ? "Update Identity" : "Save Identity"}
+                    </button>
+                  </div>
                 </div>
               </form>
             </div>
           )}
 
+          {/* Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {identities.map((identity) => (
-              <div key={identity.id} className="skeuo-card p-6 flex flex-col justify-between group hover:border-[#333333] transition-all">
-                <div>
-                  <div className="flex items-start justify-between mb-4">
-                    <h3 className="font-bold text-lg line-clamp-1 skeuo-text" title={identity.name}>{identity.name}</h3>
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={() => handleIdentityEdit(identity)} 
-                        title="Edit Identity"
-                        className="p-2 bg-[#111111] hover:bg-[#1a1a1a] text-[#888888] hover:text-[#00ffff] border border-[#222222] hover:border-[#00ffff]/40 rounded-none transition-all cursor-pointer shadow-sm"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button 
-                        onClick={() => handleIdentityDelete(identity.id)} 
-                        title="Delete Identity"
-                        className="p-2 skeuo-btn-danger rounded-none cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 drop-shadow-sm" />
-                      </button>
+            {identities.map((identity) => {
+              const pInfo = getProviderInfo(identity);
+              const isVerifying = testingCardId === identity.id;
+              const percentUsed = Math.min(100, Math.round(((identity.daily_sent || 0) / (identity.daily_limit || 300)) * 100));
+
+              return (
+                <div 
+                  key={identity.id} 
+                  className="skeuo-card p-6 flex flex-col justify-between group hover:border-[#333333] transition-all relative overflow-hidden"
+                >
+                  <div>
+                    {/* Header: Provider badge and actions */}
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${pInfo.badgeColor}`}>
+                        {pInfo.icon}
+                        {pInfo.badge}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button 
+                          onClick={() => handleTestCardConnection(identity.id)} 
+                          disabled={isVerifying}
+                          title="Test Connection"
+                          className="p-1.5 bg-[#111] hover:bg-[#1a1a1a] text-gray-400 hover:text-teal-400 border border-[#222] hover:border-teal-500/40 rounded-md transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${isVerifying ? "animate-spin text-teal-400" : ""}`} />
+                        </button>
+                        <button 
+                          onClick={() => handleIdentityEdit(identity)} 
+                          title="Edit Identity"
+                          className="p-1.5 bg-[#111111] hover:bg-[#1a1a1a] text-[#888888] hover:text-[#00ffff] border border-[#222222] hover:border-[#00ffff]/40 rounded-md transition-all cursor-pointer"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button 
+                          onClick={() => handleIdentityDelete(identity.id)} 
+                          title="Delete Identity"
+                          className="p-1.5 skeuo-btn-danger rounded-md cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Identity Name */}
+                    <h3 className="font-bold text-lg text-white line-clamp-1 mb-1" title={identity.name}>
+                      {identity.name}
+                    </h3>
+                    <p className="text-xs text-gray-400 flex items-center gap-1 mb-4 truncate">
+                      <Mail className="w-3 h-3 text-gray-500 shrink-0" />
+                      {identity.smtp_from_name ? `${identity.smtp_from_name} <${identity.smtp_user}>` : identity.smtp_user}
+                    </p>
+
+                    {/* Technical details box */}
+                    <div className="space-y-2 skeuo-inset-box p-3 rounded-lg text-xs">
+                      <div className="flex items-center justify-between text-gray-400">
+                        <span className="font-semibold uppercase tracking-wider text-[10px]">Endpoint</span>
+                        <span className="font-mono text-gray-300 truncate max-w-[170px]" title={identity.host}>
+                          {identity.host}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-gray-400">
+                        <span className="font-semibold uppercase tracking-wider text-[10px]">Port / Protocol</span>
+                        <span className="font-mono font-bold text-gray-300">
+                          {pInfo.type === "brevo-api" ? "HTTPS (443)" : `${identity.port} (${identity.secure ? "SSL" : "TLS"})`}
+                        </span>
+                      </div>
+                      {identity.last_verified_at && (
+                        <div className="flex items-center justify-between text-teal-400 pt-1 border-t border-[#1e242a]">
+                          <span className="flex items-center gap-1 text-[10px] font-semibold">
+                            <CheckCircle2 className="w-3 h-3" /> Verified
+                          </span>
+                          <span className="text-[10px] text-gray-400">
+                            {new Date(identity.last_verified_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1 skeuo-text">Email / Username</p>
-                      <p className="text-sm text-gray-700 font-medium break-all">{identity.smtp_user}</p>
+
+                  {/* Daily limit gauge */}
+                  <div className="pt-4 mt-3 border-t border-[#1e242a]">
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="text-gray-400 font-medium">Daily Quota</span>
+                      <span className="font-mono font-bold text-gray-200">
+                        {identity.daily_sent || 0} / {identity.daily_limit || 300}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-4 skeuo-inset-box p-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1 skeuo-text">Host</p>
-                        <p className="text-sm text-gray-700 flex items-center gap-1 font-medium truncate"><Server className="w-3 h-3 text-gray-500 shrink-0 drop-shadow-sm" /> {identity.host}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1 skeuo-text">Port</p>
-                        <p className="text-sm text-gray-700 font-mono font-bold">{identity.port}</p>
-                      </div>
+                    <div className="w-full bg-[#111] h-1.5 rounded-full overflow-hidden border border-[#222]">
+                      <div 
+                        className={`h-full transition-all duration-300 ${
+                          percentUsed > 90 ? "bg-red-500" : percentUsed > 70 ? "bg-amber-400" : "bg-teal-400"
+                        }`}
+                        style={{ width: `${percentUsed}%` }}
+                      />
                     </div>
                   </div>
                 </div>
-                <div className="pt-4 mt-2">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.1)] border ${identity.secure ? 'bg-gradient-to-b from-green-50 to-green-100 text-green-800 border-green-200' : 'bg-gradient-to-b from-gray-50 to-gray-100 text-gray-800 border-gray-200'}`}>
-                    {identity.secure ? 'Secure (SSL/TLS)' : 'Standard'}
-                  </span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
+
             {identities.length === 0 && !isCreating && (
-              <div className="col-span-full text-center py-12 text-gray-500 skeuo-inset-box font-bold">No identities found. Add one to start sending campaigns!</div>
+              <div className="col-span-full text-center py-16 px-4 skeuo-inset-box rounded-2xl border border-dashed border-[#2b353f] space-y-4">
+                <div className="w-12 h-12 rounded-full bg-teal-500/10 border border-teal-500/30 flex items-center justify-center mx-auto text-teal-400">
+                  <Zap className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-white">No Connected Providers Yet</h4>
+                  <p className="text-xs text-gray-400 max-w-md mx-auto mt-1">
+                    Connect Brevo using your API Key or connect Google/Custom SMTP to start sending automated email campaigns.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreating(true);
+                    handleProviderSelect("brevo", "api");
+                  }}
+                  className="bg-[#00ffff] hover:bg-[#33ffff] text-black font-bold px-6 py-2.5 rounded-full text-xs shadow-[0_0_20px_rgba(0,255,255,0.3)] transition-all cursor-pointer"
+                >
+                  + Connect Brevo or SMTP Provider
+                </button>
+              </div>
             )}
           </div>
         </>
@@ -425,22 +1048,22 @@ export default function Identities() {
       {activeTab === 'groups' && (
         <>
           {(isCreatingGroup || editingGroupId !== null) && (
-            <div className="skeuo-card p-8">
+            <div className="skeuo-card p-8 border border-[#00ffff]/30">
               <h3 className="text-xl font-bold mb-6 skeuo-text">{editingGroupId ? "Edit Group" : "Create Group"}</h3>
               <form onSubmit={handleGroupSave} className="space-y-6">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Group Name</label>
-                  <input type="text" value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} className="w-full skeuo-input py-3 px-4" placeholder="e.g., Brevo Rotation" required />
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Group Name</label>
+                  <input type="text" value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} className="w-full skeuo-input py-3 px-4 text-white" placeholder="e.g., High Deliverability Pool" required />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Select Identities ({selectedGroupIds.length} selected)</label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Select Identities ({selectedGroupIds.length} selected)</label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto">
                     {allIdentities.map((idn) => (
-                      <label key={idn.id} className={`flex items-start gap-3 p-4 rounded-none cursor-pointer transition-all border ${selectedGroupIds.includes(idn.id) ? "bg-[#00ffff]/10 border-[#00ffff] text-white shadow-[0_0_16px_rgba(0,255,255,0.2)]" : "bg-[#0a0a0a] border-[#1e1e1e] text-[#888888] hover:border-[#333333]"}`}>
-                        <input type="checkbox" checked={selectedGroupIds.includes(idn.id)} onChange={() => toggleGroupIdentity(idn.id)} className="mt-1 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                      <label key={idn.id} className={`flex items-start gap-3 p-4 rounded-xl cursor-pointer transition-all border ${selectedGroupIds.includes(idn.id) ? "bg-[#00ffff]/10 border-[#00ffff] text-white shadow-[0_0_16px_rgba(0,255,255,0.2)]" : "bg-[#0a0a0a] border-[#1e1e1e] text-[#888888] hover:border-[#333333]"}`}>
+                        <input type="checkbox" checked={selectedGroupIds.includes(idn.id)} onChange={() => toggleGroupIdentity(idn.id)} className="mt-1 w-4 h-4 rounded border-gray-600 bg-black/40 text-teal-500 focus:ring-teal-500" />
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-sm skeuo-text">{idn.name}</p>
-                          <p className="text-xs text-gray-600 font-medium truncate">{idn.smtp_user}</p>
+                          <p className="font-bold text-sm text-white">{idn.name}</p>
+                          <p className="text-xs text-gray-400 font-medium truncate">{idn.smtp_user}</p>
                           <p className="text-[10px] text-gray-500 font-mono mt-0.5">Limit: {idn.daily_limit}/day — Sent: {idn.daily_sent}</p>
                         </div>
                       </label>
@@ -464,26 +1087,26 @@ export default function Identities() {
             {groups.map((group) => (
               <div key={group.id} className="skeuo-card p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <button onClick={() => toggleExpand(group.id)} className="flex items-center gap-3 flex-1 text-left">
+                  <button onClick={() => toggleExpand(group.id)} className="flex items-center gap-3 flex-1 text-left cursor-pointer">
                     {expanded[group.id] ? <ChevronDown className="w-5 h-5 text-gray-500" /> : <ChevronRight className="w-5 h-5 text-gray-500" />}
-                    <h3 className="font-bold text-lg skeuo-text">{group.name}</h3>
-                    <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{group.identities.length} identities</span>
+                    <h3 className="font-bold text-lg text-white">{group.name}</h3>
+                    <span className="text-xs font-bold text-teal-400 bg-teal-500/10 border border-teal-500/20 px-2.5 py-0.5 rounded-full">{group.identities.length} identities</span>
                   </button>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => handleGroupEdit(group)} className="skeuo-btn px-3 py-1.5 text-xs font-bold">Edit</button>
-                    <button onClick={() => handleGroupDelete(group.id)} className="p-2 skeuo-btn-danger"><Trash2 className="w-4 h-4 drop-shadow-sm" /></button>
+                    <button onClick={() => handleGroupEdit(group)} className="skeuo-btn px-3 py-1.5 text-xs font-bold cursor-pointer">Edit</button>
+                    <button onClick={() => handleGroupDelete(group.id)} className="p-2 skeuo-btn-danger cursor-pointer"><Trash2 className="w-4 h-4 drop-shadow-sm" /></button>
                   </div>
                 </div>
                 {expanded[group.id] && (
                   <div className="space-y-2">
                     {group.identities.map((idn) => (
-                      <div key={idn.id} className="skeuo-inset-box p-3 flex items-center justify-between">
+                      <div key={idn.id} className="skeuo-inset-box p-3 flex items-center justify-between rounded-lg">
                         <div>
-                          <p className="font-bold text-sm skeuo-text">{idn.name}</p>
-                          <p className="text-xs text-gray-600 font-medium">{idn.smtp_user}</p>
+                          <p className="font-bold text-sm text-white">{idn.name}</p>
+                          <p className="text-xs text-gray-400 font-medium">{idn.smtp_user}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-xs font-mono font-bold text-gray-700">{idn.daily_sent}/{idn.daily_limit}</p>
+                          <p className="text-xs font-mono font-bold text-gray-300">{idn.daily_sent}/{idn.daily_limit}</p>
                           <p className="text-[10px] text-gray-500">sent today</p>
                         </div>
                       </div>

@@ -102,7 +102,7 @@ class IdentityViewSet(viewsets.ModelViewSet):
         instance.identitygroup_set.clear()
         instance.delete()
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], url_path="test")
     def test_connection(self, request, pk=None):
         instance = self.get_object()
         host = request.data.get("host") or instance.host
@@ -115,11 +115,57 @@ class IdentityViewSet(viewsets.ModelViewSet):
         use_tls = request.data.get("use_tls", instance.use_tls)
         use_ssl = request.data.get("use_ssl", instance.use_ssl)
 
+        is_brevo_api = (host in ["api.brevo.com", "brevo", "brevo_api"]) or (password and str(password).strip().startswith("xkeysib-"))
+        if is_brevo_api:
+            if not password:
+                return Response(
+                    {"success": False, "message": "Brevo API key is required."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                resp = http_requests.get(
+                    "https://api.brevo.com/v3/account",
+                    headers={"api-key": str(password).strip(), "accept": "application/json"},
+                    timeout=10,
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    email = data.get("email", "")
+                    plan_info = ""
+                    if data.get("plan"):
+                        p = data["plan"][0]
+                        plan_info = f" (Plan: {p.get('type', 'Standard')} | Credits: {p.get('credits', 0)})"
+
+                    from django.utils import timezone
+                    instance.last_verified_at = timezone.now()
+                    instance.save(update_fields=["last_verified_at"])
+                    return Response({
+                        "success": True,
+                        "message": f"Brevo API Connected! Account: {email}{plan_info}",
+                        "account": email,
+                        "data": data,
+                    })
+                else:
+                    err_msg = "Invalid Brevo API Key"
+                    try:
+                        err_msg = resp.json().get("message", resp.text)
+                    except Exception:
+                        err_msg = resp.text
+                    return Response(
+                        {"success": False, "message": f"Brevo API Error: {err_msg}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            except Exception as e:
+                return Response(
+                    {"success": False, "message": f"Brevo API Connection Failed: {str(e)}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         try:
             connection = get_connection(
                 backend="django.core.mail.backends.smtp.EmailBackend",
                 host=host,
-                port=port,
+                port=int(port),
                 username=username,
                 password=password,
                 use_tls=use_tls,
@@ -132,8 +178,8 @@ class IdentityViewSet(viewsets.ModelViewSet):
             from django.utils import timezone
 
             instance.last_verified_at = timezone.now()
-            instance.save()
-            return Response({"success": True, "message": "Connection successful"})
+            instance.save(update_fields=["last_verified_at"])
+            return Response({"success": True, "message": "SMTP Connection successful"})
         except Exception as e:
             return Response(
                 {"success": False, "message": str(e)}, status=status.HTTP_400_BAD_REQUEST
@@ -148,6 +194,48 @@ class IdentityViewSet(viewsets.ModelViewSet):
         use_tls = request.data.get("use_tls", True)
         use_ssl = request.data.get("use_ssl", False)
 
+        is_brevo_api = (host in ["api.brevo.com", "brevo", "brevo_api"]) or (password and str(password).strip().startswith("xkeysib-"))
+        if is_brevo_api:
+            if not password:
+                return Response(
+                    {"success": False, "message": "Brevo API key is required."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                resp = http_requests.get(
+                    "https://api.brevo.com/v3/account",
+                    headers={"api-key": str(password).strip(), "accept": "application/json"},
+                    timeout=10,
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    email = data.get("email", "")
+                    plan_info = ""
+                    if data.get("plan"):
+                        p = data["plan"][0]
+                        plan_info = f" (Plan: {p.get('type', 'Standard')} | Credits: {p.get('credits', 0)})"
+                    return Response({
+                        "success": True,
+                        "message": f"Brevo API Connected! Account: {email}{plan_info}",
+                        "account": email,
+                        "data": data,
+                    })
+                else:
+                    err_msg = "Invalid Brevo API Key"
+                    try:
+                        err_msg = resp.json().get("message", resp.text)
+                    except Exception:
+                        err_msg = resp.text
+                    return Response(
+                        {"success": False, "message": f"Brevo API Error: {err_msg}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            except Exception as e:
+                return Response(
+                    {"success": False, "message": f"Brevo API Connection Failed: {str(e)}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         try:
             connection = get_connection(
                 backend="django.core.mail.backends.smtp.EmailBackend",
@@ -161,7 +249,7 @@ class IdentityViewSet(viewsets.ModelViewSet):
             )
             connection.open()
             connection.close()
-            return Response({"success": True, "message": "Connection successful"})
+            return Response({"success": True, "message": "SMTP Connection successful"})
         except Exception as e:
             return Response(
                 {"success": False, "message": str(e)}, status=status.HTTP_400_BAD_REQUEST
