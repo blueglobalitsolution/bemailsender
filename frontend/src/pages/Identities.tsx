@@ -256,7 +256,7 @@ export default function Identities() {
                 : 'text-[#8E9BA8] hover:text-white'
             }`}
           >
-            Sender Identities ({identities.length})
+            Connected Providers ({identities.length})
           </button>
           <button
             onClick={() => setActiveTab('groups')}
@@ -266,7 +266,7 @@ export default function Identities() {
                 : 'text-[#8E9BA8] hover:text-white'
             }`}
           >
-            Identity Groups ({groups.length})
+            Provider Groups ({groups.length})
           </button>
         </div>
       </div>
