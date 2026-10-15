@@ -26,8 +26,10 @@ export interface CustomForm {
 interface FormBuilderModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSaved: (form: CustomForm) => void;
+  onSaved?: (form: CustomForm) => void;
+  onSaveSuccess?: () => void;
   editingForm?: CustomForm | null;
+  formItem?: CustomForm | null;
 }
 
 const FIELD_TYPES = [
@@ -39,12 +41,20 @@ const FIELD_TYPES = [
   { type: "select", label: "Dropdown Select", icon: List },
 ];
 
-export default function FormBuilderModal({ isOpen, onClose, onSaved, editingForm }: FormBuilderModalProps) {
+export default function FormBuilderModal({ 
+  isOpen, 
+  onClose, 
+  onSaved, 
+  onSaveSuccess, 
+  editingForm, 
+  formItem 
+}: FormBuilderModalProps) {
+  const currentForm = editingForm ?? formItem;
   const toast = useToast();
-  const [formName, setFormName] = useState(editingForm ? editingForm.name : "");
-  const [buttonText, setButtonText] = useState(editingForm ? editingForm.button_text : "Submit");
-  const [successMessage, setSuccessMessage] = useState(editingForm ? editingForm.success_message : "Thank you! We have received your inquiry.");
-  const [redirectUrl, setRedirectUrl] = useState(editingForm ? (editingForm.redirect_url || "") : "");
+  const [formName, setFormName] = useState(currentForm ? currentForm.name : "");
+  const [buttonText, setButtonText] = useState(currentForm ? currentForm.button_text : "Submit");
+  const [successMessage, setSuccessMessage] = useState(currentForm ? currentForm.success_message : "Thank you! We have received your inquiry.");
+  const [redirectUrl, setRedirectUrl] = useState(currentForm ? (currentForm.redirect_url || "") : "");
   const [fields, setFields] = useState<FormField[]>(
     editingForm?.fields_schema && editingForm.fields_schema.length > 0
       ? editingForm.fields_schema
@@ -136,8 +146,8 @@ export default function FormBuilderModal({ isOpen, onClose, onSaved, editingForm
 
       if (res.ok) {
         const savedData: CustomForm = await res.json();
-        toast.success(editingForm ? "Form updated successfully!" : "Form created successfully!");
-        onSaved(savedData);
+        if (onSaved) onSaved(savedData);
+        if (onSaveSuccess) onSaveSuccess();
         onClose();
       } else {
         const err = await res.json();
