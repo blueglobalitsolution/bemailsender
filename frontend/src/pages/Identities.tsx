@@ -1130,8 +1130,15 @@ export default function Identities() {
 
       {/* Send Test Email Modal */}
       {testModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="skeuo-card max-w-md w-full p-6 md:p-8 border border-[#00ffff]/40 shadow-[0_0_40px_rgba(0,255,255,0.15)] relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop overlay without blur */}
+          <div 
+            onClick={() => setTestModalOpen(false)}
+            className="fixed inset-0 bg-black/40 transition-opacity cursor-pointer"
+            aria-hidden="true"
+          />
+
+          <div className="skeuo-card max-w-md w-full p-6 md:p-8 border border-[#00ffff]/40 shadow-[0_0_40px_rgba(0,255,255,0.15)] relative z-10 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-start justify-between mb-5">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-500/40 flex items-center justify-center text-teal-300">
@@ -1161,19 +1168,6 @@ export default function Identities() {
             </div>
 
             <form onSubmit={handleSendTestEmail} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                  Recipient Name
-                </label>
-                <input
-                  type="text"
-                  value={testRecipientName}
-                  onChange={(e) => setTestRecipientName(e.target.value)}
-                  placeholder="e.g., Bhavan Badhe"
-                  className="w-full skeuo-input py-2.5 px-3.5 text-white text-sm"
-                />
-              </div>
-
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
                   Recipient Email Address <span className="text-red-400">*</span>
