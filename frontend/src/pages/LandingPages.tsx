@@ -10,14 +10,12 @@ import {
   ExternalLink,
   Download,
   X,
-  FormInput,
   Bot,
   MessageSquare,
   Sparkles
 } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { useToast } from "../components/Toast";
-import FormBuilderModal, { CustomForm } from "../components/FormBuilderModal";
 import SubmissionsViewerModal from "../components/SubmissionsViewerModal";
 
 interface LandingPageItem {
@@ -37,9 +35,7 @@ interface LandingPageItem {
 
 export default function LandingPages() {
   const toast = useToast();
-  const [activeSubTab, setActiveSubTab] = useState<"landing-pages" | "forms">("landing-pages");
   const [landingPages, setLandingPages] = useState<LandingPageItem[]>([]);
-  const [customForms, setCustomForms] = useState<CustomForm[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Landing Page creation/edit states
@@ -54,16 +50,11 @@ export default function LandingPages() {
   const [savingLanding, setSavingLanding] = useState(false);
   const landingTextareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Form Builder Modal State
-  const [isFormBuilderOpen, setIsFormBuilderOpen] = useState(false);
-  const [editingFormItem, setEditingFormItem] = useState<CustomForm | null>(null);
-
   // Submissions Modal State
   const [viewingSubmissionsPage, setViewingSubmissionsPage] = useState<{ id: number; title: string; slug: string } | null>(null);
 
   useEffect(() => {
     fetchLandingPages();
-    fetchCustomForms();
 
     const handleOpenCreateLanding = () => {
       setEditingLandingId(null);
@@ -90,7 +81,6 @@ export default function LandingPages() {
   </div>
 </body>
 </html>`);
-      setActiveSubTab("landing-pages");
       setChatbotEnabled(true);
       setChatbotName("AI Sales Assistant");
       setChatbotWelcomeMessage("Hi there! 👋 Welcome! Please introduce yourself below to start chatting.");
@@ -99,17 +89,10 @@ export default function LandingPages() {
       window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
-    const handleOpenFormBuilder = () => {
-      setEditingFormItem(null);
-      setIsFormBuilderOpen(true);
-    };
-
     window.addEventListener("open-create-landing-modal", handleOpenCreateLanding);
-    window.addEventListener("open-form-builder-modal", handleOpenFormBuilder);
 
     return () => {
       window.removeEventListener("open-create-landing-modal", handleOpenCreateLanding);
-      window.removeEventListener("open-form-builder-modal", handleOpenFormBuilder);
     };
   }, []);
 
@@ -127,17 +110,6 @@ export default function LandingPages() {
     }
   };
 
-  const fetchCustomForms = async () => {
-    try {
-      const res = await apiFetch("/api/forms/");
-      if (res.ok) {
-        const data = await res.json();
-        setCustomForms(Array.isArray(data) ? data : data.results || []);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   const handleSaveLanding = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,62 +174,15 @@ export default function LandingPages() {
     });
   };
 
-
-  const handleDeleteForm = (id: number) => {
-    toast.confirm("Are you sure you want to delete this form?", async () => {
-      try {
-        const res = await apiFetch(`/api/forms/${id}/`, { method: "DELETE" });
-        if (res.ok) {
-          toast.success("Form deleted");
-          fetchCustomForms();
-        } else {
-          toast.error("Failed to delete form");
-        }
-      } catch (err) {
-        console.error(err);
-        toast.error("Network error deleting form");
-      }
-    });
-  };
-
   const copyToClipboard = (text: string, msg: string) => {
     navigator.clipboard.writeText(text);
     toast.success(msg);
   };
 
-  if (loading) return <div className="text-center py-12 text-[#8E9BA8]">Loading Landing Pages & Forms...</div>;
+  if (loading) return <div className="text-center py-12 text-[#8E9BA8]">Loading Landing Pages...</div>;
 
   return (
-    <div className="space-y-8 font-sans">
-      {/* Sub Header / Tabs Navigation */}
-      <div className="flex items-center justify-between border-b border-[#2C353D] pb-4">
-        <div className="flex gap-1.5 bg-[#222930] border border-[#2C353D] rounded-lg p-1 w-fit">
-          <button
-            onClick={() => setActiveSubTab("landing-pages")}
-            className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeSubTab === "landing-pages"
-                ? "bg-white text-[#161B1F] shadow-sm font-bold"
-                : "text-[#8E9BA8] hover:text-white"
-            }`}
-          >
-            <Globe className="w-3.5 h-3.5" /> Landing Pages ({landingPages.length})
-          </button>
-          <button
-            onClick={() => setActiveSubTab("forms")}
-            className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeSubTab === "forms"
-                ? "bg-white text-[#161B1F] shadow-sm font-bold"
-                : "text-[#8E9BA8] hover:text-white"
-            }`}
-          >
-            <FormInput className="w-3.5 h-3.5" /> Lead Forms ({customForms.length})
-          </button>
-        </div>
-      </div>
-
-      {/* SUB-TAB 1: LANDING PAGES */}
-      {activeSubTab === "landing-pages" && (
-        <div className="space-y-6">
+    <div className="space-y-6 font-sans">
           {isCreatingLanding && (
             <div className="bg-[#1E252D] border border-[#2C353D] rounded-2xl p-6 shadow-xl">
               <div className="flex items-center justify-between mb-5 border-b border-[#2C353D] pb-3">
@@ -614,7 +539,7 @@ export default function LandingPages() {
                 <Globe className="w-10 h-10 text-[#8E9BA8] mx-auto mb-3 opacity-60" />
                 <h4 className="text-base font-bold text-white mb-1">No Custom Landing Pages Yet</h4>
                 <p className="text-xs text-[#8E9BA8] max-w-sm mx-auto mb-4">
-                  Paste your own HTML code, embed dynamic lead capture forms via shortcodes, and track clicks and submissions live.
+                  Deploy custom HTML landing pages with AI-powered conversational sales chatbots and live visitor lead tracking.
                 </p>
                 <button
                   onClick={() => {
@@ -626,9 +551,8 @@ export default function LandingPages() {
   <style>body { font-family: sans-serif; background: #0f172a; color: white; padding: 40px; text-align: center; }</style>
 </head>
 <body>
-  <h1>Welcome to our Offer</h1>
-  <p>Fill out the form below:</p>
-  {{form_xxx}}
+  <h1>Welcome to our Product</h1>
+  <p>Chat with our AI assistant below to get started!</p>
 </body>
 </html>`);
                     setIsCreatingLanding(true);
@@ -640,143 +564,6 @@ export default function LandingPages() {
               </div>
             )}
           </div>
-        </div>
-      )}
-
-      {/* SUB-TAB 2: LEAD FORMS / FORM BUILDER */}
-      {activeSubTab === "forms" && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between p-4 bg-[#1E252D] border border-[#2C353D] rounded-2xl">
-            <div>
-              <h4 className="text-sm font-bold text-white">Drag & Drop Form Builder Library</h4>
-              <p className="text-xs text-[#8E9BA8]">
-                Create customizable lead forms and copy their shortcodes to paste inside any Landing Page HTML.
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                setEditingFormItem(null);
-                setIsFormBuilderOpen(true);
-              }}
-              className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
-            >
-              <Plus className="w-3.5 h-3.5" /> New Lead Form
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {customForms.map((form) => (
-              <div
-                key={form.id}
-                className="bg-[#1E252D] border border-[#2C353D] hover:border-[#3E4A56] rounded-2xl p-5 shadow-lg flex flex-col justify-between transition-all"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center border border-white/20">
-                        <FormInput className="w-4 h-4 text-white" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-white text-base line-clamp-1">{form.name}</h4>
-                        <span className="text-[11px] text-[#8E9BA8]">
-                          {form.fields_schema?.length || 0} fields configured
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => {
-                          setEditingFormItem(form);
-                          setIsFormBuilderOpen(true);
-                        }}
-                        className="p-1.5 text-[#8E9BA8] hover:text-white hover:bg-[#26303A] rounded-md transition-colors cursor-pointer"
-                        title="Edit Form"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteForm(form.id)}
-                        className="p-1.5 text-[#8E9BA8] hover:text-red-400 hover:bg-[#26303A] rounded-md transition-colors cursor-pointer"
-                        title="Delete Form"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Form Shortcode Banner */}
-                  <div className="p-3 bg-[#161B1F] border border-[#2C353D] rounded-xl mb-4">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#8E9BA8]">
-                        Embed Shortcode
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(`{{${form.shortcode}}}`, "Shortcode copied to clipboard!")}
-                        className="text-[11px] text-white hover:underline flex items-center gap-1 cursor-pointer font-medium"
-                      >
-                        <Copy className="w-3 h-3" /> Copy
-                      </button>
-                    </div>
-                    <code className="text-xs font-mono text-white bg-[#1A2026] px-2 py-1 rounded block border border-[#2C353D]">
-                      {`{{${form.shortcode}}}`}
-                    </code>
-                  </div>
-
-                  {/* Fields list */}
-                  <div className="space-y-1.5 mb-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#8E9BA8]">Fields:</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {(form.fields_schema || []).map((f) => (
-                        <span
-                          key={f.id}
-                          className="text-[11px] px-2 py-0.5 rounded bg-[#161B1F] border border-[#2C353D] text-[#CBD5E1]"
-                        >
-                          {f.label} {f.required && "*"}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-3 border-t border-[#2C353D] flex items-center justify-between text-xs text-[#8E9BA8]">
-                  <span>Total Submissions:</span>
-                  <span className="font-bold text-white">{form.submissions_count || 0}</span>
-                </div>
-              </div>
-            ))}
-
-            {customForms.length === 0 && (
-              <div className="col-span-full py-16 text-center border border-dashed border-[#2C353D] rounded-2xl bg-[#1E252D]/40">
-                <FormInput className="w-10 h-10 text-[#8E9BA8] mx-auto mb-3 opacity-60" />
-                <h4 className="text-base font-bold text-white mb-1">No Lead Capture Forms Built Yet</h4>
-                <p className="text-xs text-[#8E9BA8] max-w-sm mx-auto mb-4">
-                  Build custom forms using drag and drop fields, and generate shortcodes for your landing pages.
-                </p>
-                <button
-                  onClick={() => {
-                    setEditingFormItem(null);
-                    setIsFormBuilderOpen(true);
-                  }}
-                  className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold px-4 py-2 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Launch Form Builder
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Form Builder Modal */}
-      <FormBuilderModal
-        isOpen={isFormBuilderOpen}
-        onClose={() => setIsFormBuilderOpen(false)}
-        formItem={editingFormItem}
-        onSaveSuccess={() => {
-          fetchCustomForms();
-        }}
-      />
 
       {/* Submissions Viewer Modal */}
       {viewingSubmissionsPage && (

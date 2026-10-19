@@ -40,7 +40,7 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
     { name: "Find Leads", path: "/lead-scraper", icon: Compass },
     { name: "Automation Wizard", path: "/wizard", icon: Wand2 },
     { name: "Email Templates", path: "/templates", icon: FileText },
-    { name: "Landing Pages & Forms", path: "/landing-pages", icon: Globe },
+    { name: "Landing Pages", path: "/landing-pages", icon: Globe },
     { name: "Connect Provider", path: "/identities", icon: Server },
     { name: "Leads", path: "/saved-csvs", icon: Database },
   ];
@@ -169,7 +169,7 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
                   case "templates":
                     return "Email Templates";
                   case "landing-pages":
-                    return "Landing Pages & Forms";
+                    return "Landing Pages";
                   case "identities":
                     return "Connect Provider";
                   case "saved-csvs":
@@ -204,22 +204,13 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
             )}
 
             {location.pathname === "/landing-pages" && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => window.dispatchEvent(new CustomEvent("open-form-builder-modal"))}
-                  className="bg-[#222930] hover:bg-[#29323A] border border-[#2C353D] text-[#CBD5E1] hover:text-white font-medium text-xs px-3 py-2 rounded-md flex items-center gap-1.5 transition-all cursor-pointer"
-                  title="Drag & Drop Form Builder"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Form Builder
-                </button>
-                <button
-                  onClick={() => window.dispatchEvent(new CustomEvent("open-create-landing-modal"))}
-                  className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold text-xs px-3.5 py-2 rounded-md flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
-                  title="Create Landing Page with HTML"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Create Landing Page
-                </button>
-              </div>
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent("open-create-landing-modal"))}
+                className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold text-xs px-3.5 py-2 rounded-md flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                title="Create Landing Page"
+              >
+                <Plus className="w-3.5 h-3.5" /> Create Landing Page
+              </button>
             )}
 
             {location.pathname === "/identities" && (
