@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams, Link } from "react-router-dom";
 import {
   Bot,
@@ -963,250 +964,302 @@ export default function AIChatbot() {
         />
       )}
 
-      {/* Create New Script Modal */}
-      {isCreateScriptModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-[#1E252D] border border-[#2C353D] rounded-2xl w-full max-w-xl p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#2C353D]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center">
-                  <BookOpen className="w-4 h-4" />
+      {/* Create New Script Slide-Over Drawer */}
+      {isCreateScriptModalOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] overflow-hidden">
+            {/* Backdrop overlay */}
+            <div
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200 cursor-pointer"
+              onClick={() => setIsCreateScriptModalOpen(false)}
+            />
+
+            {/* Slide-over Container anchored to the right side */}
+            <div className="fixed inset-y-0 right-0 flex max-w-full pl-6 sm:pl-10 pointer-events-auto">
+              <div className="w-screen max-w-xl lg:max-w-2xl h-full bg-[#161B1F] border-l border-[#2C353D] flex flex-col shadow-[-20px_0_50px_rgba(0,0,0,0.9)] animate-in slide-in-from-right duration-300 ease-out">
+                {/* Drawer Header */}
+                <div className="px-6 py-4 border-b border-[#2C353D] bg-[#1A1F26] flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center">
+                      <BookOpen className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white tracking-tight">Create New Product Script</h3>
+                      <p className="text-[11px] text-[#8E9BA8]">
+                        Save reusable product knowledge and assign it to landing pages.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateScriptModalOpen(false)}
+                    className="p-1.5 text-[#8E9BA8] hover:text-white bg-[#222930] hover:bg-[#2C353D] border border-[#2C353D] rounded-lg transition-colors cursor-pointer shrink-0"
+                    title="Close Drawer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-                <h3 className="text-sm font-bold text-white">Create New Product Script</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsCreateScriptModalOpen(false)}
-                className="text-[#8E9BA8] hover:text-white p-1 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            <form onSubmit={handleCreateScript} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1] mb-1.5">
-                  Script Title *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newScriptTitle}
-                  onChange={(e) => setNewScriptTitle(e.target.value)}
-                  placeholder="e.g. Dog Food Nutrition Script, B2B SaaS Offer"
-                  className="w-full bg-[#161B1F] border border-[#2C353D] rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-white transition-all font-mono"
-                />
-              </div>
+                {/* Drawer Form Body */}
+                <form onSubmit={handleCreateScript} className="flex-1 flex flex-col min-h-0 bg-[#14181C]">
+                  <div className="flex-1 overflow-y-auto p-6 space-y-5">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1] mb-1.5">
+                        Script Title *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={newScriptTitle}
+                        onChange={(e) => setNewScriptTitle(e.target.value)}
+                        placeholder="e.g. Dog Food Nutrition Script, B2B SaaS Offer"
+                        className="w-full bg-[#161B1F] border border-[#2C353D] focus:border-purple-500/50 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none transition-all font-mono"
+                      />
+                      <p className="text-[11px] text-[#8E9BA8] mt-1">
+                        A recognizable title to select this knowledge base from the script dropdown.
+                      </p>
+                    </div>
 
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1] mb-1.5">
-                  Knowledge Base & Script Content
-                </label>
-                <textarea
-                  rows={8}
-                  value={newScriptContent}
-                  onChange={(e) => setNewScriptContent(e.target.value)}
-                  placeholder="Product Name: ...&#10;Pricing: ...&#10;Features: ...&#10;Refunds: ..."
-                  className="w-full bg-[#161B1F] border border-[#2C353D] rounded-xl p-3.5 text-xs text-white focus:outline-none focus:border-white transition-all font-mono leading-relaxed"
-                />
-              </div>
+                    <div className="flex flex-col flex-1">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1]">
+                          Knowledge Base & Script Content
+                        </label>
+                        <span className="text-[11px] font-mono text-[#8E9BA8]">
+                          {newScriptContent.length} characters
+                        </span>
+                      </div>
+                      <textarea
+                        rows={16}
+                        value={newScriptContent}
+                        onChange={(e) => setNewScriptContent(e.target.value)}
+                        placeholder="Product Name: ReachEngine Pro&#10;Pricing: $49/month (Starter), $99/month (Pro)&#10;Key Features: Automated cold email sequences, lead scraping, AI warmup&#10;Money-Back Guarantee: 14-day refund policy with no questions asked&#10;Support: Available 24/7 via email at support@reachengine.com&#10;Discount: 20% OFF using coupon code LAUNCH20"
+                        className="w-full bg-[#161B1F] border border-[#2C353D] focus:border-purple-500/50 rounded-xl p-4 text-xs text-white focus:outline-none transition-all font-mono leading-relaxed resize-y min-h-[280px]"
+                      />
+                      <p className="text-[11px] text-[#8E9BA8] mt-2">
+                        💡 Tip: Include product details, pricing, FAQs, objections handling, and support contacts for precise AI answers.
+                      </p>
+                    </div>
+                  </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-[#2C353D]">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateScriptModalOpen(false)}
-                  className="px-4 py-2 border border-[#2C353D] bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creatingScript}
-                  className="px-5 py-2 bg-white hover:bg-[#CBD5E1] text-[#161B1F] text-xs font-bold rounded-lg flex items-center gap-2 transition-all cursor-pointer shadow-md disabled:opacity-50"
-                >
-                  {creatingScript ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                  <span>Save & Assign to Page</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Manage Scripts Library Modal */}
-      {isManageScriptsModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-[#1E252D] border border-[#2C353D] rounded-2xl w-full max-w-3xl p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between pb-3 border-b border-[#2C353D] shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center">
-                  <Sliders className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white">Scripts & Knowledge Base Library</h3>
-                  <p className="text-[11px] text-[#8E9BA8]">
-                    Manage reusable scripts that can be assigned across your landing pages.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsManageScriptsModalOpen(false);
-                  setEditingScript(null);
-                }}
-                className="text-[#8E9BA8] hover:text-white p-1 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* List or Edit Mode */}
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-              {editingScript ? (
-                <form onSubmit={handleSaveEditedScript} className="space-y-4 p-4 bg-[#161B1F] border border-[#2C353D] rounded-xl">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white">Edit Script: {editingScript.title}</span>
+                  {/* Sticky Drawer Footer */}
+                  <div className="px-6 py-4 border-t border-[#2C353D] bg-[#1A1F26] flex items-center justify-end gap-3 shrink-0">
                     <button
                       type="button"
-                      onClick={() => setEditingScript(null)}
-                      className="text-xs text-[#8E9BA8] hover:text-white"
-                    >
-                      ← Back to list
-                    </button>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1] mb-1">
-                      Script Title
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={editingScript.title}
-                      onChange={(e) => setEditingScript({ ...editingScript, title: e.target.value })}
-                      className="w-full bg-[#1A1F26] border border-[#2C353D] rounded-lg px-3 py-2 text-xs text-white font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1] mb-1">
-                      Script Content
-                    </label>
-                    <textarea
-                      rows={10}
-                      value={editingScript.content}
-                      onChange={(e) => setEditingScript({ ...editingScript, content: e.target.value })}
-                      className="w-full bg-[#1A1F26] border border-[#2C353D] rounded-lg p-3 text-xs text-white font-mono leading-relaxed"
-                    />
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setEditingScript(null)}
-                      className="px-3 py-1.5 border border-[#2C353D] bg-[#222930] text-xs font-semibold rounded-lg text-white"
+                      onClick={() => setIsCreateScriptModalOpen(false)}
+                      className="px-4 py-2 border border-[#2C353D] bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-1.5 bg-white text-[#161B1F] text-xs font-bold rounded-lg shadow"
+                      disabled={creatingScript}
+                      className="px-5 py-2 bg-white hover:bg-[#CBD5E1] text-[#161B1F] text-xs font-bold rounded-lg flex items-center gap-2 transition-all cursor-pointer shadow-md disabled:opacity-50"
                     >
-                      Save Changes
+                      {creatingScript ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                      <span>Save & Assign to Page</span>
                     </button>
                   </div>
                 </form>
-              ) : scripts.length === 0 ? (
-                <div className="py-12 text-center text-[#8E9BA8] border border-dashed border-[#2C353D] rounded-xl">
-                  <BookOpen className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-xs font-semibold">No saved scripts in library yet.</p>
-                  <p className="text-[11px] mt-1">Create one to assign it across landing pages!</p>
-                </div>
-              ) : (
-                scripts.map((s) => (
-                  <div
-                    key={s.id}
-                    className="p-4 bg-[#161B1F] border border-[#2C353D] hover:border-[#3E4A56] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-white text-xs">{s.title}</span>
-                        {assignedScriptId === s.id && (
-                          <span className="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-mono font-semibold">
-                            Currently Active
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-[#8E9BA8] line-clamp-2 font-mono">
-                        {s.content || "(Empty script content)"}
-                      </p>
-                      <div className="flex items-center gap-3 text-[10px] text-[#8E9BA8]">
-                        <span>Assigned to {s.landing_pages_count} {s.landing_pages_count === 1 ? "page" : "pages"}</span>
-                        <span>•</span>
-                        <span>Updated {new Date(s.updated_at).toLocaleDateString()}</span>
-                      </div>
-                    </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAssignedScriptId(s.id);
-                          setChatbotScript(s.content);
-                          toast.success(`Assigned "${s.title}" to current page!`);
-                          setIsManageScriptsModalOpen(false);
-                        }}
-                        className="px-3 py-1.5 bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white border border-[#2C353D] rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-                      >
-                        Assign to Page
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditingScript(s)}
-                        className="p-1.5 text-[#8E9BA8] hover:text-white hover:bg-[#26303A] rounded-lg transition-colors cursor-pointer"
-                        title="Edit Script"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteScript(s.id)}
-                        className="p-1.5 text-[#8E9BA8] hover:text-red-400 hover:bg-[#26303A] rounded-lg transition-colors cursor-pointer"
-                        title="Delete Script"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+      {/* Manage Scripts Library Slide-Over Drawer */}
+      {isManageScriptsModalOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] overflow-hidden">
+            {/* Backdrop overlay */}
+            <div
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200 cursor-pointer"
+              onClick={() => {
+                setIsManageScriptsModalOpen(false);
+                setEditingScript(null);
+              }}
+            />
+
+            {/* Slide-over Container anchored to the right side */}
+            <div className="fixed inset-y-0 right-0 flex max-w-full pl-6 sm:pl-10 pointer-events-auto">
+              <div className="w-screen max-w-2xl lg:max-w-3xl h-full bg-[#161B1F] border-l border-[#2C353D] flex flex-col shadow-[-20px_0_50px_rgba(0,0,0,0.9)] animate-in slide-in-from-right duration-300 ease-out">
+                {/* Drawer Header */}
+                <div className="px-6 py-4 border-b border-[#2C353D] bg-[#1A1F26] flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center">
+                      <Sliders className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white tracking-tight">Scripts & Knowledge Base Library</h3>
+                      <p className="text-[11px] text-[#8E9BA8]">
+                        Manage reusable scripts that can be assigned across your landing pages.
+                      </p>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsManageScriptsModalOpen(false);
+                      setEditingScript(null);
+                    }}
+                    className="p-1.5 text-[#8E9BA8] hover:text-white bg-[#222930] hover:bg-[#2C353D] border border-[#2C353D] rounded-lg transition-colors cursor-pointer shrink-0"
+                    title="Close Drawer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
 
-            <div className="pt-3 border-t border-[#2C353D] flex items-center justify-between shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  setNewScriptTitle("");
-                  setNewScriptContent("");
-                  setIsCreateScriptModalOpen(true);
-                }}
-                className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-black font-bold rounded-lg text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Create New Script</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsManageScriptsModalOpen(false);
-                  setEditingScript(null);
-                }}
-                className="px-4 py-1.5 border border-[#2C353D] bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-              >
-                Done
-              </button>
+                {/* Drawer Body - List or Edit Mode */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#14181C]">
+                  {editingScript ? (
+                    <form onSubmit={handleSaveEditedScript} className="space-y-4 p-5 bg-[#161B1F] border border-[#2C353D] rounded-xl">
+                      <div className="flex items-center justify-between border-b border-[#2C353D] pb-3">
+                        <span className="text-xs font-bold text-white uppercase tracking-wider">
+                          Edit Script: {editingScript.title}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setEditingScript(null)}
+                          className="text-xs text-[#8E9BA8] hover:text-white transition-colors cursor-pointer"
+                        >
+                          ← Back to list
+                        </button>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1] mb-1.5">
+                          Script Title
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={editingScript.title}
+                          onChange={(e) => setEditingScript({ ...editingScript, title: e.target.value })}
+                          className="w-full bg-[#12161A] border border-[#2C353D] focus:border-purple-500/50 rounded-xl px-4 py-2.5 text-xs text-white font-mono focus:outline-none transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1] mb-1.5">
+                          Script Content
+                        </label>
+                        <textarea
+                          rows={14}
+                          value={editingScript.content}
+                          onChange={(e) => setEditingScript({ ...editingScript, content: e.target.value })}
+                          className="w-full bg-[#12161A] border border-[#2C353D] focus:border-purple-500/50 rounded-xl p-4 text-xs text-white font-mono leading-relaxed focus:outline-none transition-all resize-y min-h-[250px]"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2.5 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingScript(null)}
+                          className="px-4 py-2 border border-[#2C353D] bg-[#222930] hover:bg-[#2C353D] text-xs font-semibold rounded-lg text-white transition-colors cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-5 py-2 bg-white hover:bg-[#CBD5E1] text-[#161B1F] text-xs font-bold rounded-lg shadow transition-all cursor-pointer"
+                        >
+                          Save Changes
+                        </button>
+                      </div>
+                    </form>
+                  ) : scripts.length === 0 ? (
+                    <div className="py-16 text-center text-[#8E9BA8] border border-dashed border-[#2C353D] rounded-2xl">
+                      <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-40 text-purple-400" />
+                      <p className="text-sm font-semibold text-white">No saved scripts in library yet.</p>
+                      <p className="text-xs text-[#8E9BA8] mt-1">Create one to assign it across landing pages!</p>
+                    </div>
+                  ) : (
+                    scripts.map((s) => (
+                      <div
+                        key={s.id}
+                        className="p-4 bg-[#161B1F] border border-[#2C353D] hover:border-[#3E4A56] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 transition-colors"
+                      >
+                        <div className="space-y-1.5 flex-1 min-w-0 pr-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-white text-xs truncate">{s.title}</span>
+                            {assignedScriptId === s.id && (
+                              <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-mono font-semibold">
+                                Currently Active
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-[#8E9BA8] line-clamp-2 font-mono">
+                            {s.content || "(Empty script content)"}
+                          </p>
+                          <div className="flex items-center gap-3 text-[10px] text-[#8E9BA8]">
+                            <span>Assigned to {s.landing_pages_count} {s.landing_pages_count === 1 ? "page" : "pages"}</span>
+                            <span>•</span>
+                            <span>Updated {new Date(s.updated_at).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAssignedScriptId(s.id);
+                              setChatbotScript(s.content);
+                              toast.success(`Assigned "${s.title}" to current page!`);
+                              setIsManageScriptsModalOpen(false);
+                            }}
+                            className="px-3 py-1.5 bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white border border-[#2C353D] rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                          >
+                            Assign to Page
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingScript(s)}
+                            className="p-1.5 text-[#8E9BA8] hover:text-white hover:bg-[#26303A] rounded-lg transition-colors cursor-pointer"
+                            title="Edit Script"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteScript(s.id)}
+                            className="p-1.5 text-[#8E9BA8] hover:text-red-400 hover:bg-[#26303A] rounded-lg transition-colors cursor-pointer"
+                            title="Delete Script"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Sticky Drawer Footer */}
+                <div className="px-6 py-4 border-t border-[#2C353D] bg-[#1A1F26] flex items-center justify-between shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewScriptTitle("");
+                      setNewScriptContent("");
+                      setIsCreateScriptModalOpen(true);
+                    }}
+                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-black font-bold rounded-lg text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Create New Script</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsManageScriptsModalOpen(false);
+                      setEditingScript(null);
+                    }}
+                    className="px-5 py-2 border border-[#2C353D] bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
