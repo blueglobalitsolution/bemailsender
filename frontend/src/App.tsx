@@ -15,6 +15,7 @@ import Inbox from "./pages/Inbox";
 import PublicLandingPage from "./pages/PublicLandingPage";
 import LandingPages from "./pages/LandingPages";
 import LeadScraper from "./pages/LeadScraper";
+import AIChatbot from "./pages/AIChatbot";
 import { ToastProvider } from "./components/Toast";
 
 export default function App() {
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="wizard" element={<Wizard />} />
             <Route path="templates" element={<Templates />} />
             <Route path="landing-pages" element={<LandingPages />} />
+            <Route path="chatbot" element={<AIChatbot />} />
             <Route path="identities" element={<Identities />} />
             <Route path="saved-csvs" element={<SavedCSVs />} />
             <Route path="lead-scraper" element={<LeadScraper />} />

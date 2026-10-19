@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, Menu, X, BarChart3, PanelLeftClose, PanelLeftOpen, Plus, Inbox as InboxIcon, Sparkles, UserPlus, Upload, Globe, Compass, Server } from "lucide-react";
+import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, Menu, X, BarChart3, PanelLeftClose, PanelLeftOpen, Plus, Inbox as InboxIcon, Sparkles, UserPlus, Upload, Globe, Compass, Server, Bot } from "lucide-react";
 import { cn } from "../lib/utils";
 import Beams from "./Beams";
 
@@ -41,6 +41,7 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
     { name: "Automation Wizard", path: "/wizard", icon: Wand2 },
     { name: "Email Templates", path: "/templates", icon: FileText },
     { name: "Landing Pages", path: "/landing-pages", icon: Globe },
+    { name: "AI Chatbot", path: "/chatbot", icon: Bot },
     { name: "Connect Provider", path: "/identities", icon: Server },
     { name: "Leads", path: "/saved-csvs", icon: Database },
   ];
@@ -170,6 +171,8 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
                     return "Email Templates";
                   case "landing-pages":
                     return "Landing Pages";
+                  case "chatbot":
+                    return "AI Sales Chatbot";
                   case "identities":
                     return "Connect Provider";
                   case "saved-csvs":

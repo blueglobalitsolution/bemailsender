@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import {
   Globe,
   Plus,
@@ -12,7 +13,8 @@ import {
   X,
   Bot,
   MessageSquare,
-  Sparkles
+  Sparkles,
+  Sliders
 } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { useToast } from "../components/Toast";
@@ -318,81 +320,31 @@ export default function LandingPages() {
                   </div>
                 </div>
 
-                {/* AI Lead Capture Chatbot Configuration */}
-                <div className="bg-[#14181C] border border-[#2C353D] rounded-xl p-5 space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-[#2C353D]">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                        <Bot className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                          AI Sales Chatbot <span className="text-[10px] bg-purple-500/10 text-purple-300 border border-purple-500/20 px-2 py-0.5 rounded font-mono font-semibold flex items-center gap-1"><Sparkles className="w-3 h-3 text-purple-400" /> Powered by Laya AI</span>
-                        </h4>
-                        <p className="text-[11px] text-[#8E9BA8]">
-                          Floating animated widget that captures visitor Name & Email and answers product questions using your script.
-                        </p>
-                      </div>
+                {/* AI Chatbot Configuration Notice */}
+                <div className="bg-[#14181C] border border-[#2C353D] rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                      <Bot className="w-4 h-4" />
                     </div>
-                    <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                      <span className="text-xs text-[#CBD5E1] font-semibold">Enable Chatbot</span>
-                      <input
-                        type="checkbox"
-                        checked={chatbotEnabled}
-                        onChange={(e) => setChatbotEnabled(e.target.checked)}
-                        className="w-4 h-4 accent-emerald-500 cursor-pointer"
-                      />
-                    </label>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-white">AI Sales Chatbot</span>
+                        <span className="text-[10px] bg-purple-500/10 text-purple-300 border border-purple-500/20 px-1.5 py-0.5 rounded font-mono font-semibold flex items-center gap-1">
+                          <Sparkles className="w-2.5 h-2.5 text-purple-400" /> Laya AI
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#8E9BA8]">
+                        Bot persona, welcome message, and product knowledge base are now configured on the dedicated AI Chatbot page.
+                      </p>
+                    </div>
                   </div>
-
-                  {chatbotEnabled && (
-                    <div className="space-y-4 pt-1">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1] mb-1.5">
-                            Bot Display Name
-                          </label>
-                          <input
-                            type="text"
-                            value={chatbotName}
-                            onChange={(e) => setChatbotName(e.target.value)}
-                            placeholder="e.g. Sarah (Product Specialist)"
-                            className="w-full bg-[#161B1F] border border-[#2C353D] rounded-lg px-3.5 py-2 text-xs text-white focus:outline-none focus:border-white transition-all font-mono"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1] mb-1.5">
-                            Initial Greeting
-                          </label>
-                          <input
-                            type="text"
-                            value={chatbotWelcomeMessage}
-                            onChange={(e) => setChatbotWelcomeMessage(e.target.value)}
-                            placeholder="e.g. Hi there! 👋 Welcome! Please introduce yourself below to start chatting."
-                            className="w-full bg-[#161B1F] border border-[#2C353D] rounded-lg px-3.5 py-2 text-xs text-white focus:outline-none focus:border-white transition-all font-mono"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1]">
-                            Product Script & Knowledge Base (for Laya AI)
-                          </label>
-                          <span className="text-[10px] text-[#8E9BA8] font-mono">
-                            The AI strictly uses this script to answer questions
-                          </span>
-                        </div>
-                        <textarea
-                          rows={4}
-                          value={chatbotScript}
-                          onChange={(e) => setChatbotScript(e.target.value)}
-                          placeholder="Describe your product, pricing, plans, key features, refund policy, and common FAQs here. E.g.:&#10;- Product Name: ReachEngine Pro&#10;- Price: $49/month or $399/year&#10;- Key Features: Automated cold email sequences, lead scraper, AI personalization&#10;- Guarantee: 14-day money back guarantee"
-                          className="w-full bg-[#161B1F] border border-[#2C353D] rounded-lg p-3 text-xs text-white focus:outline-none focus:border-white transition-all font-mono"
-                        />
-                      </div>
-                    </div>
-                  )}
+                  <Link
+                    to={editingLandingId ? `/chatbot?page=${editingLandingId}` : "/chatbot"}
+                    className="px-3.5 py-2 bg-[#222930] hover:bg-[#2C353D] text-white border border-[#2C353D] rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shrink-0"
+                  >
+                    <Sliders className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Open AI Chatbot Studio ↗</span>
+                  </Link>
                 </div>
 
                 {/* Submit button bar */}
@@ -416,6 +368,30 @@ export default function LandingPages() {
               </form>
             </div>
           )}
+
+          {/* Top Banner: AI Sales Chatbot Studio */}
+          <div className="bg-gradient-to-r from-purple-950/30 via-[#1E252D] to-emerald-950/30 border border-purple-500/20 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-purple-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                <Bot className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                  AI Sales Chatbot Studio <span className="text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-full font-mono font-semibold flex items-center gap-1"><Sparkles className="w-3 h-3 text-purple-400" /> New Dedicated Page</span>
+                </h4>
+                <p className="text-xs text-[#8E9BA8]">
+                  Configure your product knowledge base, greeting personas, and test live conversations in the interactive simulator.
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/chatbot"
+              className="px-4 py-2 bg-white hover:bg-[#CBD5E1] text-[#161B1F] text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow shrink-0"
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>Configure Chatbots</span>
+            </Link>
+          </div>
 
           {/* Landing Pages List */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -520,15 +496,24 @@ export default function LandingPages() {
                   </div>
                 </div>
 
-                {/* Footer Action: View & Download Leads */}
-                <div className="pt-3 border-t border-[#2C353D] flex items-center justify-between">
+                {/* Footer Action: AI Chatbot & View Leads */}
+                <div className="pt-3 border-t border-[#2C353D] flex items-center gap-2">
+                  <Link
+                    to={`/chatbot?page=${page.id}`}
+                    className="flex-1 bg-[#222930] hover:bg-[#29323A] border border-[#2C353D] hover:border-emerald-500/40 text-[#CBD5E1] hover:text-white font-semibold py-2 px-2.5 rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all"
+                    title="Configure AI Chatbot for this page"
+                  >
+                    <Bot className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>AI Chatbot</span>
+                  </Link>
                   <button
                     onClick={() =>
                       setViewingSubmissionsPage({ id: page.id, title: page.title, slug: page.slug })
                     }
-                    className="w-full bg-[#222930] hover:bg-[#29323A] border border-[#2C353D] text-white font-semibold py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    className="flex-1 bg-[#222930] hover:bg-[#29323A] border border-[#2C353D] text-white font-semibold py-2 px-2.5 rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                   >
-                    <Download className="w-3.5 h-3.5 text-white" /> View Submissions ({page.submissions_count})
+                    <Download className="w-3.5 h-3.5 text-white" />
+                    <span>Leads ({page.submissions_count})</span>
                   </button>
                 </div>
               </div>
