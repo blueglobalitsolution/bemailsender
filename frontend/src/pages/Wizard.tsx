@@ -519,7 +519,7 @@ export default function Wizard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {savedCsvs.length === 0 ? (
                     <div className="col-span-full text-center py-8 text-[#555555] bg-[#0a0a0a] border border-[#1e1e1e]">
-                      No saved CSVs found. <a href="/saved-csvs" className="text-[#00ffff] hover:underline font-bold">Upload one here</a>.
+                      No leads found. <a href="/saved-csvs" className="text-[#00ffff] hover:underline font-bold">Upload one here</a>.
                     </div>
                   ) : (
                     savedCsvs.map((scsv) => (

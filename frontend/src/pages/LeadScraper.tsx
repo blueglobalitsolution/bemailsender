@@ -417,7 +417,7 @@ export default function LeadScraper() {
       }
 
       const data = await res.json();
-      toast.success(data.message || "Leads saved to Saved CSVs!");
+      toast.success(data.message || "Leads saved to Leads list!");
       setIsSaveModalOpen(false);
       setCsvListName("");
     } catch (err: any) {
@@ -991,7 +991,7 @@ export default function LeadScraper() {
                 required
               />
               <p className="text-[11px] text-[#8E9BA8] mt-1.5">
-                This list will be saved into <strong>Saved CSVs</strong> and will be ready to select in the <strong>Automation Wizard</strong>.
+                This list will be saved into <strong>Leads</strong> and will be ready to select in the <strong>Automation Wizard</strong>.
               </p>
             </div>
 

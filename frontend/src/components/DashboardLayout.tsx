@@ -42,7 +42,7 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
     { name: "Email Templates", path: "/templates", icon: FileText },
     { name: "Landing Pages & Forms", path: "/landing-pages", icon: Globe },
     { name: "Connect Provider", path: "/identities", icon: Server },
-    { name: "Saved CSVs", path: "/saved-csvs", icon: Database },
+    { name: "Leads", path: "/saved-csvs", icon: Database },
   ];
 
   return (
@@ -173,7 +173,7 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
                   case "identities":
                     return "Connect Provider";
                   case "saved-csvs":
-                    return "Saved CSVs";
+                    return "Leads";
                   case "lead-scraper":
                     return "Find Leads";
                   case "inbox":

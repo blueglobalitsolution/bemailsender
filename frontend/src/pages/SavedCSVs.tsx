@@ -436,7 +436,7 @@ export default function SavedCSVs() {
     return Object.values(row).some(val => String(val).toLowerCase().includes(query));
   });
 
-  if (loading) return <div className="text-center py-12 text-gray-500 font-mono">Loading saved CSVs...</div>;
+  if (loading) return <div className="text-center py-12 text-gray-500 font-mono">Loading leads...</div>;
 
   return (
     <div className="space-y-8 pb-16">
@@ -861,7 +861,7 @@ export default function SavedCSVs() {
 
         {csvs.length === 0 && !isUploading && (
           <div className="text-center py-12 text-gray-500 skeuo-inset-box font-bold">
-            No saved CSVs yet. Upload one to reuse across campaigns!
+            No leads yet. Upload a CSV or add contacts to get started!
           </div>
         )}
       </div>
