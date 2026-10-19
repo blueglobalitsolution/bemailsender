@@ -251,7 +251,7 @@ export default function SubmissionsViewerModal({
                     Pipeline: {effectivePageTitle}
                   </h2>
                   <span className="bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1.5 py-0.2 rounded text-[9px] font-bold flex items-center gap-1 shrink-0">
-                    <Sparkles className="w-2.5 h-2.5 text-purple-400" /> Laya AI
+                    <Sparkles className="w-2.5 h-2.5 text-purple-400" /> AI Insights
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
@@ -549,7 +549,7 @@ export default function SubmissionsViewerModal({
                 <div className="p-2.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-[11px] text-purple-200 mb-2.5">
                   <div className="flex items-center gap-1 font-bold text-purple-300 mb-0.5">
                     <Sparkles className="w-3 h-3 text-purple-400" />
-                    Laya AI Evaluation (Score: {selectedLead.qualification_score}/100)
+                    AI Evaluation (Score: {selectedLead.qualification_score}/100)
                   </div>
                   <p className="leading-relaxed">{selectedLead.qualification_reason}</p>
                 </div>

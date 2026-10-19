@@ -320,32 +320,6 @@ export default function LandingPages() {
                   </div>
                 </div>
 
-                {/* AI Chatbot Configuration Notice */}
-                <div className="bg-[#14181C] border border-[#2C353D] rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-                      <Bot className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-white">AI Sales Chatbot</span>
-                        <span className="text-[10px] bg-purple-500/10 text-purple-300 border border-purple-500/20 px-1.5 py-0.5 rounded font-mono font-semibold flex items-center gap-1">
-                          <Sparkles className="w-2.5 h-2.5 text-purple-400" /> Laya AI
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-[#8E9BA8]">
-                        Bot persona, welcome message, and product knowledge base are now configured on the dedicated AI Chatbot page.
-                      </p>
-                    </div>
-                  </div>
-                  <Link
-                    to={editingLandingId ? `/chatbot?page=${editingLandingId}` : "/chatbot"}
-                    className="px-3.5 py-2 bg-[#222930] hover:bg-[#2C353D] text-white border border-[#2C353D] rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shrink-0"
-                  >
-                    <Sliders className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Open AI Chatbot Studio ↗</span>
-                  </Link>
-                </div>
 
                 {/* Submit button bar */}
                 <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#2C353D]">
@@ -414,11 +388,6 @@ export default function LandingPages() {
                           <span className="text-[11px] text-[#8E9BA8] font-mono">
                             /p/{page.slug}
                           </span>
-                          {page.chatbot_enabled !== false && (
-                            <span className="text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
-                              <Bot className="w-2.5 h-2.5" /> AI Chat
-                            </span>
-                          )}
                         </div>
                       </div>
                     </div>

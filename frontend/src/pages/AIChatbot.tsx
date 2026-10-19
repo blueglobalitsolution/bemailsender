@@ -399,9 +399,6 @@ export default function AIChatbot() {
               <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
                 AI Sales Chatbot
               </h1>
-              <span className="text-[11px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-2.5 py-0.5 rounded-full font-mono font-semibold flex items-center gap-1.5 shadow-sm">
-                <Sparkles className="w-3.5 h-3.5 text-purple-400" /> Powered by Laya AI
-              </span>
             </div>
             <p className="text-xs text-[#8E9BA8] mt-1 max-w-2xl">
               Floating conversational agent that greets page visitors, captures contact details, and answers product questions using your custom script 24/7.
@@ -551,11 +548,11 @@ export default function AIChatbot() {
               <div className="flex items-center gap-2.5">
                 <FileText className="w-4 h-4 text-purple-400" />
                 <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                  2. Product Script & Knowledge Base (Laya AI)
+                  2. Product Script & Knowledge Base
                 </h3>
               </div>
               <span className="text-[10px] font-mono text-[#8E9BA8]">
-                Laya AI strictly uses this script to answer questions
+                The AI strictly uses this script to answer questions
               </span>
             </div>
 
