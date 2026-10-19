@@ -611,7 +611,7 @@ export default function AIChatbot() {
                   type="text"
                   value={chatbotName}
                   onChange={(e) => setChatbotName(e.target.value)}
-                  placeholder="e.g. AI Sales Assistant or Sarah (Sales)"
+                  placeholder="e.g. AI Sales Assistant or Sales Representative"
                   className="w-full bg-[#161B1F] border border-[#2C353D] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-white transition-all font-mono"
                 />
                 <p className="text-[11px] text-[#8E9BA8] mt-1">

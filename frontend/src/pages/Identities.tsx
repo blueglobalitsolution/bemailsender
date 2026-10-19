@@ -776,7 +776,7 @@ export default function Identities() {
                       value={newIdentity.smtp_from_name} 
                       onChange={(e) => setNewIdentity({ ...newIdentity, smtp_from_name: e.target.value })} 
                       className="w-full skeuo-input py-3 px-4 text-white" 
-                      placeholder="e.g., Bhavan Badhe or Sales Team" 
+                      placeholder="e.g., Your Name or Sales Team" 
                     />
                     <p className="text-[10px] text-gray-500 mt-1">Name seen by the recipient in their inbox header.</p>
                   </div>
