@@ -34,6 +34,7 @@ from .models import (
     ReceivedEmail,
     CustomForm,
     LandingPage,
+    ChatbotScript,
     FormSubmission,
 )
 from .serializers import (
@@ -49,6 +50,7 @@ from .serializers import (
     ReceivedEmailSerializer,
     CustomFormSerializer,
     LandingPageSerializer,
+    ChatbotScriptSerializer,
     FormSubmissionSerializer,
 )
 
@@ -1550,6 +1552,17 @@ class CustomFormViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user, shortcode=code)
 
 
+class ChatbotScriptViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ChatbotScriptSerializer
+
+    def get_queryset(self):
+        return ChatbotScript.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
 class LandingPageViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = LandingPageSerializer
@@ -2434,8 +2447,8 @@ def public_landing_chat(request, slug):
             "lead_saved": bool(submission)
         })
 
-    # Generate answer via Laya AI using the product script
-    product_script = landing_page.chatbot_script or ""
+    # Generate answer via Laya AI using the assigned or default product script
+    product_script = landing_page.active_script
     ai_reply = LayaAIService.answer_landing_page_chat(
         product_script=product_script,
         conversation_history=history,

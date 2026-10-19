@@ -21,7 +21,11 @@ import {
   Globe,
   Trash2,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  BookOpen,
+  Plus,
+  Edit3,
+  X
 } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { useToast } from "../components/Toast";
@@ -35,14 +39,26 @@ interface LandingPageSummary {
   chatbot_name?: string;
   chatbot_welcome_message?: string;
   chatbot_script?: string;
+  assigned_script?: number | null;
+  assigned_script_title?: string | null;
   views_count: number;
   submissions_count: number;
   created_at: string;
 }
 
+interface ChatbotScriptItem {
+  id: number;
+  title: string;
+  content: string;
+  landing_pages_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
 interface ChatMessage {
   role: "bot" | "user";
   text: string;
+  timestamp?: string;
 }
 
 export default function AIChatbot() {
@@ -54,6 +70,17 @@ export default function AIChatbot() {
   const [selectedPageId, setSelectedPageId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Script Library states
+  const [scripts, setScripts] = useState<ChatbotScriptItem[]>([]);
+  const [assignedScriptId, setAssignedScriptId] = useState<number | null>(null);
+  const [isCreateScriptModalOpen, setIsCreateScriptModalOpen] = useState(false);
+  const [isManageScriptsModalOpen, setIsManageScriptsModalOpen] = useState(false);
+  const [newScriptTitle, setNewScriptTitle] = useState("");
+  const [newScriptContent, setNewScriptContent] = useState("");
+  const [creatingScript, setCreatingScript] = useState(false);
+  const [editingScript, setEditingScript] = useState<ChatbotScriptItem | null>(null);
+  const [updatingLibraryScript, setUpdatingLibraryScript] = useState(false);
 
   // Form states
   const [chatbotEnabled, setChatbotEnabled] = useState(true);
@@ -77,12 +104,34 @@ export default function AIChatbot() {
   const [isSubmissionsOpen, setIsSubmissionsOpen] = useState(false);
 
   useEffect(() => {
-    fetchLandingPages();
+    loadInitialData();
   }, []);
+
+  const loadInitialData = async () => {
+    try {
+      setLoading(true);
+      await Promise.all([fetchLandingPages(), fetchScripts()]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchScripts = async (): Promise<ChatbotScriptItem[]> => {
+    try {
+      const res = await apiFetch("/api/chatbot-scripts/");
+      if (res.ok) {
+        const data: ChatbotScriptItem[] = await res.json();
+        setScripts(data);
+        return data;
+      }
+    } catch (err) {
+      console.error("Error loading scripts:", err);
+    }
+    return [];
+  };
 
   const fetchLandingPages = async () => {
     try {
-      setLoading(true);
       const res = await apiFetch("/api/landing-pages/");
       if (res.ok) {
         const data: LandingPageSummary[] = await res.json();
@@ -102,8 +151,6 @@ export default function AIChatbot() {
     } catch (err) {
       console.error(err);
       toast.error("Error loading landing pages");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -115,11 +162,15 @@ export default function AIChatbot() {
       page.chatbot_welcome_message ||
         "Hi there! 👋 Welcome! Please introduce yourself below to start chatting."
     );
+    setAssignedScriptId(page.assigned_script ?? null);
     setChatbotScript(page.chatbot_script || "");
     setSearchParams({ page: String(page.id) });
 
     // Reset simulator conversation for this page
-    resetSimulator(page.chatbot_name || "AI Sales Assistant", page.chatbot_welcome_message || "Hi there! 👋 Welcome! Please introduce yourself below to start chatting.");
+    resetSimulator(
+      page.chatbot_name || "AI Sales Assistant",
+      page.chatbot_welcome_message || "Hi there! 👋 Welcome! Please introduce yourself below to start chatting."
+    );
   };
 
   const resetSimulator = (botName?: string, welcome?: string) => {
@@ -146,7 +197,8 @@ export default function AIChatbot() {
           chatbot_enabled: chatbotEnabled,
           chatbot_name: chatbotName,
           chatbot_welcome_message: chatbotWelcomeMessage,
-          chatbot_script: chatbotScript
+          chatbot_script: chatbotScript,
+          assigned_script: assignedScriptId
         })
       });
 
@@ -156,6 +208,7 @@ export default function AIChatbot() {
         setLandingPages((prev) =>
           prev.map((p) => (p.id === selectedPageId ? { ...p, ...updatedPage } : p))
         );
+        fetchScripts();
       } else {
         const err = await res.json();
         toast.error(err.error || "Failed to update chatbot settings");
@@ -168,6 +221,7 @@ export default function AIChatbot() {
     }
   };
 
+  // Global listeners for header buttons in DashboardLayout
   useEffect(() => {
     const handleGlobalSave = () => {
       handleSaveSettings();
@@ -189,7 +243,129 @@ export default function AIChatbot() {
       window.removeEventListener("save-chatbot-settings", handleGlobalSave);
       window.removeEventListener("preview-chatbot-page", handleGlobalPreview);
     };
-  }, [selectedPageId, chatbotEnabled, chatbotName, chatbotWelcomeMessage, chatbotScript, landingPages]);
+  }, [selectedPageId, chatbotEnabled, chatbotName, chatbotWelcomeMessage, chatbotScript, assignedScriptId, landingPages]);
+
+  // Create new script in library and assign to current page
+  const handleCreateScript = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newScriptTitle.trim()) {
+      toast.error("Please enter a title for the script");
+      return;
+    }
+
+    setCreatingScript(true);
+    try {
+      const res = await apiFetch("/api/chatbot-scripts/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newScriptTitle.trim(),
+          content: newScriptContent
+        })
+      });
+
+      if (res.ok) {
+        const created: ChatbotScriptItem = await res.json();
+        toast.success(`Script "${created.title}" created and assigned!`);
+        await fetchScripts();
+        setAssignedScriptId(created.id);
+        setChatbotScript(created.content);
+        setIsCreateScriptModalOpen(false);
+        setNewScriptTitle("");
+        setNewScriptContent("");
+      } else {
+        const err = await res.json();
+        toast.error(err.error || "Failed to create script");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Network error creating script");
+    } finally {
+      setCreatingScript(false);
+    }
+  };
+
+  // Update existing script in library across all pages using it
+  const handleUpdateLibraryScript = async () => {
+    if (!assignedScriptId) return;
+    setUpdatingLibraryScript(true);
+    try {
+      const res = await apiFetch(`/api/chatbot-scripts/${assignedScriptId}/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: chatbotScript
+        })
+      });
+
+      if (res.ok) {
+        toast.success("Library script updated successfully!");
+        fetchScripts();
+      } else {
+        const err = await res.json();
+        toast.error(err.error || "Failed to update library script");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Network error updating library script");
+    } finally {
+      setUpdatingLibraryScript(false);
+    }
+  };
+
+  // Delete script from library
+  const handleDeleteScript = async (id: number) => {
+    toast.confirm("Are you sure you want to delete this script from the library?", async () => {
+      try {
+        const res = await apiFetch(`/api/chatbot-scripts/${id}/`, {
+          method: "DELETE"
+        });
+        if (res.ok) {
+          toast.success("Script deleted from library");
+          if (assignedScriptId === id) {
+            setAssignedScriptId(null);
+          }
+          fetchScripts();
+        } else {
+          toast.error("Failed to delete script");
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error("Error deleting script");
+      }
+    });
+  };
+
+  // Update title/content from Manage modal
+  const handleSaveEditedScript = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingScript) return;
+
+    try {
+      const res = await apiFetch(`/api/chatbot-scripts/${editingScript.id}/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editingScript.title,
+          content: editingScript.content
+        })
+      });
+
+      if (res.ok) {
+        toast.success("Script updated successfully!");
+        if (assignedScriptId === editingScript.id) {
+          setChatbotScript(editingScript.content);
+        }
+        setEditingScript(null);
+        fetchScripts();
+      } else {
+        toast.error("Failed to update script");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Error updating script");
+    }
+  };
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -219,7 +395,6 @@ export default function AIChatbot() {
 
     setChatLoading(true);
     try {
-      // Build conversation history in expected format
       const history = updatedMessages.map((m) => ({
         role: m.role === "bot" ? "assistant" : "user",
         text: m.text
@@ -300,6 +475,7 @@ export default function AIChatbot() {
   };
 
   const selectedPage = landingPages.find((p) => p.id === selectedPageId);
+  const currentAssignedScript = scripts.find((s) => s.id === assignedScriptId);
 
   if (loading) {
     return (
@@ -459,11 +635,103 @@ export default function AIChatbot() {
               </span>
             </div>
 
+            {/* Reusable Script Selector & Assignment Bar */}
+            <div className="bg-[#14181C] border border-[#2C353D] rounded-xl p-3.5 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-purple-400" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#CBD5E1]">
+                    Assign Script To This Page:
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewScriptTitle(selectedPage?.title ? `${selectedPage.title} Script` : "New Script");
+                      setNewScriptContent(chatbotScript);
+                      setIsCreateScriptModalOpen(true);
+                    }}
+                    className="px-2.5 py-1.5 bg-[#222930] hover:bg-[#2C353D] text-white border border-[#2C353D] rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                    title="Create a new script in library"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>+ New Script</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsManageScriptsModalOpen(true)}
+                    className="px-2.5 py-1.5 bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white border border-[#2C353D] rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                    title="Manage all scripts"
+                  >
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span>Manage Library ({scripts.length})</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <div className="relative flex-1">
+                  <select
+                    value={assignedScriptId ?? ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (!val) {
+                        setAssignedScriptId(null);
+                        toast.info("Using custom script for this page only");
+                      } else {
+                        const sId = Number(val);
+                        setAssignedScriptId(sId);
+                        const found = scripts.find((s) => s.id === sId);
+                        if (found) {
+                          setChatbotScript(found.content);
+                          toast.success(`Assigned "${found.title}" to this landing page!`);
+                        }
+                      }
+                    }}
+                    className="w-full bg-[#1A1F26] border border-[#2C353D] hover:border-purple-500/50 text-white text-xs font-semibold rounded-lg px-3.5 py-2.5 pr-8 appearance-none focus:outline-none cursor-pointer transition-colors"
+                  >
+                    <option value="">
+                      -- Custom Script for this Landing Page only (Unassigned) --
+                    </option>
+                    {scripts.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.title} ({s.landing_pages_count} {s.landing_pages_count === 1 ? "page" : "pages"} assigned)
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-[#8E9BA8] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+
+                {/* If assigned to a library script, allow syncing/updating it directly */}
+                {assignedScriptId && (
+                  <button
+                    type="button"
+                    onClick={handleUpdateLibraryScript}
+                    disabled={updatingLibraryScript}
+                    className="px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                    title="Update this script in library across all assigned landing pages"
+                  >
+                    {updatingLibraryScript ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                    <span>Update Library Script</span>
+                  </button>
+                )}
+              </div>
+
+              {currentAssignedScript && (
+                <div className="flex items-center gap-2 text-[11px] text-emerald-400 font-mono">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>
+                    Linked to library script: <strong>{currentAssignedScript.title}</strong>
+                  </span>
+                </div>
+              )}
+            </div>
 
             {/* Script Textarea */}
             <div>
               <textarea
-                rows={14}
+                rows={15}
                 value={chatbotScript}
                 onChange={(e) => setChatbotScript(e.target.value)}
                 placeholder="Product Name: ...&#10;Pricing: ...&#10;Features: ...&#10;Refund Policy: ...&#10;Support: ..."
@@ -693,6 +961,251 @@ export default function AIChatbot() {
           pageTitle={selectedPage.title}
           pageSlug={selectedPage.slug}
         />
+      )}
+
+      {/* Create New Script Modal */}
+      {isCreateScriptModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-[#1E252D] border border-[#2C353D] rounded-2xl w-full max-w-xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#2C353D]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center">
+                  <BookOpen className="w-4 h-4" />
+                </div>
+                <h3 className="text-sm font-bold text-white">Create New Product Script</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCreateScriptModalOpen(false)}
+                className="text-[#8E9BA8] hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateScript} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1] mb-1.5">
+                  Script Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newScriptTitle}
+                  onChange={(e) => setNewScriptTitle(e.target.value)}
+                  placeholder="e.g. Dog Food Nutrition Script, B2B SaaS Offer"
+                  className="w-full bg-[#161B1F] border border-[#2C353D] rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-white transition-all font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1] mb-1.5">
+                  Knowledge Base & Script Content
+                </label>
+                <textarea
+                  rows={8}
+                  value={newScriptContent}
+                  onChange={(e) => setNewScriptContent(e.target.value)}
+                  placeholder="Product Name: ...&#10;Pricing: ...&#10;Features: ...&#10;Refunds: ..."
+                  className="w-full bg-[#161B1F] border border-[#2C353D] rounded-xl p-3.5 text-xs text-white focus:outline-none focus:border-white transition-all font-mono leading-relaxed"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-[#2C353D]">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateScriptModalOpen(false)}
+                  className="px-4 py-2 border border-[#2C353D] bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingScript}
+                  className="px-5 py-2 bg-white hover:bg-[#CBD5E1] text-[#161B1F] text-xs font-bold rounded-lg flex items-center gap-2 transition-all cursor-pointer shadow-md disabled:opacity-50"
+                >
+                  {creatingScript ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  <span>Save & Assign to Page</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Manage Scripts Library Modal */}
+      {isManageScriptsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-[#1E252D] border border-[#2C353D] rounded-2xl w-full max-w-3xl p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-[#2C353D] shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center">
+                  <Sliders className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Scripts & Knowledge Base Library</h3>
+                  <p className="text-[11px] text-[#8E9BA8]">
+                    Manage reusable scripts that can be assigned across your landing pages.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsManageScriptsModalOpen(false);
+                  setEditingScript(null);
+                }}
+                className="text-[#8E9BA8] hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* List or Edit Mode */}
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              {editingScript ? (
+                <form onSubmit={handleSaveEditedScript} className="space-y-4 p-4 bg-[#161B1F] border border-[#2C353D] rounded-xl">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white">Edit Script: {editingScript.title}</span>
+                    <button
+                      type="button"
+                      onClick={() => setEditingScript(null)}
+                      className="text-xs text-[#8E9BA8] hover:text-white"
+                    >
+                      ← Back to list
+                    </button>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1] mb-1">
+                      Script Title
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editingScript.title}
+                      onChange={(e) => setEditingScript({ ...editingScript, title: e.target.value })}
+                      className="w-full bg-[#1A1F26] border border-[#2C353D] rounded-lg px-3 py-2 text-xs text-white font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1] mb-1">
+                      Script Content
+                    </label>
+                    <textarea
+                      rows={10}
+                      value={editingScript.content}
+                      onChange={(e) => setEditingScript({ ...editingScript, content: e.target.value })}
+                      className="w-full bg-[#1A1F26] border border-[#2C353D] rounded-lg p-3 text-xs text-white font-mono leading-relaxed"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingScript(null)}
+                      className="px-3 py-1.5 border border-[#2C353D] bg-[#222930] text-xs font-semibold rounded-lg text-white"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-1.5 bg-white text-[#161B1F] text-xs font-bold rounded-lg shadow"
+                    >
+                      Save Changes
+                    </button>
+                  </div>
+                </form>
+              ) : scripts.length === 0 ? (
+                <div className="py-12 text-center text-[#8E9BA8] border border-dashed border-[#2C353D] rounded-xl">
+                  <BookOpen className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-xs font-semibold">No saved scripts in library yet.</p>
+                  <p className="text-[11px] mt-1">Create one to assign it across landing pages!</p>
+                </div>
+              ) : (
+                scripts.map((s) => (
+                  <div
+                    key={s.id}
+                    className="p-4 bg-[#161B1F] border border-[#2C353D] hover:border-[#3E4A56] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-white text-xs">{s.title}</span>
+                        {assignedScriptId === s.id && (
+                          <span className="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-mono font-semibold">
+                            Currently Active
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-[#8E9BA8] line-clamp-2 font-mono">
+                        {s.content || "(Empty script content)"}
+                      </p>
+                      <div className="flex items-center gap-3 text-[10px] text-[#8E9BA8]">
+                        <span>Assigned to {s.landing_pages_count} {s.landing_pages_count === 1 ? "page" : "pages"}</span>
+                        <span>•</span>
+                        <span>Updated {new Date(s.updated_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAssignedScriptId(s.id);
+                          setChatbotScript(s.content);
+                          toast.success(`Assigned "${s.title}" to current page!`);
+                          setIsManageScriptsModalOpen(false);
+                        }}
+                        className="px-3 py-1.5 bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white border border-[#2C353D] rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        Assign to Page
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingScript(s)}
+                        className="p-1.5 text-[#8E9BA8] hover:text-white hover:bg-[#26303A] rounded-lg transition-colors cursor-pointer"
+                        title="Edit Script"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteScript(s.id)}
+                        className="p-1.5 text-[#8E9BA8] hover:text-red-400 hover:bg-[#26303A] rounded-lg transition-colors cursor-pointer"
+                        title="Delete Script"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-[#2C353D] flex items-center justify-between shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setNewScriptTitle("");
+                  setNewScriptContent("");
+                  setIsCreateScriptModalOpen(true);
+                }}
+                className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-black font-bold rounded-lg text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Create New Script</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsManageScriptsModalOpen(false);
+                  setEditingScript(null);
+                }}
+                className="px-4 py-1.5 border border-[#2C353D] bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

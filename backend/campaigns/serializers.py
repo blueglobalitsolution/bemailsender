@@ -12,6 +12,7 @@ from .models import (
     ReceivedEmail,
     CustomForm,
     LandingPage,
+    ChatbotScript,
     FormSubmission,
 )
 
@@ -331,9 +332,29 @@ class FormSubmissionSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "is_qualified", "qualification_score", "qualification_status", "qualification_reason", "submitted_at"]
 
 
+class ChatbotScriptSerializer(serializers.ModelSerializer):
+    landing_pages_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ChatbotScript
+        fields = [
+            "id",
+            "title",
+            "content",
+            "landing_pages_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "landing_pages_count", "created_at", "updated_at"]
+
+    def get_landing_pages_count(self, obj):
+        return obj.landing_pages.count()
+
+
 class LandingPageSerializer(serializers.ModelSerializer):
     public_url = serializers.SerializerMethodField()
     submissions_count = serializers.SerializerMethodField()
+    assigned_script_title = serializers.ReadOnlyField(source="assigned_script.title")
 
     class Meta:
         model = LandingPage
@@ -347,12 +368,14 @@ class LandingPageSerializer(serializers.ModelSerializer):
             "chatbot_name",
             "chatbot_welcome_message",
             "chatbot_script",
+            "assigned_script",
+            "assigned_script_title",
             "public_url",
             "submissions_count",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "slug", "views_count", "public_url", "submissions_count", "created_at", "updated_at"]
+        read_only_fields = ["id", "slug", "views_count", "assigned_script_title", "public_url", "submissions_count", "created_at", "updated_at"]
 
     def get_public_url(self, obj):
         request = self.context.get("request")

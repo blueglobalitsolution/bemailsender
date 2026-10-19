@@ -240,6 +240,8 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
                   <Upload className="w-3.5 h-3.5" /> Upload CSV
                 </button>
               </div>
+            )}
+
             {location.pathname === "/chatbot" && (
               <div className="flex items-center gap-2">
                 <button

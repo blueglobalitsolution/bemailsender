@@ -11,6 +11,7 @@ from .views import (
     ReceivedEmailViewSet,
     CustomFormViewSet,
     LandingPageViewSet,
+    ChatbotScriptViewSet,
     public_landing_page_data,
     public_landing_page_html,
     public_landing_chat,
@@ -41,6 +42,7 @@ router.register(r"inbound/configs", InboundConfigurationViewSet, basename="inbou
 router.register(r"inbound/emails", ReceivedEmailViewSet, basename="receivedemail")
 router.register(r"forms", CustomFormViewSet, basename="customform")
 router.register(r"landing-pages", LandingPageViewSet, basename="landingpage")
+router.register(r"chatbot-scripts", ChatbotScriptViewSet, basename="chatbotscript")
 
 urlpatterns = [
     path("health/", health_check, name="health_check"),

@@ -283,6 +283,21 @@ class CustomForm(models.Model):
         return f"{self.name} ({self.shortcode})"
 
 
+class ChatbotScript(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="chatbot_scripts")
+    title = models.CharField(max_length=255)
+    content = models.TextField(blank=True, default="", help_text="Product knowledge base, pricing, FAQs, and sales instructions")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "chatbot_scripts"
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return self.title
+
+
 class LandingPage(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="landing_pages")
     title = models.CharField(max_length=255)
@@ -293,9 +308,18 @@ class LandingPage(models.Model):
     chatbot_enabled = models.BooleanField(default=True, help_text="Enable floating AI chatbot widget")
     chatbot_name = models.CharField(max_length=100, default="AI Sales Assistant")
     chatbot_welcome_message = models.TextField(default="Hi there! 👋 How can I help you today?")
-    chatbot_script = models.TextField(blank=True, default="", help_text="Product information, pricing, and FAQ for Laya to answer visitor questions")
+    chatbot_script = models.TextField(blank=True, default="", help_text="Product information, pricing, and FAQ for AI to answer visitor questions")
+    assigned_script = models.ForeignKey(
+        ChatbotScript, on_delete=models.SET_NULL, null=True, blank=True, related_name="landing_pages"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def active_script(self):
+        if self.assigned_script and self.assigned_script.content:
+            return self.assigned_script.content
+        return self.chatbot_script or ""
 
     class Meta:
         db_table = "landing_pages"
