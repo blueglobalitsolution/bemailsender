@@ -482,14 +482,6 @@ export default function Templates() {
               {/* Drawer Header */}
               <div className="px-6 py-5 border-b border-[#2C353D] flex items-start justify-between bg-[#1A2026] shrink-0">
                 <div className="pr-4 flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/20 font-semibold">
-                      Live Preview
-                    </span>
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#8E9BA8] bg-[#222930] px-2.5 py-0.5 rounded border border-[#2C353D]">
-                      Email Template
-                    </span>
-                  </div>
                   <h3 className="text-xl font-bold text-white tracking-tight">{previewTemplate.name}</h3>
                   {previewTemplate.subject && (
                     <div className="mt-2.5 p-3 bg-[#14181C] border border-[#2C353D] rounded-xl text-xs">
