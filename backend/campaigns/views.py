@@ -1795,6 +1795,7 @@ def public_landing_page_html(request, slug):
 
         # Inject floating chatbot widget if enabled
         chatbot_injection = ""
+        landing_page = page
         if getattr(landing_page, "chatbot_enabled", True):
             bot_name = (landing_page.chatbot_name or "AI Sales Assistant").replace('"', '&quot;')
             welcome_msg = (landing_page.chatbot_welcome_message or "Hi there! 👋 Before we begin, may I know your name?").replace('"', '&quot;')
@@ -2181,6 +2182,10 @@ def public_landing_page_html(request, slug):
 
     except LandingPage.DoesNotExist:
         return HttpResponse("<h1>404 - Landing Page Not Found</h1>", status=404, content_type="text/html")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return HttpResponse(f"<h1>500 - Internal Server Error</h1><p>{str(e)}</p>", status=500, content_type="text/html")
 
 
 @api_view(["POST"])
