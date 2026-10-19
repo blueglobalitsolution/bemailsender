@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { useToast } from "../components/Toast";
+import { motion } from "motion/react";
+import { CountingNumber, AnimatedCard, AnimatedProgress } from "../components/animate-ui";
 
 interface Campaign {
   id: number;
@@ -151,67 +153,67 @@ export default function Analytics() {
       {/* Core KPI Metrics Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Sent */}
-        <div className="bg-[#222930] border border-[#2C353D] rounded-lg p-5 hover:border-[#CBD5E1] transition-all">
+        <AnimatedCard delay={0.05} className="bg-[#222930] border border-[#2C353D] rounded-lg p-5 hover:border-[#CBD5E1] transition-all">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs uppercase text-[#8E9BA8] font-medium tracking-wider">Total Sent</span>
             <Mail className="w-4 h-4 text-[#CBD5E1]" />
           </div>
           <div className="text-3xl font-bold text-white tracking-tight">
-            {summary.total_sent.toLocaleString()}
+            <CountingNumber value={summary.total_sent} />
           </div>
           <p className="text-[10px] text-[#8E9BA8] mt-1 font-mono">
             Across {summary.total_campaigns} campaigns
           </p>
-        </div>
+        </AnimatedCard>
 
         {/* Delivery Rate */}
-        <div className="bg-[#222930] border border-[#2C353D] rounded-lg p-5 hover:border-[#CBD5E1] transition-all">
+        <AnimatedCard delay={0.1} className="bg-[#222930] border border-[#2C353D] rounded-lg p-5 hover:border-[#CBD5E1] transition-all">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs uppercase text-[#8E9BA8] font-medium tracking-wider">Delivery Rate</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="text-3xl font-bold text-emerald-400 tracking-tight">
-            {summary.delivery_rate}%
+            <CountingNumber value={summary.delivery_rate} suffix="%" />
           </div>
           <p className="text-[10px] text-[#8E9BA8] mt-1 font-mono">
             {summary.total_failed} rejected / failed
           </p>
-        </div>
+        </AnimatedCard>
 
         {/* Unique Opens */}
-        <div className="bg-[#222930] border border-[#2C353D] rounded-lg p-5 hover:border-[#CBD5E1] transition-all">
+        <AnimatedCard delay={0.15} className="bg-[#222930] border border-[#2C353D] rounded-lg p-5 hover:border-[#CBD5E1] transition-all">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs uppercase text-[#8E9BA8] font-medium tracking-wider">Unique Opens</span>
             <Eye className="w-4 h-4 text-sky-400" />
           </div>
           <div className="text-3xl font-bold text-sky-400 tracking-tight">
-            {summary.total_opened.toLocaleString()}
+            <CountingNumber value={summary.total_opened} />
           </div>
           <p className="text-[10px] text-[#8E9BA8] mt-1 font-mono">
-            {summary.open_rate}% avg open rate
+            <CountingNumber value={summary.open_rate} suffix="%" /> avg open rate
           </p>
-        </div>
+        </AnimatedCard>
 
         {/* Active Running Campaigns */}
-        <div className="bg-[#222930] border border-[#2C353D] rounded-lg p-5 hover:border-[#CBD5E1] transition-all">
+        <AnimatedCard delay={0.2} className="bg-[#222930] border border-[#2C353D] rounded-lg p-5 hover:border-[#CBD5E1] transition-all">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs uppercase text-[#8E9BA8] font-medium tracking-wider">Active Campaigns</span>
             <Activity className="w-4 h-4 text-[#CBD5E1]" />
           </div>
           <div className="text-3xl font-bold text-white tracking-tight">
-            {summary.running_campaigns}
+            <CountingNumber value={summary.running_campaigns} />
           </div>
           <p className="text-[10px] text-[#8E9BA8] mt-1 font-mono">
             {summary.completed_campaigns} completed
           </p>
-        </div>
+        </AnimatedCard>
       </div>
 
       {/* Combined Analytics & Infrastructure Hub: Left Chart (Larger), Right Widgets (Stacked) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         {/* Left Column: 7-Day Velocity & Telemetry Activity Chart (Larger width: 7 of 12 columns) */}
         {daily_stats.length > 0 && (
-          <div className="lg:col-span-7 bg-[#222930] border border-[#2C353D] rounded-lg p-6 flex flex-col justify-between">
+          <AnimatedCard delay={0.25} hoverEffect={false} className="lg:col-span-7 bg-[#222930] border border-[#2C353D] rounded-lg p-6 flex flex-col justify-between">
             <div>
               <div className="flex flex-wrap items-center justify-between mb-6 pb-4 border-b border-[#2C353D] gap-2">
                 <div className="flex items-center gap-2">
@@ -239,9 +241,11 @@ export default function Analytics() {
                     <div key={idx} className="flex flex-col items-center h-full justify-end group">
                       <div className="w-full flex items-end justify-center gap-1.5 h-52 pb-2 border-b border-[#2C353D]">
                         {/* Sent Bar */}
-                        <div
-                          style={{ height: `${Math.max(sentHeight, 4)}%` }}
-                          className="w-1/2 max-w-[28px] bg-white group-hover:bg-[#CBD5E1] rounded-t-xs transition-all relative"
+                        <motion.div
+                          initial={{ height: 0 }}
+                          animate={{ height: `${Math.max(sentHeight, 4)}%` }}
+                          transition={{ duration: 0.65, delay: 0.1 + idx * 0.05, ease: "easeOut" }}
+                          className="w-1/2 max-w-[28px] bg-white group-hover:bg-[#CBD5E1] rounded-t-xs transition-colors relative"
                           title={`${day.date}: ${day.sent} Sent`}
                         >
                           {day.sent > 0 && (
@@ -249,12 +253,14 @@ export default function Analytics() {
                               {day.sent}
                             </span>
                           )}
-                        </div>
+                        </motion.div>
 
                         {/* Opened Bar */}
-                        <div
-                          style={{ height: `${Math.max(openHeight, day.opened > 0 ? 4 : 0)}%` }}
-                          className="w-1/2 max-w-[28px] bg-emerald-400 group-hover:bg-emerald-300 rounded-t-xs transition-all relative"
+                        <motion.div
+                          initial={{ height: 0 }}
+                          animate={{ height: `${Math.max(openHeight, day.opened > 0 ? 4 : 0)}%` }}
+                          transition={{ duration: 0.65, delay: 0.15 + idx * 0.05, ease: "easeOut" }}
+                          className="w-1/2 max-w-[28px] bg-emerald-400 group-hover:bg-emerald-300 rounded-t-xs transition-colors relative"
                           title={`${day.date}: ${day.opened} Opened`}
                         >
                           {day.opened > 0 && (
@@ -262,7 +268,7 @@ export default function Analytics() {
                               {day.opened}
                             </span>
                           )}
-                        </div>
+                        </motion.div>
                       </div>
                       <span className="text-[11px] text-[#8E9BA8] mt-2 group-hover:text-white transition-colors">
                         {day.date}
@@ -272,13 +278,13 @@ export default function Analytics() {
                 })}
               </div>
             </div>
-          </div>
+          </AnimatedCard>
         )}
 
         {/* Right Column: Stacked Widgets (Top Templates + Sender Quota) (5 of 12 columns) */}
         <div className={`space-y-6 flex flex-col justify-between ${daily_stats.length > 0 ? "lg:col-span-5" : "lg:col-span-12"}`}>
           {/* Top Converting Script Architect Templates */}
-          <div className="bg-[#222930] border border-[#2C353D] rounded-lg p-5 flex-1 flex flex-col justify-between">
+          <AnimatedCard delay={0.3} hoverEffect={false} className="bg-[#222930] border border-[#2C353D] rounded-lg p-5 flex-1 flex flex-col justify-between">
             <div>
               <div className="flex items-center gap-2 mb-3 pb-2.5 border-b border-[#2C353D]">
                 <Award className="w-4 h-4 text-amber-400" />
@@ -294,7 +300,7 @@ export default function Analytics() {
               ) : (
                 <div className="space-y-2.5">
                   {top_templates.slice(0, 2).map((tmpl, i) => (
-                    <div key={tmpl.id} className="p-3 bg-[#161B1F] border border-[#2C353D] rounded-md flex items-center justify-between">
+                    <div key={tmpl.id} className="p-3 bg-[#161B1F] border border-[#2C353D] rounded-md flex items-center justify-between hover:border-[#CBD5E1]/40 transition-colors">
                       <div className="min-w-0 flex-1 pr-3">
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] font-mono text-[#161B1F] bg-white font-bold px-1.5 py-0.5 rounded">
@@ -320,10 +326,10 @@ export default function Analytics() {
                 </div>
               )}
             </div>
-          </div>
+          </AnimatedCard>
 
           {/* Sender Identity Infrastructure Health & Quotas */}
-          <div className="bg-[#222930] border border-[#2C353D] rounded-lg p-5 flex-1 flex flex-col justify-between">
+          <AnimatedCard delay={0.35} hoverEffect={false} className="bg-[#222930] border border-[#2C353D] rounded-lg p-5 flex-1 flex flex-col justify-between">
             <div>
               <div className="flex items-center gap-2 mb-3 pb-2.5 border-b border-[#2C353D]">
                 <Server className="w-4 h-4 text-[#CBD5E1]" />
@@ -350,26 +356,24 @@ export default function Analytics() {
                         </span>
                       </div>
 
-                      {/* Quota Progress bar */}
-                      <div className="w-full bg-[#222930] h-1.5 rounded-full overflow-hidden">
-                        <div 
-                          style={{ width: `${Math.min(idn.usage_percent, 100)}%` }}
-                          className={`h-full transition-all duration-500 ${
-                            idn.usage_percent > 90 ? "bg-rose-500" : idn.usage_percent > 60 ? "bg-amber-400" : "bg-white"
-                          }`}
-                        />
-                      </div>
+                      {/* Quota Progress bar with spring animation */}
+                      <AnimatedProgress
+                        value={idn.usage_percent}
+                        barClassName={
+                          idn.usage_percent > 90 ? "bg-rose-500" : idn.usage_percent > 60 ? "bg-amber-400" : "bg-white"
+                        }
+                      />
                     </div>
                   ))}
                 </div>
               )}
             </div>
-          </div>
+          </AnimatedCard>
         </div>
       </div>
 
       {/* Merged Recent Campaigns Live Management Table */}
-      <div className="bg-[#222930] border border-[#2C353D] rounded-lg overflow-hidden">
+      <AnimatedCard delay={0.4} hoverEffect={false} className="bg-[#222930] border border-[#2C353D] rounded-lg overflow-hidden">
         <div className="p-6 border-b border-[#2C353D] flex justify-between items-center bg-[#1C2227]">
           <div>
             <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -450,7 +454,7 @@ export default function Analytics() {
             ))
           )}
         </div>
-      </div>
+      </AnimatedCard>
     </div>
   );
 }
