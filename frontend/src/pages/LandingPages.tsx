@@ -9,8 +9,6 @@ import {
   Copy,
   ExternalLink,
   Download,
-  Layers,
-  GripVertical,
   X,
   FormInput,
   Bot,
@@ -54,8 +52,6 @@ export default function LandingPages() {
   const [chatbotWelcomeMessage, setChatbotWelcomeMessage] = useState("Hi there! 👋 Before we begin, may I know your name?");
   const [chatbotScript, setChatbotScript] = useState("");
   const [savingLanding, setSavingLanding] = useState(false);
-  const [isDraggingOverEditor, setIsDraggingOverEditor] = useState(false);
-  const [isDraggingOverPreview, setIsDraggingOverPreview] = useState(false);
   const landingTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Form Builder Modal State
@@ -76,19 +72,21 @@ export default function LandingPages() {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Special Offer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Special Offer & Demo</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0B0E14; color: #FFFFFF; padding: 48px 24px; text-align: center; }
-    .container { max-width: 640px; margin: 0 auto; background: #161B22; padding: 40px; border-radius: 16px; border: 1px solid #30363D; }
-    h1 { font-size: 28px; margin-bottom: 12px; }
-    p { color: #8B949E; font-size: 15px; margin-bottom: 28px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0B0E14; color: #FFFFFF; padding: 60px 20px; text-align: center; }
+    .container { max-width: 640px; margin: 0 auto; background: #161B22; padding: 48px 32px; border-radius: 20px; border: 1px solid #30363D; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+    h1 { font-size: 32px; font-weight: 800; margin-bottom: 16px; background: linear-gradient(135deg, #fff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    p { color: #94A3B8; font-size: 16px; line-height: 1.6; margin-bottom: 32px; }
+    .badge { display: inline-block; padding: 6px 14px; background: rgba(99, 102, 241, 0.15); color: #818CF8; border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 9999px; font-size: 13px; font-weight: 600; margin-bottom: 20px; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Special Product Demo</h1>
-    <p>Sign up below to claim your personalized walkthrough.</p>
-    {{form_lead}}
+    <div class="badge">🚀 Exclusive Launch</div>
+    <h1>Scale Your Outreach on Autopilot</h1>
+    <p>Automate deliverability, warm up mailboxes, and convert high-ticket leads seamlessly. Have questions? Ask our AI sales assistant below!</p>
   </div>
 </body>
 </html>`);
@@ -204,53 +202,6 @@ export default function LandingPages() {
     });
   };
 
-  const insertFormShortcode = (shortcode: string, formName?: string) => {
-    const sc = `{{${shortcode}}}`;
-    const textarea = landingTextareaRef.current;
-    if (textarea) {
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const current = textarea.value;
-      const before = current.substring(0, start);
-      const after = current.substring(end);
-      const updated = before + `\n${sc}\n` + after;
-      setLandingHtml(updated);
-      setTimeout(() => {
-        textarea.focus();
-        const nextPos = start + sc.length + 2;
-        textarea.setSelectionRange(nextPos, nextPos);
-      }, 50);
-    } else {
-      setLandingHtml((prev) => prev ? prev + `\n${sc}\n` : sc);
-    }
-    toast.success(`Inserted ${formName || shortcode} (${sc}) into Landing Page!`);
-  };
-
-  const handleDropFormOnEditor = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDraggingOverEditor(false);
-    const shortcode = e.dataTransfer.getData("text/plain") || e.dataTransfer.getData("application/x-form-shortcode");
-    const formName = e.dataTransfer.getData("application/x-form-name") || shortcode;
-    if (shortcode) {
-      insertFormShortcode(shortcode, formName);
-    }
-  };
-
-  const handleDropFormOnPreview = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDraggingOverPreview(false);
-    const shortcode = e.dataTransfer.getData("text/plain") || e.dataTransfer.getData("application/x-form-shortcode");
-    const formName = e.dataTransfer.getData("application/x-form-name") || shortcode;
-    if (shortcode) {
-      const sc = `{{${shortcode}}}`;
-      if (landingHtml.includes("</body>")) {
-        setLandingHtml((prev) => prev.replace("</body>", `  ${sc}\n</body>`));
-      } else {
-        setLandingHtml((prev) => prev + `\n${sc}\n`);
-      }
-      toast.success(`Dropped ${formName} (${sc}) into Preview!`);
-    }
-  };
 
   const handleDeleteForm = (id: number) => {
     toast.confirm("Are you sure you want to delete this form?", async () => {
@@ -319,7 +270,7 @@ export default function LandingPages() {
                       {editingLandingId ? "Edit Custom Landing Page" : "Create New Custom Landing Page"}
                     </h3>
                     <p className="text-xs text-[#8E9BA8]">
-                      Paste custom HTML and insert any form shortcode like <code className="text-white bg-[#161B1F] px-1 py-0.5 rounded">{"{{form_xxx}}"}</code>
+                      Design your custom HTML landing page. Leads are captured interactively via the integrated AI Sales Chatbot!
                     </p>
                   </div>
                 </div>
@@ -346,92 +297,17 @@ export default function LandingPages() {
                   />
                 </div>
 
-                {/* Drag-and-Drop Lead Forms Palette */}
-                <div className="bg-[#14181C] border border-[#2C353D] rounded-xl p-3.5 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Layers className="w-4 h-4 text-purple-400" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-white">
-                        Available Lead Forms (Drag & Drop or Click to Insert)
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-[#8E9BA8]">
-                      Tip: Drag a form chip into the code editor or preview!
-                    </span>
-                  </div>
-
-                  {customForms.length === 0 ? (
-                    <div className="text-xs text-amber-400/90 bg-amber-500/10 border border-amber-500/20 px-3 py-2 rounded-lg flex items-center justify-between">
-                      <span>No lead capture forms created yet. Go to the "Lead Forms" tab to create one.</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingFormItem(null);
-                          setIsFormBuilderOpen(true);
-                        }}
-                        className="text-xs font-semibold text-white underline hover:text-amber-200 cursor-pointer ml-3"
-                      >
-                        + Create Form
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2.5 flex-wrap pt-1">
-                      {customForms.map((f) => (
-                        <div
-                          key={f.id}
-                          draggable
-                          onDragStart={(e) => {
-                            e.dataTransfer.setData("text/plain", f.shortcode);
-                            e.dataTransfer.setData("application/x-form-shortcode", f.shortcode);
-                            e.dataTransfer.setData("application/x-form-name", f.name);
-                            e.dataTransfer.effectAllowed = "copy";
-                          }}
-                          className="group flex items-center gap-2 bg-[#1C2227] hover:bg-[#26303A] border border-[#2C353D] hover:border-purple-500/60 px-3 py-1.5 rounded-lg text-white text-xs cursor-grab active:cursor-grabbing transition-all shadow-sm select-none"
-                          title="Drag this form chip into the HTML editor or click Insert"
-                        >
-                          <GripVertical className="w-3.5 h-3.5 text-[#8E9BA8] group-hover:text-purple-400" />
-                          <span className="font-semibold text-white text-xs">{f.name}</span>
-                          <code className="text-[10px] font-mono text-purple-300 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20">
-                            {`{{${f.shortcode}}}`}
-                          </code>
-                          <button
-                            type="button"
-                            onClick={() => insertFormShortcode(f.shortcode, f.name)}
-                            className="ml-1 bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold text-[10px] px-2 py-0.5 rounded cursor-pointer transition-colors shadow-xs"
-                            title="Click to insert at cursor position in HTML"
-                          >
-                            + Insert
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
                 {/* Side-by-Side: Left HTML Editor, Right Live Real-Time Preview */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
-                  {/* Left Column: HTML Code Input with Drag & Drop Zone */}
-                  <div
-                    className={`flex flex-col space-y-2 relative rounded-xl transition-all ${
-                      isDraggingOverEditor ? "ring-2 ring-purple-500 ring-offset-2 ring-offset-[#1E252D]" : ""
-                    }`}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = "copy";
-                      setIsDraggingOverEditor(true);
-                    }}
-                    onDragLeave={() => setIsDraggingOverEditor(false)}
-                    onDrop={handleDropFormOnEditor}
-                  >
+                  {/* Left Column: HTML Code Input */}
+                  <div className="flex flex-col space-y-2 relative rounded-xl transition-all">
                     <div className="flex items-center justify-between">
                       <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1]">
-                        Raw HTML Content (with Shortcodes) *
+                        Landing Page HTML Content *
                       </label>
-                      {isDraggingOverEditor && (
-                        <span className="text-[11px] font-bold text-purple-400 animate-pulse">
-                          Drop form here to insert!
-                        </span>
-                      )}
+                      <span className="text-[11px] text-[#8E9BA8]">
+                        Standard HTML5 & Inline CSS
+                      </span>
                     </div>
 
                     <div className="relative flex-1 flex flex-col">
@@ -440,10 +316,8 @@ export default function LandingPages() {
                         value={landingHtml}
                         onChange={(e) => setLandingHtml(e.target.value)}
                         rows={18}
-                        placeholder="<!DOCTYPE html><html>... paste full HTML here or drag forms from above ...</html>"
-                        className={`w-full font-mono text-xs bg-[#161B1F] border rounded-xl p-4 text-emerald-300 focus:outline-none focus:border-white transition-all flex-1 min-h-[440px] ${
-                          isDraggingOverEditor ? "border-purple-500 bg-purple-500/5" : "border-[#2C353D]"
-                        }`}
+                        placeholder="<!DOCTYPE html><html>... paste or write your landing page HTML here ...</html>"
+                        className="w-full font-mono text-xs bg-[#161B1F] border border-[#2C353D] rounded-xl p-4 text-emerald-300 focus:outline-none focus:border-white transition-all flex-1 min-h-[440px]"
                         required
                       />
 
@@ -453,81 +327,56 @@ export default function LandingPages() {
                         <button
                           type="button"
                           onClick={() => {
-                            const snippet = `<section style="padding: 40px; text-align: center; background: #161B22; border-radius: 12px; margin: 20px 0;">\n  <h2>Join Our Waitlist</h2>\n  <p>Fill out the form below:</p>\n  {{form_lead}}\n</section>`;
+                            const snippet = `<section style="padding: 40px; text-align: center; background: #161B22; border-radius: 12px; margin: 20px 0; border: 1px solid #30363D;">\n  <h2 style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">Explore Our Features</h2>\n  <p style="color: #94A3B8; font-size: 14px;">Everything you need to grow your outreach.</p>\n</section>`;
                             setLandingHtml((prev) => (prev ? prev + "\n" + snippet : snippet));
                           }}
                           className="text-[10px] bg-[#161B1F] border border-[#2C353D] hover:border-white px-2 py-0.5 rounded text-[#CBD5E1] transition-colors cursor-pointer"
                         >
-                          + Form Section
+                          + Feature Section
                         </button>
                         <button
                           type="button"
                           onClick={() => {
-                            const snippet = `<div style="display: flex; gap: 20px; justify-content: center; margin: 30px 0;">\n  <div style="background: #21262D; padding: 20px; border-radius: 8px;">Feature 1</div>\n  <div style="background: #21262D; padding: 20px; border-radius: 8px;">Feature 2</div>\n</div>`;
+                            const snippet = `<div style="display: flex; gap: 20px; justify-content: center; margin: 30px 0; flex-wrap: wrap;">\n  <div style="background: #21262D; padding: 20px; border-radius: 10px; border: 1px solid #30363D; min-width: 180px;">\n    <h3 style="margin-top: 0;">Starter</h3>\n    <p style="color: #94A3B8; font-size: 13px;">$49/mo - 5,000 emails</p>\n  </div>\n  <div style="background: #21262D; padding: 20px; border-radius: 10px; border: 1px solid #6366F1; min-width: 180px;">\n    <h3 style="margin-top: 0; color: #818CF8;">Pro</h3>\n    <p style="color: #94A3B8; font-size: 13px;">$99/mo - Unlimited</p>\n  </div>\n</div>`;
                             setLandingHtml((prev) => (prev ? prev + "\n" + snippet : snippet));
                           }}
                           className="text-[10px] bg-[#161B1F] border border-[#2C353D] hover:border-white px-2 py-0.5 rounded text-[#CBD5E1] transition-colors cursor-pointer"
                         >
-                          + Feature Grid
+                          + Pricing Cards
                         </button>
                       </div>
                     </div>
                   </div>
 
-                  {/* Right Column: Live HTML Preview with Drag & Drop */}
-                  <div
-                    className={`flex flex-col space-y-2 relative rounded-xl transition-all ${
-                      isDraggingOverPreview ? "ring-2 ring-purple-500 ring-offset-2 ring-offset-[#1E252D]" : ""
-                    }`}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = "copy";
-                      setIsDraggingOverPreview(true);
-                    }}
-                    onDragLeave={() => setIsDraggingOverPreview(false)}
-                    onDrop={handleDropFormOnPreview}
-                  >
+                  {/* Right Column: Live HTML Preview */}
+                  <div className="flex flex-col space-y-2 relative rounded-xl transition-all">
                     <div className="flex items-center justify-between">
                       <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1]">
                         Live Visual Preview
                       </label>
-                      <span className="text-[11px] text-[#8E9BA8]">
-                        Renders HTML & replaced forms
-                      </span>
+                      {chatbotEnabled && (
+                        <span className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
+                          <Bot className="w-3.5 h-3.5" /> AI Chatbot Widget Active
+                        </span>
+                      )}
                     </div>
 
                     <div className="relative flex-1 bg-white rounded-xl overflow-hidden border border-[#2C353D] min-h-[440px] shadow-inner">
-                      {isDraggingOverPreview && (
-                        <div className="absolute inset-0 bg-purple-600/20 backdrop-blur-xs flex items-center justify-center z-10 border-2 border-dashed border-purple-500 rounded-xl">
-                          <span className="bg-[#161B1F] text-white px-4 py-2 rounded-lg font-bold text-xs shadow-xl">
-                            Drop to Embed Form into Landing Page
-                          </span>
-                        </div>
-                      )}
                       <iframe
                         srcDoc={(() => {
                           let rendered = landingHtml || "<div style='font-family:sans-serif;color:#666;text-align:center;padding:50px;'>Type HTML on the left to see live preview</div>";
-                          customForms.forEach((f) => {
-                            const sc1 = `{{${f.shortcode}}}`;
-                            const sc2 = `{{form_${f.shortcode}}}`;
-                            const placeholder = `
-                              <div style="border: 2px dashed #6366f1; background: #e0e7ff; color: #3730a3; padding: 24px; border-radius: 12px; margin: 16px auto; max-width: 480px; text-align: left; font-family: sans-serif;">
-                                <div style="font-weight: bold; font-size: 15px; margin-bottom: 6px;">📋 Lead Form: ${f.name}</div>
-                                <div style="font-size: 12px; color: #4338ca; margin-bottom: 12px;">Active Shortcode: <code>${f.shortcode}</code> (${f.fields_schema?.length || 0} fields)</div>
-                                <div style="background: white; border: 1px solid #c7d2fe; border-radius: 8px; padding: 12px;">
-                                  ${(f.fields_schema || []).map((fld: any) => `
-                                    <div style="margin-bottom: 8px;">
-                                      <label style="display:block; font-size: 11px; font-weight:600; color: #475569; margin-bottom: 3px;">${fld.label} ${fld.required ? '*' : ''}</label>
-                                      <input disabled placeholder="${fld.placeholder || ''}" style="width: 100%; box-sizing: border-box; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; background: #f8fafc;" />
-                                    </div>
-                                  `).join('')}
-                                  <button disabled style="margin-top: 6px; width: 100%; background: #4f46e5; color: white; border: none; padding: 8px; border-radius: 6px; font-weight: bold; font-size: 12px;">${f.submit_button_text || 'Submit'}</button>
-                                </div>
+                          if (chatbotEnabled) {
+                            const badge = `
+                              <div style="position:fixed;bottom:16px;right:16px;z-index:9999;display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,#059669,#10b981);color:white;padding:10px 18px;border-radius:9999px;box-shadow:0 8px 24px rgba(5,150,105,0.4);font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:12px;font-weight:700;pointer-events:none;">
+                                <span>💬 Chat with ${chatbotName || 'AI Assistant'}</span>
                               </div>
                             `;
-                            rendered = rendered.split(sc1).join(placeholder);
-                            rendered = rendered.split(sc2).join(placeholder);
-                          });
+                            if (rendered.includes("</body>")) {
+                              rendered = rendered.replace("</body>", `${badge}</body>`);
+                            } else {
+                              rendered += badge;
+                            }
+                          }
                           return rendered;
                         })()}
                         className="w-full h-full min-h-[440px] border-0 bg-white"
