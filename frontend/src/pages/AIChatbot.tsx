@@ -43,79 +43,7 @@ interface LandingPageSummary {
 interface ChatMessage {
   role: "bot" | "user";
   text: string;
-  timestamp?: string;
 }
-
-const TEMPLATES = [
-  {
-    name: "SaaS / Software Product",
-    desc: "Pricing tiers, core features, trial & refund policy",
-    script: `Product Name: ReachEngine Pro
-Description: High-deliverability cold email outreach and automated warmup platform.
-Target Audience: B2B agencies, founders, sales teams, and SDRs.
-
-Pricing:
-- Starter Plan: $49/month (Up to 5 mailboxes, 10,000 emails/month, AI lead scraper)
-- Growth Plan: $99/month (Up to 25 mailboxes, unlimited emails, priority inbox rotation)
-- Enterprise Plan: $249/month (Dedicated IP pool, custom integrations, dedicated account manager)
-
-Key Features:
-- Multi-mailbox rotation with automated deliverability warming
-- AI personalization based on prospect website & LinkedIn
-- Real-time lead scraping and automated verification
-- Inbound reply tracking and auto-categorization
-
-Guarantee & Trials:
-- 14-day 100% money-back guarantee, no questions asked.
-- No setup fees, cancel anytime directly from your dashboard.
-
-Support & Contact:
-- 24/7 priority live chat & email support at support@reachengine.com
-- Documentation and setup guides at docs.reachengine.com`
-  },
-  {
-    name: "Agency / Consulting Services",
-    desc: "Outreach done-for-you, booking calls, onboarding",
-    script: `Company Name: OutboundScale Agency
-Description: Done-for-you cold outreach systems that generate 15-30 qualified sales calls every single month.
-
-Core Services:
-- Full setup of secondary sending domains and SPF/DKIM/DMARC authentication
-- High-converting ICP targeting and verified B2B lead list building
-- Customized copywriting and split-tested email sequences
-- Positive reply management and calendar booking direct to your sales team
-
-Pricing & Packages:
-- Performance Tier: $1,500/month flat management fee + $100 per qualified meeting booked.
-- Full Growth Retainer: $2,800/month all-inclusive (unlimited leads, copy, domains, and warmups).
-
-Onboarding Timeline:
-- Complete system launched within 7 business days of signing.
-
-How to get started:
-- Invite visitors to schedule a free 15-minute Outbound Strategy Call with our founder at cal.com/outboundscale-audit.`
-  },
-  {
-    name: "E-Commerce / Digital Assets",
-    desc: "Product bundles, instant downloads, guarantees",
-    script: `Brand Name: Creator Kit Pro
-Description: Premium ready-to-use email templates, cold outreach scripts, and Notion operating systems.
-
-Products & Pricing:
-- Cold Email Master Bundle: $47 (Over 120+ tested cold email templates with 40%+ open rates)
-- Full Creator OS: $97 (Complete client onboarding, proposal templates, and sales CRM)
-- Lifetime Access Pass: $147 (All current bundles plus lifetime monthly template updates)
-
-Delivery & Access:
-- Instant digital download link sent to visitor's email immediately after purchase.
-
-Refund & Return Policy:
-- 30-day risk-free satisfaction guarantee. If it doesn't book you meetings, full refund provided.
-
-Support:
-- Questions and support via support@creatorkitpro.com.`
-  }
-];
 
 export default function AIChatbot() {
   const toast = useToast();
@@ -371,11 +299,6 @@ export default function AIChatbot() {
     toast.success("Public link copied to clipboard!");
   };
 
-  const applyTemplate = (script: string) => {
-    setChatbotScript(script);
-    toast.success("Template applied! Click 'Save Changes' to update your live bot.");
-  };
-
   const selectedPage = landingPages.find((p) => p.id === selectedPageId);
 
   if (loading) {
@@ -536,33 +459,6 @@ export default function AIChatbot() {
               </span>
             </div>
 
-            <p className="text-xs text-[#CBD5E1] leading-relaxed">
-              Describe your product, service, pricing plans, special guarantees, and FAQs. The AI will strictly follow these instructions and never hallucinate outside of this knowledge.
-            </p>
-
-            {/* Quick Templates Selector */}
-            <div className="bg-[#161B1F] border border-[#2C353D] rounded-xl p-3 space-y-2">
-              <span className="text-[11px] font-bold text-[#8E9BA8] uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-3 h-3 text-amber-400" /> One-Click Script Templates:
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {TEMPLATES.map((tmpl, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => applyTemplate(tmpl.script)}
-                    className="p-2.5 rounded-lg border border-[#2C353D] hover:border-purple-500/50 bg-[#1E252D] hover:bg-purple-500/10 text-left transition-all cursor-pointer group"
-                  >
-                    <div className="text-xs font-bold text-white group-hover:text-purple-300">
-                      {tmpl.name}
-                    </div>
-                    <div className="text-[10px] text-[#8E9BA8] line-clamp-1 mt-0.5">
-                      {tmpl.desc}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
 
             {/* Script Textarea */}
             <div>
