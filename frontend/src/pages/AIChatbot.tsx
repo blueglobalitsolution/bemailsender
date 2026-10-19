@@ -108,6 +108,21 @@ export default function AIChatbot() {
     loadInitialData();
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (isCreateScriptModalOpen) {
+          setIsCreateScriptModalOpen(false);
+        } else if (isManageScriptsModalOpen) {
+          setIsManageScriptsModalOpen(false);
+          setEditingScript(null);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isCreateScriptModalOpen, isManageScriptsModalOpen]);
+
   const loadInitialData = async () => {
     try {
       setLoading(true);
@@ -967,7 +982,7 @@ export default function AIChatbot() {
       {/* Create New Script Slide-Over Drawer */}
       {isCreateScriptModalOpen &&
         createPortal(
-          <div className="fixed inset-0 z-[9999] overflow-hidden">
+          <div className="fixed inset-0 z-[10000] overflow-hidden">
             {/* Backdrop overlay */}
             <div
               className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200 cursor-pointer"
