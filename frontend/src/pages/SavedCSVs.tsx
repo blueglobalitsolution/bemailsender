@@ -554,105 +554,40 @@ export default function SavedCSVs() {
 
   return (
     <div className="space-y-6 font-sans">
-      {/* Top Lists Bar */}
-      <div className="bg-[#181E24] border border-[#2C353D] rounded-2xl p-4 shadow-xl flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        {/* Left: Lists Switcher / Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0 scrollbar-none flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#8E9BA8] mr-2 shrink-0">
-            <Layers className="w-4 h-4 text-emerald-400" />
-            <span>Lead Lists:</span>
-          </div>
-
-          {csvs.map((csv) => {
-            const isActive = csv.id === activeCsvId;
-            return (
-              <button
-                key={csv.id}
-                onClick={() => selectCsv(csv.id)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer shrink-0 border ${
-                  isActive
-                    ? "bg-white text-[#161B1F] border-white shadow-md font-bold"
-                    : "bg-[#14181C] hover:bg-[#1E252D] text-[#CBD5E1] border-[#2C353D] hover:border-white/30"
-                }`}
-              >
-                <FileText className={`w-3.5 h-3.5 ${isActive ? "text-[#161B1F]" : "text-emerald-400"}`} />
-                <span>{csv.name}</span>
-                <span
-                  className={`text-[10px] font-mono px-1.5 py-0.2 rounded ${
-                    isActive ? "bg-black/10 text-black font-bold" : "bg-[#222930] text-[#8E9BA8]"
-                  }`}
-                >
-                  {csv.row_count}
-                </span>
-              </button>
-            );
-          })}
-
-          {csvs.length === 0 && (
-            <span className="text-xs text-[#8E9BA8] italic">No lists yet. Upload a CSV to start!</span>
-          )}
-        </div>
-
-        {/* Right: Actions */}
-        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-          <button
-            onClick={handleDownloadSampleCsv}
-            className="px-3 py-2 bg-[#14181C] hover:bg-[#1E252D] text-[#CBD5E1] hover:text-white border border-[#2C353D] hover:border-emerald-500/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-            title="Download demo CSV format template"
-          >
-            <Download className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Sample CSV</span>
-          </button>
-
-          {activeCsvId && (
-            <>
-              <button
-                onClick={() => setIsValidationOpen(true)}
-                className="px-3 py-2 bg-[#14181C] hover:bg-[#1E252D] text-[#CBD5E1] hover:text-white border border-[#2C353D] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                title="Validate & Clean invalid emails"
-              >
-                <Shield className="w-3.5 h-3.5 text-amber-400" />
-                <span>Validate CSV</span>
-              </button>
-
-              <button
-                onClick={handleDownloadCsv}
-                className="px-3 py-2 bg-[#14181C] hover:bg-[#1E252D] text-[#CBD5E1] hover:text-white border border-[#2C353D] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                title="Export as CSV file"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export CSV</span>
-              </button>
-
-              <button
-                onClick={() => handleDeleteList(activeCsvId)}
-                className="p-2 bg-[#14181C] hover:bg-rose-950/40 text-[#8E9BA8] hover:text-rose-400 border border-[#2C353D] hover:border-rose-900 rounded-xl text-xs transition-colors cursor-pointer"
-                title="Delete this entire list"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
       {/* Main Table Card */}
       {activeCsvId ? (
         <div className="bg-[#181E24] border border-[#2C353D] rounded-2xl shadow-xl flex flex-col overflow-hidden">
           {/* Table Toolbar Header */}
           <div className="p-4 sm:p-5 border-b border-[#2C353D] bg-[#1A1F26] flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={activeCsvName}
-                  onChange={(e) => {
-                    setActiveCsvName(e.target.value);
-                    setHasUnsavedChanges(true);
-                  }}
-                  className="bg-[#14181C] border border-[#2C353D] hover:border-white/50 focus:border-white text-white font-bold text-sm sm:text-base px-3 py-1.5 rounded-lg outline-none font-mono transition-all"
-                  title="Click to rename list"
-                />
+              <div className="flex items-center gap-2 flex-wrap">
+                {csvs.length > 1 ? (
+                  <div className="relative">
+                    <select
+                      value={activeCsvId || ""}
+                      onChange={(e) => selectCsv(Number(e.target.value))}
+                      className="bg-[#14181C] border border-[#2C353D] hover:border-white text-white text-xs font-bold rounded-lg px-3 py-2 pr-8 appearance-none focus:outline-none cursor-pointer"
+                    >
+                      {csvs.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({c.row_count} contacts)
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-[#8E9BA8] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    value={activeCsvName}
+                    onChange={(e) => {
+                      setActiveCsvName(e.target.value);
+                      setHasUnsavedChanges(true);
+                    }}
+                    className="bg-[#14181C] border border-[#2C353D] hover:border-white/50 focus:border-white text-white font-bold text-sm sm:text-base px-3 py-1.5 rounded-lg outline-none font-mono transition-all"
+                    title="Click to rename list"
+                  />
+                )}
                 <span className="text-xs font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-lg shrink-0">
                   {rows.length} Total Contacts
                 </span>
@@ -724,6 +659,40 @@ export default function SavedCSVs() {
                   <Save className="w-3.5 h-3.5" />
                 )}
                 <span>{hasUnsavedChanges ? "Save Changes *" : "Saved"}</span>
+              </button>
+
+              <div className="h-5 w-px bg-[#2C353D] mx-1 hidden sm:block" />
+
+              {/* Validate CSV */}
+              <button
+                type="button"
+                onClick={() => setIsValidationOpen(true)}
+                className="px-3 py-2 bg-[#14181C] hover:bg-[#1E252D] text-[#CBD5E1] hover:text-white border border-[#2C353D] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Validate & Clean invalid emails"
+              >
+                <Shield className="w-3.5 h-3.5 text-amber-400" />
+                <span>Validate CSV</span>
+              </button>
+
+              {/* Export CSV */}
+              <button
+                type="button"
+                onClick={handleDownloadCsv}
+                className="px-3 py-2 bg-[#14181C] hover:bg-[#1E252D] text-[#CBD5E1] hover:text-white border border-[#2C353D] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Export as CSV file"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export CSV</span>
+              </button>
+
+              {/* Delete List */}
+              <button
+                type="button"
+                onClick={() => handleDeleteList(activeCsvId)}
+                className="p-2 bg-[#14181C] hover:bg-rose-950/40 text-[#8E9BA8] hover:text-rose-400 border border-[#2C353D] hover:border-rose-900 rounded-xl text-xs transition-colors cursor-pointer"
+                title="Delete this entire list"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
