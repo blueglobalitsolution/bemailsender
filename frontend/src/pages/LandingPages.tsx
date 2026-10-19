@@ -536,6 +536,8 @@ export default function LandingPages() {
                       />
                     </div>
                   </div>
+                </div>
+
                 {/* AI Lead Capture Chatbot Configuration */}
                 <div className="bg-[#14181C] border border-[#2C353D] rounded-xl p-5 space-y-4">
                   <div className="flex items-center justify-between pb-3 border-b border-[#2C353D]">
