@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Photoshop-Style Drag & Drop Product Card Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+        }
+
+        /* Photoshop-style dark workspace grid */
+        .workspace-grid {
+            background-color: #121316;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        /* Draggable Canvas Elements */
+        .canvas-item {
+            position: absolute;
+            cursor: grab;
+            transition: outline 0.1s ease;
+        }
+
+        .canvas-item:active {
+            cursor: grabbing;
+        }
+
+        .canvas-item:hover:not(.selected) {
+            outline: 1px dashed #3b82f6;
+        }
+
+        .canvas-item.selected {
+            outline: 2px solid #3b82f6;
+        }
+
+        /* Resize Handle (Bottom-Right Corner like Photoshop) */
+        .resize-handle {
+            display: none;
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #ffffff;
+            border: 2px solid #3b82f6;
+            border-radius: 2px;
+            right: -6px;
+            bottom: -6px;
+            cursor: nwse-resize;
+            z-index: 999;
+        }
+
+        .canvas-item.selected .resize-handle {
+            display: block;
+        }
+
+        /* Alignment Guide Lines */
+        .guide-line-v {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 1px;
+            background: #ec4899;
+            pointer-events: none;
+            display: none;
+            z-index: 9999;
+        }
+
+        .guide-line-h {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 50%;
+            height: 1px;
+            background: #ec4899;
+            pointer-events: none;
+            display: none;
+            z-index: 9999;
+        }
+
+        /* Card Hover Preview Effects */
+        #product-card {
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease;
+        }
+
+        #product-card.hover-lift:hover,
+        #product-card.force-hover.hover-lift {
+            transform: translateY(-10px);
+        }
+
+        #product-card.hover-scale:hover,
+        #product-card.force-hover.hover-scale {
+            transform: scale(1.03);
+        }
+
+        #product-card.hover-tilt:hover,
+        #product-card.force-hover.hover-tilt {
+            transform: perspective(900px) rotateX(4deg) rotateY(-4deg);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #18191c;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #32353e;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+
+<body class="bg-[#18191c] text-gray-200 h-screen flex flex-col overflow-hidden">
+
+    <!-- TOP BAR (Photoshop Toolbar Header) -->
+    <header class="h-13 bg-[#202227] border-b border-[#2e3138] px-4 py-2.5 flex items-center justify-between z-20">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white shadow">Ps
+            </div>
+            <div>
+                <h1 class="text-sm font-bold text-white leading-tight">CardCanvas Pro</h1>
+                <p class="text-[11px] text-gray-400">Freeform Drag & Drop Product Card Editor</p>
+            </div>
+        </div>
+
+        <!-- Quick Card Orientation Switcher -->
+        <div class="flex items-center gap-2 bg-[#141518] p-1 rounded-lg border border-[#2e3138]">
+            <button onclick="setCardOrientation('portrait')" id="btn-portrait"
+                class="px-3 py-1 text-xs font-medium rounded bg-blue-600 text-white transition">
+                Portrait (340×460)
+            </button>
+            <button onclick="setCardOrientation('landscape')" id="btn-landscape"
+                class="px-3 py-1 text-xs font-medium rounded text-gray-400 hover:text-white transition">
+                Landscape (540×320)
+            </button>
+            <button onclick="setCardOrientation('square')" id="btn-square"
+                class="px-3 py-1 text-xs font-medium rounded text-gray-400 hover:text-white transition">
+                Square (400×400)
+            </button>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <label
+                class="flex items-center gap-1.5 text-xs bg-[#2a2d35] px-3 py-1.5 rounded-lg cursor-pointer hover:bg-[#323640]">
+                <input type="checkbox" id="snap-toggle" checked class="accent-blue-500">
+                <span>Snap to Grid</span>
+            </label>
+            <button onclick="exportCardHTML()"
+                class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition shadow">
+                Export HTML / CSS
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN WORKSPACE -->
+    <div class="flex-1 flex overflow-hidden">
+
+        <!-- LEFT SIDEBAR: ADD ELEMENTS & LAYERS -->
+        <aside class="w-64 bg-[#202227] border-r border-[#2e3138] flex flex-col justify-between p-3 overflow-y-auto">
+            <div>
+                <h2 class="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-2">1. Add Layer / Element
+                </h2>
+                <div class="grid grid-cols-2 gap-2 mb-6">
+                    <button onclick="addElement('image')"
+                        class="flex flex-col items-center justify-center p-2.5 bg-[#282b33] hover:bg-[#323640] border border-[#383c47] rounded-lg text-xs gap-1 transition">
+                        <span class="text-base">🖼️</span>
+                        <span>Image</span>
+                    </button>
+                    <button onclick="addElement('text')"
+                        class="flex flex-col items-center justify-center p-2.5 bg-[#282b33] hover:bg-[#323640] border border-[#383c47] rounded-lg text-xs gap-1 transition">
+                        <span class="text-base">🔤</span>
+                        <span>Text / Title</span>
+                    </button>
+                    <button onclick="addElement('price')"
+                        class="flex flex-col items-center justify-center p-2.5 bg-[#282b33] hover:bg-[#323640] border border-[#383c47] rounded-lg text-xs gap-1 transition">
+                        <span class="text-base">💲</span>
+                        <span>Price Tag</span>
+                    </button>
+                    <button onclick="addElement('badge')"
+                        class="flex flex-col items-center justify-center p-2.5 bg-[#282b33] hover:bg-[#323640] border border-[#383c47] rounded-lg text-xs gap-1 transition">
+                        <span class="text-base">🏷️</span>
+                        <span>Sale Badge</span>
+                    </button>
+                    <button onclick="addElement('button')"
+                        class="flex flex-col items-center justify-center p-2.5 bg-[#282b33] hover:bg-[#323640] border border-[#383c47] rounded-lg text-xs gap-1 transition">
+                        <span class="text-base">🛒</span>
+                        <span>Buy Button</span>
+                    </button>
+                    <button onclick="addElement('shape')"
+                        class="flex flex-col items-center justify-center p-2.5 bg-[#282b33] hover:bg-[#323640] border border-[#383c47] rounded-lg text-xs gap-1 transition">
+                        <span class="text-base">⬛</span>
+                        <span>Shape Box</span>
+                    </button>
+                </div>
+
+                <!-- Layers List (Like Photoshop Layers Panel) -->
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-[11px] font-bold uppercase tracking-wider text-gray-400">2. Layers Stack</h2>
+                    <span class="text-[10px] text-gray-500">Click to select</span>
+                </div>
+                <div id="layers-list" class="space-y-1 max-h-72 overflow-y-auto pr-1">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Layer Order Controls -->
+            <div class="pt-3 border-t border-[#2e3138] flex flex-col gap-2">
+                <div class="grid grid-cols-2 gap-1.5">
+                    <button onclick="changeZIndex(1)"
+                        class="bg-[#282b33] hover:bg-[#323640] text-xs py-1.5 rounded border border-[#383c47]">↑ Bring
+                        Forward</button>
+                    <button onclick="changeZIndex(-1)"
+                        class="bg-[#282b33] hover:bg-[#323640] text-xs py-1.5 rounded border border-[#383c47]">↓ Send
+                        Backward</button>
+                </div>
+                <button onclick="deleteSelected()"
+                    class="w-full bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs py-1.5 rounded font-medium transition">
+                    🗑️ Delete Selected Layer (Del)
+                </button>
+            </div>
+        </aside>
+
+        <!-- CENTER WORKSPACE: ARTBOARD & DRAG-AND-DROP CARD -->
+        <main class="flex-1 workspace-grid relative flex items-center justify-center overflow-auto p-10" id="workspace"
+            onclick="deselectAll(event)">
+
+            <!-- Helper Banner -->
+            <div
+                class="absolute top-4 left-1/2 -translate-x-1/2 bg-[#202227]/90 backdrop-blur border border-[#323640] px-4 py-1.5 rounded-full text-xs text-gray-300 pointer-events-none flex items-center gap-3 shadow-lg">
+                <span>🖱️ <b>Drag</b> any item to move</span>
+                <span>•</span>
+                <span>↘️ <b>Drag blue corner</b> to resize</span>
+                <span>•</span>
+                <span>⌨️ <b>Arrow keys</b> to nudge</span>
+            </div>
+
+            <!-- THE PRODUCT CARD ARTBOARD -->
+            <div id="product-card" class="hover-lift relative overflow-hidden"
+                style="width: 340px; height: 460px; border-radius: 20px; background: #ffffff; box-shadow: 0 20px 40px rgba(0,0,0,0.35);">
+
+                <!-- Center Alignment Guides -->
+                <div class="guide-line-v" id="guide-v"></div>
+                <div class="guide-line-h" id="guide-h"></div>
+
+                <!-- Default Initial Layers inside the Product Card -->
+
+                <!-- 1. Product Image Layer -->
+                <div class="canvas-item" data-id="layer-1" data-name="Product Image" data-type="image"
+                    style="left: 16px; top: 16px; width: 308px; height: 220px; z-index: 1; border-radius: 14px; overflow: hidden; background: #f3f4f6;">
+                    <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80"
+                        class="w-full h-full object-cover pointer-events-none" alt="Product" />
+                    <div class="resize-handle"></div>
+                </div>
+
+                <!-- 2. Badge Layer -->
+                <div class="canvas-item flex items-center justify-center font-bold" data-id="layer-2"
+                    data-name="Sale Badge" data-type="badge"
+                    style="left: 28px; top: 28px; width: 78px; height: 28px; z-index: 4; background: #ef4444; color: #ffffff; font-size: 11px; border-radius: 999px;">
+                    <span class="pointer-events-none">HOT SALE</span>
+                    <div class="resize-handle"></div>
+                </div>
+
+                <!-- 3. Title Layer -->
+                <div class="canvas-item flex items-center font-bold" data-id="layer-3" data-name="Product Title"
+                    data-type="text"
+                    style="left: 20px; top: 252px; width: 290px; height: 34px; z-index: 2; color: #111827; font-size: 20px; background: transparent; border-radius: 0px;">
+                    <span class="pointer-events-none">Nike Air Max Pulse</span>
+                    <div class="resize-handle"></div>
+                </div>
+
+                <!-- 4. Subtitle/Description Layer -->
+                <div class="canvas-item flex items-start" data-id="layer-4" data-name="Description" data-type="text"
+                    style="left: 20px; top: 290px; width: 295px; height: 44px; z-index: 2; color: #6b7280; font-size: 13px; background: transparent; border-radius: 0px;">
+                    <span class="pointer-events-none"> Breathable mesh upper with reactive air cushioning for all-day
+                        street comfort.</span>
+                    <div class="resize-handle"></div>
+                </div>
+
+                <!-- 5. Price Layer -->
+                <div class="canvas-item flex items-center font-extrabold" data-id="layer-5" data-name="Price Tag"
+                    data-type="price"
+                    style="left: 20px; top: 392px; width: 110px; height: 42px; z-index: 3; color: #111827; font-size: 24px; background: transparent; border-radius: 0px;">
+                    <span class="pointer-events-none">$149.00</span>
+                    <div class="resize-handle"></div>
+                </div>
+
+                <!-- 6. CTA Button Layer -->
+                <div class="canvas-item flex items-center justify-center font-semibold shadow-md" data-id="layer-6"
+                    data-name="Buy Button" data-type="button"
+                    style="left: 168px; top: 390px; width: 152px; height: 44px; z-index: 3; background: #111827; color: #ffffff; font-size: 14px; border-radius: 12px;">
+                    <span class="pointer-events-none">Add to Cart →</span>
+                    <div class="resize-handle"></div>
+                </div>
+
+            </div>
+        </main>
+
+        <!-- RIGHT SIDEBAR: INSPECTOR (Selected Element + Card Background & Shadow) -->
+        <aside class="w-80 bg-[#202227] border-l border-[#2e3138] overflow-y-auto p-4 space-y-6">
+
+            <!-- SECTION A: SELECTED ELEMENT PROPERTIES -->
+            <div id="element-inspector" class="bg-[#18191c] p-3.5 rounded-xl border border-[#2e3138]">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-blue-400">Selected Layer Properties</h2>
+                    <span id="selected-type-badge"
+                        class="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded">None</span>
+                </div>
+
+                <div id="no-selection-msg" class="text-xs text-gray-500 py-4 text-center">
+                    Click any element on the card to edit its text, image, color, or size.
+                </div>
+
+                <div id="selection-controls" class="space-y-3 hidden">
+                    <!-- X, Y, W, H Coordinates -->
+                    <div class="grid grid-cols-4 gap-1.5 text-center">
+                        <div class="bg-[#202227] p-1.5 rounded border border-[#2e3138]">
+                            <label class="text-[10px] text-gray-400 block">X</label>
+                            <input type="number" id="prop-x"
+                                class="w-full bg-transparent text-xs text-center font-mono focus:outline-none"
+                                onchange="updateFromInputs()">
+                        </div>
+                        <div class="bg-[#202227] p-1.5 rounded border border-[#2e3138]">
+                            <label class="text-[10px] text-gray-400 block">Y</label>
+                            <input type="number" id="prop-y"
+                                class="w-full bg-transparent text-xs text-center font-mono focus:outline-none"
+                                onchange="updateFromInputs()">
+                        </div>
+                        <div class="bg-[#202227] p-1.5 rounded border border-[#2e3138]">
+                            <label class="text-[10px] text-gray-400 block">W</label>
+                            <input type="number" id="prop-w"
+                                class="w-full bg-transparent text-xs text-center font-mono focus:outline-none"
+                                onchange="updateFromInputs()">
+                        </div>
+                        <div class="bg-[#202227] p-1.5 rounded border border-[#2e3138]">
+                            <label class="text-[10px] text-gray-400 block">H</label>
+                            <input type="number" id="prop-h"
+                                class="w-full bg-transparent text-xs text-center font-mono focus:outline-none"
+                                onchange="updateFromInputs()">
+                        </div>
+                    </div>
+
+                    <!-- Text Content Control -->
+                    <div id="text-control-group">
+                        <label class="text-[11px] text-gray-400 block mb-1">Text Content</label>
+                        <input type="text" id="prop-text"
+                            class="w-full bg-[#202227] border border-[#323640] rounded px-2.5 py-1.5 text-xs text-white"
+                            oninput="updateFromInputs()">
+                    </div>
+
+                    <!-- Image Source Control -->
+                    <div id="image-control-group" class="hidden space-y-2">
+                        <label class="text-[11px] text-gray-400 block">Image URL or Upload</label>
+                        <input type="text" id="prop-img-url" placeholder="Paste image URL..."
+                            class="w-full bg-[#202227] border border-[#323640] rounded px-2.5 py-1.5 text-xs text-white"
+                            oninput="updateImageSrc(this.value)">
+                        <label
+                            class="block text-center bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded py-1.5 text-xs cursor-pointer transition">
+                            📁 Upload Local Image
+                            <input type="file" accept="image/*" class="hidden" onchange="uploadLocalImage(event)">
+                        </label>
+                    </div>
+
+                    <!-- Colors & Font Size -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <div id="text-color-wrap">
+                            <label class="text-[11px] text-gray-400 block mb-1">Text Color</label>
+                            <input type="color" id="prop-color"
+                                class="w-full h-8 rounded cursor-pointer bg-[#202227] border border-[#323640]"
+                                oninput="updateFromInputs()">
+                        </div>
+                        <div id="bg-color-wrap">
+                            <label class="text-[11px] text-gray-400 block mb-1">Box Fill Color</label>
+                            <div class="flex gap-1">
+                                <input type="color" id="prop-bg"
+                                    class="flex-1 h-8 rounded cursor-pointer bg-[#202227] border border-[#323640]"
+                                    oninput="updateFromInputs()">
+                                <button onclick="makeBgTransparent()" title="Transparent Fill"
+                                    class="px-2 bg-[#202227] border border-[#323640] rounded text-[10px] hover:bg-[#2a2d35]">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div id="font-size-wrap">
+                            <label class="text-[11px] text-gray-400 block mb-1">Font Size (px)</label>
+                            <input type="number" id="prop-fontsize"
+                                class="w-full bg-[#202227] border border-[#323640] rounded px-2 py-1 text-xs"
+                                oninput="updateFromInputs()">
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-gray-400 block mb-1">Corner Radius</label>
+                            <input type="number" id="prop-radius"
+                                class="w-full bg-[#202227] border border-[#323640] rounded px-2 py-1 text-xs"
+                                oninput="updateFromInputs()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION B: CARD BACKGROUND & DIMENSIONS -->
+            <div class="bg-[#18191c] p-3.5 rounded-xl border border-[#2e3138] space-y-3">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400">Card Background & Size</h2>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[11px] text-gray-400 block mb-1">Card Width (px)</label>
+                        <input type="number" id="card-w" value="340"
+                            class="w-full bg-[#202227] border border-[#323640] rounded px-2 py-1 text-xs"
+                            oninput="updateCardStyle()">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-gray-400 block mb-1">Card Height (px)</label>
+                        <input type="number" id="card-h" value="460"
+                            class="w-full bg-[#202227] border border-[#323640] rounded px-2 py-1 text-xs"
+                            oninput="updateCardStyle()">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-[11px] text-gray-400 block mb-1">Background Mode</label>
+                    <select id="card-bg-mode"
+                        class="w-full bg-[#202227] border border-[#323640] rounded px-2 py-1.5 text-xs"
+                        onchange="updateCardStyle()">
+                        <option value="solid">Solid Color</option>
+                        <option value="gradient">Linear Gradient</option>
+                        <option value="glass">Dark Glassmorphism</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2" id="card-color-pickers">
+                    <div>
+                        <label class="text-[11px] text-gray-400 block mb-1">Primary Color</label>
+                        <input type="color" id="card-bg-1" value="#ffffff"
+                            class="w-full h-8 rounded cursor-pointer bg-[#202227]" oninput="updateCardStyle()">
+                    </div>
+                    <div id="card-bg-2-wrap">
+                        <label class="text-[11px] text-gray-400 block mb-1">Gradient End</label>
+                        <input type="color" id="card-bg-2" value="#e0e7ff"
+                            class="w-full h-8 rounded cursor-pointer bg-[#202227]" oninput="updateCardStyle()">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-[11px] text-gray-400 flex justify-between">
+                        <span>Card Corner Radius</span>
+                        <span id="card-radius-val">20px</span>
+                    </label>
+                    <input type="range" id="card-radius" min="0" max="48" value="20" class="w-full accent-emerald-500"
+                        oninput="updateCardStyle()">
+                </div>
+            </div>
+
+            <!-- SECTION C: SHADOW & HOVER EVENTS -->
+            <div class="bg-[#18191c] p-3.5 rounded-xl border border-[#2e3138] space-y-3">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-purple-400">Card Shadow & Hover Event</h2>
+
+                <div>
+                    <label class="text-[11px] text-gray-400 block mb-1">Hover Animation Effect</label>
+                    <select id="card-hover-effect"
+                        class="w-full bg-[#202227] border border-[#323640] rounded px-2 py-1.5 text-xs"
+                        onchange="updateCardHoverClass()">
+                        <option value="hover-lift">Float Up (TranslateY)</option>
+                        <option value="hover-scale">Smooth Zoom (Scale)</option>
+                        <option value="hover-tilt">3D Tilt Perspective</option>
+                        <option value="none">No Hover Effect</option>
+                    </select>
+                </div>
+
+                <label
+                    class="flex items-center gap-2 text-xs cursor-pointer bg-[#202227] p-2 rounded border border-[#323640]">
+                    <input type="checkbox" id="force-hover" class="accent-purple-500" onchange="updateCardHoverClass()">
+                    <span>Lock Hover State (Preview Active Hover)</span>
+                </label>
+
+                <div>
+                    <label class="text-[11px] text-gray-400 flex justify-between">
+                        <span>Shadow Blur</span>
+                        <span id="sh-blur-val">40px</span>
+                    </label>
+                    <input type="range" id="sh-blur" min="0" max="100" value="40" class="w-full accent-purple-500"
+                        oninput="updateCardStyle()">
+                </div>
+
+                <div>
+                    <label class="text-[11px] text-gray-400 flex justify-between">
+                        <span>Shadow Y-Offset</span>
+                        <span id="sh-y-val">20px</span>
+                    </label>
+                    <input type="range" id="sh-y" min="-30" max="60" value="20" class="w-full accent-purple-500"
+                        oninput="updateCardStyle()">
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <label class="text-[11px] text-gray-400">Shadow Color</label>
+                    <input type="color" id="sh-color" value="#000000" class="w-16 h-7 rounded cursor-pointer"
+                        oninput="updateCardStyle()">
+                </div>
+            </div>
+
+        </aside>
+    </div>
+
+    <!-- EXPORT CODE MODAL -->
+    <div id="export-modal" class="fixed inset-0 bg-black/75 hidden items-center justify-center z-50 p-6">
+        <div class="bg-[#202227] border border-[#383c47] rounded-2xl max-w-2xl w-full p-5 shadow-2xl">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-bold text-white">Exported HTML & CSS (Exact Coordinates)</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-white text-sm">✕ Close</button>
+            </div>
+            <textarea id="export-code" readonly
+                class="w-full h-80 bg-[#121316] text-emerald-400 font-mono text-xs p-3 rounded-lg border border-[#2e3138] focus:outline-none"></textarea>
+            <div class="mt-3 flex justify-end gap-2">
+                <button onclick="copyExportCode()"
+                    class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-4 py-2 rounded-lg">
+                    📋 Copy to Clipboard
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const card = document.getElementById('product-card');
+        const layersList = document.getElementById('layers-list');
+        const guideV = document.getElementById('guide-v');
+        const guideH = document.getElementById('guide-h');
+
+        let selectedEl = null;
+        let isDragging = false;
+        let isResizing = false;
+        let startX, startY, startLeft, startTop, startW, startH;
+        let layerCounter = 7;
+
+        // Initialize interactive listeners on existing items
+        function initCanvas() {
+            document.querySelectorAll('.canvas-item').forEach(bindItemEvents);
+            renderLayersPanel();
+            selectElement(document.querySelector('[data-id="layer-1"]'));
+        }
+
+        function bindItemEvents(el) {
+            el.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+                selectElement(el);
+
+                if (e.target.classList.contains('resize-handle')) {
+                    isResizing = true;
+                } else {
+                    isDragging = true;
+                }
+
+                startX = e.clientX;
+                startY = e.clientY;
+                startLeft = parseInt(el.style.left) || 0;
+                startTop = parseInt(el.style.top) || 0;
+                startW = parseInt(el.style.width) || el.offsetWidth;
+                startH = parseInt(el.style.height) || el.offsetHeight;
+            });
+        }
+
+        // Global Mouse Move for Freeform Drag & Resize
+        window.addEventListener('mousemove', (e) => {
+            if (!selectedEl || (!isDragging && !isResizing)) return;
+
+            const snap = document.getElementById('snap-toggle').checked ? 5 : 1;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+
+            if (isDragging) {
+                let newLeft = Math.round((startLeft + dx) / snap) * snap;
+                let newTop = Math.round((startTop + dy) / snap) * snap;
+
+                // Center alignment guides check
+                const cardW = card.clientWidth;
+                const cardH = card.clientHeight;
+                const elCenterX = newLeft + selectedEl.offsetWidth / 2;
+                const elCenterY = newTop + selectedEl.offsetHeight / 2;
+
+                if (Math.abs(elCenterX - cardW / 2) < 6) {
+                    newLeft = Math.round(cardW / 2 - selectedEl.offsetWidth / 2);
+                    guideV.style.display = 'block';
+                } else {
+                    guideV.style.display = 'none';
+                }
+
+                if (Math.abs(elCenterY - cardH / 2) < 6) {
+                    newTop = Math.round(cardH / 2 - selectedEl.offsetHeight / 2);
+                    guideH.style.display = 'block';
+                } else {
+                    guideH.style.display = 'none';
+                }
+
+                selectedEl.style.left = newLeft + 'px';
+                selectedEl.style.top = newTop + 'px';
+            }
+
+            if (isResizing) {
+                let newW = Math.max(24, Math.round((startW + dx) / snap) * snap);
+                let newH = Math.max(20, Math.round((startH + dy) / snap) * snap);
+                selectedEl.style.width = newW + 'px';
+                selectedEl.style.height = newH + 'px';
+            }
+
+            populateInspector();
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+            isResizing = false;
+            guideV.style.display = 'none';
+            guideH.style.display = 'none';
+        });
+
+        // Keyboard Arrow Nudge & Delete
+        window.addEventListener('keydown', (e) => {
+            if (!selectedEl) return;
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+
+            const step = e.shiftKey ? 10 : 1;
+            if (e.key === 'ArrowLeft') { selectedEl.style.left = (parseInt(selectedEl.style.left) - step) + 'px'; e.preventDefault(); }
+            if (e.key === 'ArrowRight') { selectedEl.style.left = (parseInt(selectedEl.style.left) + step) + 'px'; e.preventDefault(); }
+            if (e.key === 'ArrowUp') { selectedEl.style.top = (parseInt(selectedEl.style.top) - step) + 'px'; e.preventDefault(); }
+            if (e.key === 'ArrowDown') { selectedEl.style.top = (parseInt(selectedEl.style.top) + step) + 'px'; e.preventDefault(); }
+            if (e.key === 'Delete' || e.key === 'Backspace') { deleteSelected(); e.preventDefault(); }
+            populateInspector();
+        });
+
+        function selectElement(el) {
+            document.querySelectorAll('.canvas-item').forEach(item => item.classList.remove('selected'));
+            selectedEl = el;
+            if (el) {
+                el.classList.add('selected');
+                document.getElementById('no-selection-msg').classList.add('hidden');
+                document.getElementById('selection-controls').classList.remove('hidden');
+                populateInspector();
+            }
+            renderLayersPanel();
+        }
+
+        function deselectAll(e) {
+            if (e.target.id === 'workspace' || e.target.id === 'product-card') {
+                document.querySelectorAll('.canvas-item').forEach(item => item.classList.remove('selected'));
+                selectedEl = null;
+                document.getElementById('no-selection-msg').classList.remove('hidden');
+                document.getElementById('selection-controls').classList.add('hidden');
+                document.getElementById('selected-type-badge').innerText = 'None';
+                renderLayersPanel();
+            }
+        }
+
+        function rgbToHex(rgb) {
+            if (!rgb || rgb === 'transparent' || rgb === 'rgba(0, 0, 0, 0)') return '#ffffff';
+            if (rgb.startsWith('#')) return rgb;
+            const vals = rgb.match(/\d+/g);
+            if (!vals) return '#000000';
+            return '#' + vals.slice(0, 3).map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
+        }
+
+        function populateInspector() {
+            if (!selectedEl) return;
+            const type = selectedEl.dataset.type;
+            document.getElementById('selected-type-badge').innerText = selectedEl.dataset.name;
+
+            document.getElementById('prop-x').value = parseInt(selectedEl.style.left) || 0;
+            document.getElementById('prop-y').value = parseInt(selectedEl.style.top) || 0;
+            document.getElementById('prop-w').value = parseInt(selectedEl.style.width) || selectedEl.offsetWidth;
+            document.getElementById('prop-h').value = parseInt(selectedEl.style.height) || selectedEl.offsetHeight;
+            document.getElementById('prop-radius').value = parseInt(selectedEl.style.borderRadius) || 0;
+
+            const textGroup = document.getElementById('text-control-group');
+            const imgGroup = document.getElementById('image-control-group');
+
+            if (type === 'image') {
+                textGroup.classList.add('hidden');
+                imgGroup.classList.remove('hidden');
+                document.getElementById('prop-img-url').value = selectedEl.querySelector('img').src;
+            } else if (type === 'shape') {
+                textGroup.classList.add('hidden');
+                imgGroup.classList.add('hidden');
+            } else {
+                textGroup.classList.remove('hidden');
+                imgGroup.classList.add('hidden');
+                document.getElementById('prop-text').value = selectedEl.querySelector('span').innerText;
+                document.getElementById('prop-color').value = rgbToHex(selectedEl.style.color);
+                document.getElementById('prop-fontsize').value = parseInt(selectedEl.style.fontSize) || 14;
+            }
+
+            document.getElementById('prop-bg').value = rgbToHex(selectedEl.style.backgroundColor);
+        }
+
+        function updateFromInputs() {
+            if (!selectedEl) return;
+            selectedEl.style.left = document.getElementById('prop-x').value + 'px';
+            selectedEl.style.top = document.getElementById('prop-y').value + 'px';
+            selectedEl.style.width = document.getElementById('prop-w').value + 'px';
+            selectedEl.style.height = document.getElementById('prop-h').value + 'px';
+            selectedEl.style.borderRadius = document.getElementById('prop-radius').value + 'px';
+
+            const span = selectedEl.querySelector('span');
+            if (span) {
+                span.innerText = document.getElementById('prop-text').value;
+                selectedEl.style.color = document.getElementById('prop-color').value;
+                selectedEl.style.fontSize = document.getElementById('prop-fontsize').value + 'px';
+            }
+            selectedEl.style.backgroundColor = document.getElementById('prop-bg').value;
+        }
+
+        function makeBgTransparent() {
+            if (!selectedEl) return;
+            selectedEl.style.background = 'transparent';
+        }
+
+        function updateImageSrc(url) {
+            if (!selectedEl || selectedEl.dataset.type !== 'image') return;
+            selectedEl.querySelector('img').src = url;
+        }
+
+        function uploadLocalImage(e) {
+            const file = e.target.files[0];
+            if (!file || !selectedEl) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                selectedEl.querySelector('img').src = ev.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Add New Freeform Element to Canvas
+        function addElement(type) {
+            const el = document.createElement('div');
+            const id = 'layer-' + (layerCounter++);
+            el.className = 'canvas-item flex items-center';
+            el.dataset.id = id;
+            el.dataset.type = type;
+            el.style.zIndex = document.querySelectorAll('.canvas-item').length + 1;
+
+            if (type === 'image') {
+                el.dataset.name = 'Image ' + layerCounter;
+                el.style.cssText += 'left:40px; top:40px; width:180px; height:140px; border-radius:12px; overflow:hidden; background:#e5e7eb;';
+                el.innerHTML = `<img src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80" class="w-full h-full object-cover pointer-events-none" /><div class="resize-handle"></div>`;
+            } else if (type === 'text') {
+                el.dataset.name = 'Text ' + layerCounter;
+                el.style.cssText += 'left:30px; top:200px; width:200px; height:32px; color:#111827; font-size:16px; font-weight:600; background:transparent;';
+                el.innerHTML = `<span class="pointer-events-none">Editable Text Layer</span><div class="resize-handle"></div>`;
+            } else if (type === 'price') {
+                el.dataset.name = 'Price ' + layerCounter;
+                el.style.cssText += 'left:30px; top:320px; width:100px; height:36px; color:#059669; font-size:22px; font-weight:800; background:transparent;';
+                el.innerHTML = `<span class="pointer-events-none">$99.00</span><div class="resize-handle"></div>`;
+            } else if (type === 'badge') {
+                el.dataset.name = 'Badge ' + layerCounter;
+                el.className += ' justify-center font-bold';
+                el.style.cssText += 'left:24px; top:24px; width:80px; height:28px; background:#2563eb; color:#ffffff; font-size:11px; border-radius:999px;';
+                el.innerHTML = `<span class="pointer-events-none">NEW DROP</span><div class="resize-handle"></div>`;
+            } else if (type === 'button') {
+                el.dataset.name = 'Button ' + layerCounter;
+                el.className += ' justify-center font-semibold';
+                el.style.cssText += 'left:80px; top:360px; width:160px; height:44px; background:#111827; color:#ffffff; font-size:14px; border-radius:10px;';
+                el.innerHTML = `<span class="pointer-events-none">Buy Now</span><div class="resize-handle"></div>`;
+            } else if (type === 'shape') {
+                el.dataset.name = 'Shape Box ' + layerCounter;
+                el.style.cssText += 'left:50px; top:120px; width:220px; height:100px; background:#f3f4f6; border-radius:16px; z-index:1;';
+                el.innerHTML = `<div class="resize-handle"></div>`;
+            }
+
+            card.appendChild(el);
+            bindItemEvents(el);
+            selectElement(el);
+        }
+
+        // Render Photoshop-style Layers List
+        function renderLayersPanel() {
+            layersList.innerHTML = '';
+            const items = Array.from(document.querySelectorAll('.canvas-item'))
+                .sort((a, b) => (parseInt(b.style.zIndex) || 1) - (parseInt(a.style.zIndex) || 1));
+
+            items.forEach(item => {
+                const isSel = item === selectedEl;
+                const row = document.createElement('div');
+                row.className = `flex items-center justify-between px-2.5 py-1.5 rounded text-xs cursor-pointer border ${isSel ? 'bg-blue-600/20 border-blue-500 text-white font-semibold' : 'bg-[#18191c] border-[#2e3138] text-gray-300 hover:bg-[#252830]'
+                    }`;
+                row.innerHTML = `
+          <span>${item.dataset.name}</span>
+          <span class="text-[10px] text-gray-500">z:${item.style.zIndex || 1}</span>
+        `;
+                row.onclick = () => selectElement(item);
+                layersList.appendChild(row);
+            });
+        }
+
+        function changeZIndex(delta) {
+            if (!selectedEl) return;
+            const current = parseInt(selectedEl.style.zIndex) || 1;
+            selectedEl.style.zIndex = Math.max(1, current + delta);
+            renderLayersPanel();
+        }
+
+        function deleteSelected() {
+            if (!selectedEl) return;
+            selectedEl.remove();
+            selectedEl = null;
+            document.getElementById('no-selection-msg').classList.remove('hidden');
+            document.getElementById('selection-controls').classList.add('hidden');
+            renderLayersPanel();
+        }
+
+        // Card Orientation Presets (Smartly repositions elements for Landscape vs Portrait)
+        function setCardOrientation(mode) {
+            ['portrait', 'landscape', 'square'].forEach(m => {
+                const btn = document.getElementById('btn-' + m);
+                btn.className = m === mode
+                    ? 'px-3 py-1 text-xs font-medium rounded bg-blue-600 text-white transition'
+                    : 'px-3 py-1 text-xs font-medium rounded text-gray-400 hover:text-white transition';
+            });
+
+            const img = document.querySelector('[data-id="layer-1"]');
+            const badge = document.querySelector('[data-id="layer-2"]');
+            const title = document.querySelector('[data-id="layer-3"]');
+            const desc = document.querySelector('[data-id="layer-4"]');
+            const price = document.querySelector('[data-id="layer-5"]');
+            const btn = document.querySelector('[data-id="layer-6"]');
+
+            if (mode === 'portrait') {
+                document.getElementById('card-w').value = 340;
+                document.getElementById('card-h').value = 460;
+                if (img) { img.style.left = '16px'; img.style.top = '16px'; img.style.width = '308px'; img.style.height = '220px'; }
+                if (badge) { badge.style.left = '28px'; badge.style.top = '28px'; }
+                if (title) { title.style.left = '20px'; title.style.top = '252px'; title.style.width = '290px'; }
+                if (desc) { desc.style.left = '20px'; desc.style.top = '290px'; desc.style.width = '295px'; }
+                if (price) { price.style.left = '20px'; price.style.top = '392px'; }
+                if (btn) { btn.style.left = '168px'; btn.style.top = '390px'; }
+            } else if (mode === 'landscape') {
+                document.getElementById('card-w').value = 540;
+                document.getElementById('card-h').value = 320;
+                if (img) { img.style.left = '16px'; img.style.top = '16px'; img.style.width = '230px'; img.style.height = '288px'; }
+                if (badge) { badge.style.left = '28px'; badge.style.top = '28px'; }
+                if (title) { title.style.left = '266px'; title.style.top = '36px'; title.style.width = '250px'; }
+                if (desc) { desc.style.left = '266px'; desc.style.top = '82px'; desc.style.width = '250px'; desc.style.height = '65px'; }
+                if (price) { price.style.left = '266px'; price.style.top = '185px'; }
+                if (btn) { btn.style.left = '266px'; btn.style.top = '244px'; btn.style.width = '248px'; }
+            } else if (mode === 'square') {
+                document.getElementById('card-w').value = 400;
+                document.getElementById('card-h').value = 400;
+                if (img) { img.style.left = '16px'; img.style.top = '16px'; img.style.width = '368px'; img.style.height = '200px'; }
+                if (title) { title.style.left = '20px'; title.style.top = '230px'; }
+                if (desc) { desc.style.left = '20px'; desc.style.top = '266px'; desc.style.width = '355px'; }
+                if (price) { price.style.left = '20px'; price.style.top = '336px'; }
+                if (btn) { btn.style.left = '220px'; btn.style.top = '334px'; }
+            }
+
+            updateCardStyle();
+            populateInspector();
+        }
+
+        // Update Card Background, Radius & Shadow
+        function updateCardStyle() {
+            const w = document.getElementById('card-w').value;
+            const h = document.getElementById('card-h').value;
+            const radius = document.getElementById('card-radius').value;
+            const mode = document.getElementById('card-bg-mode').value;
+            const c1 = document.getElementById('card-bg-1').value;
+            const c2 = document.getElementById('card-bg-2').value;
+
+            card.style.width = w + 'px';
+            card.style.height = h + 'px';
+            card.style.borderRadius = radius + 'px';
+            document.getElementById('card-radius-val').innerText = radius + 'px';
+
+            if (mode === 'solid') {
+                card.style.background = c1;
+                card.style.backdropFilter = 'none';
+            } else if (mode === 'gradient') {
+                card.style.background = `linear-gradient(135deg, ${c1}, ${c2})`;
+                card.style.backdropFilter = 'none';
+            } else if (mode === 'glass') {
+                card.style.background = 'rgba(255, 255, 255, 0.08)';
+                card.style.backdropFilter = 'blur(16px)';
+                card.style.border = '1px solid rgba(255,255,255,0.18)';
+            }
+
+            // Shadow
+            const blur = document.getElementById('sh-blur').value;
+            const y = document.getElementById('sh-y').value;
+            const shCol = document.getElementById('sh-color').value;
+            document.getElementById('sh-blur-val').innerText = blur + 'px';
+            document.getElementById('sh-y-val').innerText = y + 'px';
+
+            card.style.boxShadow = `0 ${y}px ${blur}px ${shCol}66`;
+        }
+
+        function updateCardHoverClass() {
+            const effect = document.getElementById('card-hover-effect').value;
+            const force = document.getElementById('force-hover').checked;
+            card.className = 'relative overflow-hidden';
+            if (effect !== 'none') card.classList.add(effect);
+            if (force) card.classList.add('force-hover');
+        }
+
+        // Export Clean Standalone HTML & CSS
+        function exportCardHTML() {
+            const clone = card.cloneNode(true);
+            clone.querySelectorAll('.resize-handle, .guide-line-v, .guide-line-h').forEach(e => e.remove());
+            clone.querySelectorAll('.canvas-item').forEach(el => {
+                el.classList.remove('selected', 'canvas-item');
+                el.style.position = 'absolute';
+            });
+
+            const code = `<!-- Generated Freeform Product Card -->
+<style>
+  .custom-product-card {
+    position: relative;
+    overflow: hidden;
+    width: ${card.style.width};
+    height: ${card.style.height};
+    border-radius: ${card.style.borderRadius};
+    background: ${card.style.background};
+    box-shadow: ${card.style.boxShadow};
+    transition: transform 0.35s ease, box-shadow 0.35s ease;
+    font-family: 'Inter', sans-serif;
+  }
+  .custom-product-card:hover {
+    transform: translateY(-8px);
+  }
+</style>
+
+<div class="custom-product-card">
+${clone.innerHTML.trim()}
+</div>`;
+
+            document.getElementById('export-code').value = code;
+            document.getElementById('export-modal').classList.remove('hidden');
+            document.getElementById('export-modal').classList.add('flex');
+        }
+
+        function closeModal() {
+            document.getElementById('export-modal').classList.add('hidden');
+            document.getElementById('export-modal').classList.remove('flex');
+        }
+
+        function copyExportCode() {
+            const textarea = document.getElementById('export-code');
+            textarea.select();
+            document.execCommand('copy');
+        }
+
+        initCanvas();
+    </script>
+</body>
+
+</html>
