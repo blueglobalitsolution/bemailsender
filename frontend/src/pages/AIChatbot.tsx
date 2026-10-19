@@ -240,6 +240,29 @@ export default function AIChatbot() {
     }
   };
 
+  useEffect(() => {
+    const handleGlobalSave = () => {
+      handleSaveSettings();
+    };
+
+    const handleGlobalPreview = () => {
+      const page = landingPages.find((p) => p.id === selectedPageId);
+      if (page) {
+        window.open(`/p/${page.slug}`, "_blank");
+      } else {
+        toast.error("Please select a landing page first");
+      }
+    };
+
+    window.addEventListener("save-chatbot-settings", handleGlobalSave);
+    window.addEventListener("preview-chatbot-page", handleGlobalPreview);
+
+    return () => {
+      window.removeEventListener("save-chatbot-settings", handleGlobalSave);
+      window.removeEventListener("preview-chatbot-page", handleGlobalPreview);
+    };
+  }, [selectedPageId, chatbotEnabled, chatbotName, chatbotWelcomeMessage, chatbotScript, landingPages]);
+
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!userInput.trim() || chatLoading) return;
@@ -388,49 +411,6 @@ export default function AIChatbot() {
 
   return (
     <div className="space-y-6 font-sans pb-16 max-w-7xl mx-auto">
-      {/* Top Header Card */}
-      <div className="bg-[#1E252D] border border-[#2C353D] rounded-2xl p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-purple-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-md shrink-0">
-            <Bot className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                AI Sales Chatbot
-              </h1>
-            </div>
-            <p className="text-xs text-[#8E9BA8] mt-1 max-w-2xl">
-              Floating conversational agent that greets page visitors, captures contact details, and answers product questions using your custom script 24/7.
-            </p>
-          </div>
-        </div>
-
-        {/* Global Action Button */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          {selectedPage && (
-            <a
-              href={`/p/${selectedPage.slug}`}
-              target="_blank"
-              rel="noreferrer"
-              className="px-3.5 py-2.5 bg-[#222930] hover:bg-[#2C353D] border border-[#2C353D] text-[#CBD5E1] hover:text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer"
-              title="Open Public Page"
-            >
-              <ExternalLink className="w-4 h-4" />
-              <span>Preview Live</span>
-            </a>
-          )}
-          <button
-            onClick={handleSaveSettings}
-            disabled={saving}
-            className="px-5 py-2.5 bg-white hover:bg-[#CBD5E1] text-[#161B1F] text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-md disabled:opacity-50"
-          >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            <span>Save Settings</span>
-          </button>
-        </div>
-      </div>
-
       {/* Target Landing Page Switcher Bar */}
       <div className="bg-[#191F26] border border-[#2C353D] rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">

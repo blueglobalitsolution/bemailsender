@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, Menu, X, BarChart3, PanelLeftClose, PanelLeftOpen, Plus, Inbox as InboxIcon, Sparkles, UserPlus, Upload, Globe, Compass, Server, Bot } from "lucide-react";
+import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, Menu, X, BarChart3, PanelLeftClose, PanelLeftOpen, Plus, Inbox as InboxIcon, Sparkles, UserPlus, Upload, Globe, Compass, Server, Bot, Save, ExternalLink } from "lucide-react";
 import { cn } from "../lib/utils";
 import Beams from "./Beams";
 
@@ -238,6 +238,23 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
                   className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold text-xs px-4 py-2 rounded-md flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   <Upload className="w-3.5 h-3.5" /> Upload CSV
+                </button>
+              </div>
+            {location.pathname === "/chatbot" && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent("preview-chatbot-page"))}
+                  className="bg-[#222930] hover:bg-[#29323A] border border-[#2C353D] text-[#CBD5E1] hover:text-white font-medium text-xs px-3.5 py-2 rounded-md flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="Open live public landing page preview"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> Preview Live
+                </button>
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent("save-chatbot-settings"))}
+                  className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold text-xs px-3.5 py-2 rounded-md flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                  title="Save Chatbot Settings"
+                >
+                  <Save className="w-3.5 h-3.5" /> Save Settings
                 </button>
               </div>
             )}
