@@ -97,6 +97,39 @@ export default function SavedCSVs() {
     }
   };
 
+  const handleDownloadSampleCsv = () => {
+    const sampleHeaders = ["email", "first_name", "last_name", "company", "title", "website"];
+    const sampleRows = [
+      ["alex.johnson@example.com", "Alex", "Johnson", "Acme Corp", "Head of Growth", "https://example.com"],
+      ["sarah.miller@techcorp.io", "Sarah", "Miller", "TechCorp Solutions", "VP Sales", "https://techcorp.io"],
+      ["david.smith@innovate.co", "David", "Smith", "Innovate Digital", "Founder & CEO", "https://innovate.co"],
+      ["emma.watson@growthwave.com", "Emma", "Watson", "GrowthWave Media", "Marketing Director", "https://growthwave.com"],
+    ];
+
+    const escapeCell = (val: string) => {
+      const str = String(val ?? "");
+      if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const csvContent = [
+      sampleHeaders.join(","),
+      ...sampleRows.map(r => r.map(escapeCell).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "sample_leads_format.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Sample CSV format template downloaded!");
+  };
+
   useEffect(() => {
     fetchCsvs();
 
@@ -113,12 +146,18 @@ export default function SavedCSVs() {
       setNewFile(null);
     };
 
+    const handleDownloadSample = () => {
+      handleDownloadSampleCsv();
+    };
+
     window.addEventListener("open-add-contact-modal", handleOpenAddContact);
     window.addEventListener("open-upload-csv-modal", handleOpenUploadCsv);
+    window.addEventListener("download-sample-csv", handleDownloadSample);
 
     return () => {
       window.removeEventListener("open-add-contact-modal", handleOpenAddContact);
       window.removeEventListener("open-upload-csv-modal", handleOpenUploadCsv);
+      window.removeEventListener("download-sample-csv", handleDownloadSample);
     };
   }, []);
 
@@ -554,36 +593,47 @@ export default function SavedCSVs() {
           )}
         </div>
 
-        {/* Right: Active List Meta Actions */}
-        {activeCsvId && (
-          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-            <button
-              onClick={() => setIsValidationOpen(true)}
-              className="px-3 py-2 bg-[#14181C] hover:bg-[#1E252D] text-[#CBD5E1] hover:text-white border border-[#2C353D] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="Validate & Clean invalid emails"
-            >
-              <Shield className="w-3.5 h-3.5 text-amber-400" />
-              <span>Validate CSV</span>
-            </button>
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+          <button
+            onClick={handleDownloadSampleCsv}
+            className="px-3 py-2 bg-[#14181C] hover:bg-[#1E252D] text-[#CBD5E1] hover:text-white border border-[#2C353D] hover:border-emerald-500/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Download demo CSV format template"
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Sample CSV</span>
+          </button>
 
-            <button
-              onClick={handleDownloadCsv}
-              className="px-3 py-2 bg-[#14181C] hover:bg-[#1E252D] text-[#CBD5E1] hover:text-white border border-[#2C353D] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="Export as CSV file"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export CSV</span>
-            </button>
+          {activeCsvId && (
+            <>
+              <button
+                onClick={() => setIsValidationOpen(true)}
+                className="px-3 py-2 bg-[#14181C] hover:bg-[#1E252D] text-[#CBD5E1] hover:text-white border border-[#2C353D] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Validate & Clean invalid emails"
+              >
+                <Shield className="w-3.5 h-3.5 text-amber-400" />
+                <span>Validate CSV</span>
+              </button>
 
-            <button
-              onClick={() => handleDeleteList(activeCsvId)}
-              className="p-2 bg-[#14181C] hover:bg-rose-950/40 text-[#8E9BA8] hover:text-rose-400 border border-[#2C353D] hover:border-rose-900 rounded-xl text-xs transition-colors cursor-pointer"
-              title="Delete this entire list"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
+              <button
+                onClick={handleDownloadCsv}
+                className="px-3 py-2 bg-[#14181C] hover:bg-[#1E252D] text-[#CBD5E1] hover:text-white border border-[#2C353D] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Export as CSV file"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export CSV</span>
+              </button>
+
+              <button
+                onClick={() => handleDeleteList(activeCsvId)}
+                className="p-2 bg-[#14181C] hover:bg-rose-950/40 text-[#8E9BA8] hover:text-rose-400 border border-[#2C353D] hover:border-rose-900 rounded-xl text-xs transition-colors cursor-pointer"
+                title="Delete this entire list"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Main Table Card */}
@@ -986,23 +1036,36 @@ export default function SavedCSVs() {
                 />
               </div>
 
-              <div className="p-8 text-center relative cursor-pointer border-2 border-dashed border-[#2C353D] hover:border-white/50 rounded-xl transition-colors bg-[#14181C]">
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={(e) => setNewFile(e.target.files?.[0] || null)}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  required
-                />
-                <Upload className="w-8 h-8 text-[#8E9BA8] mx-auto mb-2" />
-                <p className="font-semibold text-xs text-white">
-                  {newFile ? newFile.name : "Click to choose CSV file"}
-                </p>
-                {newFile && (
-                  <p className="text-[11px] text-emerald-400 mt-1 font-mono">
-                    {(newFile.size / 1024).toFixed(1)} KB
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs px-0.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#CBD5E1]">CSV File *</span>
+                  <button
+                    type="button"
+                    onClick={handleDownloadSampleCsv}
+                    className="text-emerald-400 hover:text-emerald-300 font-semibold underline flex items-center gap-1 cursor-pointer text-[11px]"
+                  >
+                    <Download className="w-3 h-3" /> Download Sample Format
+                  </button>
+                </div>
+
+                <div className="p-8 text-center relative cursor-pointer border-2 border-dashed border-[#2C353D] hover:border-white/50 rounded-xl transition-colors bg-[#14181C]">
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={(e) => setNewFile(e.target.files?.[0] || null)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    required
+                  />
+                  <Upload className="w-8 h-8 text-[#8E9BA8] mx-auto mb-2" />
+                  <p className="font-semibold text-xs text-white">
+                    {newFile ? newFile.name : "Click to choose CSV file"}
                   </p>
-                )}
+                  {newFile && (
+                    <p className="text-[11px] text-emerald-400 mt-1 font-mono">
+                      {(newFile.size / 1024).toFixed(1)} KB
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="flex justify-end gap-2.5 pt-2 border-t border-[#2C353D]">
