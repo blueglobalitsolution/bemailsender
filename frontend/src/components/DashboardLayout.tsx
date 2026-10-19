@@ -36,9 +36,9 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
 
   const navItems = [
     { name: "Analytics", path: "/analytics", icon: BarChart3 },
+    { name: "Automation Wizard", path: "/wizard", icon: Wand2 },
     { name: "Inbound & Replies", path: "/inbox", icon: InboxIcon },
     { name: "Find Leads", path: "/lead-scraper", icon: Compass },
-    { name: "Automation Wizard", path: "/wizard", icon: Wand2 },
     { name: "Email Templates", path: "/templates", icon: FileText },
     { name: "Landing Pages", path: "/landing-pages", icon: Globe },
     { name: "AI Chatbot", path: "/chatbot", icon: Bot },
