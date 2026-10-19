@@ -13,6 +13,7 @@ from .views import (
     LandingPageViewSet,
     public_landing_page_data,
     public_landing_page_html,
+    public_landing_chat,
     public_form_submit,
     inbound_webhook,
     health_check,
@@ -57,6 +58,7 @@ urlpatterns = [
     path("inbound/webhook/<str:token>/", inbound_webhook, name="inbound-webhook"),
     path("public/page/<slug:slug>/", public_landing_page_data, name="public-landing-page"),
     path("public/html/<slug:slug>/", public_landing_page_html, name="public-landing-page-html"),
+    path("public/chat/<slug:slug>/", public_landing_chat, name="public-landing-chat"),
     path("public/form-submit/<str:shortcode>/", public_form_submit, name="public-form-submit"),
     path("", include(router.urls)),
 ]

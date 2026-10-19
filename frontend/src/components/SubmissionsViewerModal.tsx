@@ -556,16 +556,35 @@ export default function SubmissionsViewerModal({
               )}
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {selectedLead.data && Object.entries(selectedLead.data).map(([field, val]) => (
-                  <div key={field} className="p-2 rounded bg-[#0f1418] border border-[#2b353f]">
-                    <span className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 truncate capitalize">
-                      {field.replace(/_/g, " ")}
-                    </span>
-                    <span className="block text-xs font-semibold text-white mt-0.5 break-all">
-                      {String(val) || "-"}
-                    </span>
-                  </div>
-                ))}
+                {selectedLead.data && Object.entries(selectedLead.data).map(([field, val]) => {
+                  if (field === "chat_history" && Array.isArray(val)) {
+                    return (
+                      <div key={field} className="col-span-full p-2.5 rounded-lg bg-[#0f1418] border border-[#2b353f] space-y-1.5">
+                        <span className="block text-[9px] font-bold uppercase tracking-wider text-purple-400">
+                          Chat Conversation Transcript ({val.length} messages)
+                        </span>
+                        <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1 font-mono text-[11px]">
+                          {val.map((msg: any, mi: number) => (
+                            <div key={mi} className={`p-2 rounded-md ${msg.role === "user" ? "bg-white/10 text-white" : "bg-[#222930] text-emerald-300"}`}>
+                              <strong className="text-[9px] uppercase tracking-wider mr-1.5">{msg.role === "user" ? "Visitor" : "Laya Bot"}:</strong>
+                              {msg.content || msg.text}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={field} className="p-2 rounded bg-[#0f1418] border border-[#2b353f]">
+                      <span className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 truncate capitalize">
+                        {field.replace(/_/g, " ")}
+                      </span>
+                      <span className="block text-xs font-semibold text-white mt-0.5 break-all">
+                        {String(val) || "-"}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

@@ -81,6 +81,69 @@ class LayaAIService:
         return ""
 
     @classmethod
+    def answer_landing_page_chat(cls, product_script: str, conversation_history: list, user_message: str, visitor_name: str = "") -> str:
+        """
+        Generates conversational answers to visitor queries using Laya / LLaMA,
+        strictly contextualized by the product script provided by the mailer.
+        """
+        api_key = getattr(settings, "LAYA_API_KEY", "5e32cdb0b828536dcabf517d42f63865")
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+
+        visitor_intro = f"The visitor's name is {visitor_name}. " if visitor_name else ""
+        system_content = (
+            f"You are a friendly, helpful, and concise sales assistant on a product landing page. {visitor_intro}"
+            "Answer the visitor's question warmly and concisely in 2-3 short sentences. "
+            "Use ONLY the facts, pricing, features, and information from the following Product Script & FAQ.\n"
+            "If the information is not provided in the script, politely say that you don't have that specific detail on hand, "
+            "but a team member will reach out directly via email.\n\n"
+            f"=== Product Script & Knowledge Base ===\n{product_script.strip() or 'No specific product script provided. Answer general inquiries politely and recommend contacting sales.'}"
+        )
+
+        messages = [{"role": "system", "content": system_content}]
+
+        # Include recent history (up to last 6 messages)
+        if isinstance(conversation_history, list):
+            for m in conversation_history[-6:]:
+                role = "assistant" if m.get("role") in ["bot", "assistant"] else "user"
+                content = str(m.get("content") or m.get("text") or "").strip()
+                if content:
+                    messages.append({"role": role, "content": content})
+
+        messages.append({"role": "user", "content": user_message.strip()})
+
+        payload = {
+            "model": "lfm2.5-1.2b",
+            "messages": messages,
+            "max_tokens": 250,
+            "temperature": 0.6
+        }
+
+        endpoints = [
+            getattr(settings, "LLAMA_BASE_URL", "http://127.0.0.1:8080/v1/chat/completions"),
+            getattr(settings, "LLAMA_REMOTE_URL", "https://blueglobal.qzz.io/v1/chat/completions")
+        ]
+        for url in endpoints:
+            try:
+                response = requests.post(url, headers=headers, json=payload, timeout=8)
+                if response.status_code == 200:
+                    data = response.json()
+                    choices = data.get("choices", [])
+                    if choices and "message" in choices[0]:
+                        reply = choices[0]["message"].get("content", "").strip()
+                        if reply:
+                            return reply
+            except Exception as e:
+                logger.debug("Laya/Llama chat error on %s: %s", url, e)
+
+        # Fallback response if offline
+        name_prefix = f"{visitor_name}, " if visitor_name else ""
+        script_snippet = product_script[:180] + '...' if len(product_script) > 180 else product_script
+        return f"Thanks for asking, {name_prefix}! Based on our details: {script_snippet or 'Our team has received your note and will follow up shortly with full details.'}"
+
+    @classmethod
     def generate_email_from_reference(cls, reference: str, requested_tone: str = "auto", custom_instruction: str = "") -> dict:
         """
         Two-stage AI workflow:

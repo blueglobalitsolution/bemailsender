@@ -289,6 +289,11 @@ class LandingPage(models.Model):
     slug = models.SlugField(max_length=150, unique=True)
     html_content = models.TextField(help_text="Custom HTML containing form shortcode like {{form_xxx}}")
     views_count = models.PositiveIntegerField(default=0)
+    # Interactive Chatbot Settings
+    chatbot_enabled = models.BooleanField(default=True, help_text="Enable floating AI chatbot widget")
+    chatbot_name = models.CharField(max_length=100, default="AI Sales Assistant")
+    chatbot_welcome_message = models.TextField(default="Hi there! 👋 How can I help you today?")
+    chatbot_script = models.TextField(blank=True, default="", help_text="Product information, pricing, and FAQ for Laya to answer visitor questions")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -305,7 +310,7 @@ class FormSubmission(models.Model):
         LandingPage, on_delete=models.CASCADE, null=True, blank=True, related_name="submissions"
     )
     form = models.ForeignKey(
-        CustomForm, on_delete=models.CASCADE, related_name="submissions"
+        CustomForm, on_delete=models.CASCADE, null=True, blank=True, related_name="submissions"
     )
     data = models.JSONField(help_text="Key-value pairs of submitted field values")
     ip_address = models.GenericIPAddressField(blank=True, null=True)

@@ -12,7 +12,10 @@ import {
   Layers,
   GripVertical,
   X,
-  FormInput
+  FormInput,
+  Bot,
+  MessageSquare,
+  Sparkles
 } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { useToast } from "../components/Toast";
@@ -25,6 +28,10 @@ interface LandingPageItem {
   slug: string;
   html_content: string;
   views_count: number;
+  chatbot_enabled?: boolean;
+  chatbot_name?: string;
+  chatbot_welcome_message?: string;
+  chatbot_script?: string;
   public_url: string;
   submissions_count: number;
   created_at: string;
@@ -42,6 +49,10 @@ export default function LandingPages() {
   const [editingLandingId, setEditingLandingId] = useState<number | null>(null);
   const [landingTitle, setLandingTitle] = useState("");
   const [landingHtml, setLandingHtml] = useState("");
+  const [chatbotEnabled, setChatbotEnabled] = useState(true);
+  const [chatbotName, setChatbotName] = useState("AI Sales Assistant");
+  const [chatbotWelcomeMessage, setChatbotWelcomeMessage] = useState("Hi there! 👋 Before we begin, may I know your name?");
+  const [chatbotScript, setChatbotScript] = useState("");
   const [savingLanding, setSavingLanding] = useState(false);
   const [isDraggingOverEditor, setIsDraggingOverEditor] = useState(false);
   const [isDraggingOverPreview, setIsDraggingOverPreview] = useState(false);
@@ -82,6 +93,10 @@ export default function LandingPages() {
 </body>
 </html>`);
       setActiveSubTab("landing-pages");
+      setChatbotEnabled(true);
+      setChatbotName("AI Sales Assistant");
+      setChatbotWelcomeMessage("Hi there! 👋 Before we begin, may I know your name?");
+      setChatbotScript("");
       setIsCreatingLanding(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     };
@@ -142,6 +157,10 @@ export default function LandingPages() {
         body: JSON.stringify({
           title: landingTitle,
           html_content: landingHtml,
+          chatbot_enabled: chatbotEnabled,
+          chatbot_name: chatbotName,
+          chatbot_welcome_message: chatbotWelcomeMessage,
+          chatbot_script: chatbotScript,
         }),
       });
 
@@ -151,6 +170,10 @@ export default function LandingPages() {
         setEditingLandingId(null);
         setLandingTitle("");
         setLandingHtml("");
+        setChatbotEnabled(true);
+        setChatbotName("AI Sales Assistant");
+        setChatbotWelcomeMessage("Hi there! 👋 Before we begin, may I know your name?");
+        setChatbotScript("");
         fetchLandingPages();
       } else {
         const err = await res.json();
@@ -513,6 +536,81 @@ export default function LandingPages() {
                       />
                     </div>
                   </div>
+                {/* AI Lead Capture Chatbot Configuration */}
+                <div className="bg-[#14181C] border border-[#2C353D] rounded-xl p-5 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-[#2C353D]">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                        <Bot className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                          AI Sales Chatbot <span className="text-[10px] bg-purple-500/10 text-purple-300 border border-purple-500/20 px-2 py-0.5 rounded font-mono font-semibold flex items-center gap-1"><Sparkles className="w-3 h-3 text-purple-400" /> Powered by Laya AI</span>
+                        </h4>
+                        <p className="text-[11px] text-[#8E9BA8]">
+                          Floating animated widget that captures visitor Name & Email and answers product questions using your script.
+                        </p>
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                      <span className="text-xs text-[#CBD5E1] font-semibold">Enable Chatbot</span>
+                      <input
+                        type="checkbox"
+                        checked={chatbotEnabled}
+                        onChange={(e) => setChatbotEnabled(e.target.checked)}
+                        className="w-4 h-4 accent-emerald-500 cursor-pointer"
+                      />
+                    </label>
+                  </div>
+
+                  {chatbotEnabled && (
+                    <div className="space-y-4 pt-1">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1] mb-1.5">
+                            Bot Display Name
+                          </label>
+                          <input
+                            type="text"
+                            value={chatbotName}
+                            onChange={(e) => setChatbotName(e.target.value)}
+                            placeholder="e.g. Sarah (Product Specialist)"
+                            className="w-full bg-[#161B1F] border border-[#2C353D] rounded-lg px-3.5 py-2 text-xs text-white focus:outline-none focus:border-white transition-all font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1] mb-1.5">
+                            Initial Greeting
+                          </label>
+                          <input
+                            type="text"
+                            value={chatbotWelcomeMessage}
+                            onChange={(e) => setChatbotWelcomeMessage(e.target.value)}
+                            placeholder="e.g. Hi there! 👋 Before we begin, may I know your name?"
+                            className="w-full bg-[#161B1F] border border-[#2C353D] rounded-lg px-3.5 py-2 text-xs text-white focus:outline-none focus:border-white transition-all font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1]">
+                            Product Script & Knowledge Base (for Laya AI)
+                          </label>
+                          <span className="text-[10px] text-[#8E9BA8] font-mono">
+                            The AI strictly uses this script to answer questions
+                          </span>
+                        </div>
+                        <textarea
+                          rows={4}
+                          value={chatbotScript}
+                          onChange={(e) => setChatbotScript(e.target.value)}
+                          placeholder="Describe your product, pricing, plans, key features, refund policy, and common FAQs here. E.g.:&#10;- Product Name: ReachEngine Pro&#10;- Price: $49/month or $399/year&#10;- Key Features: Automated cold email sequences, lead scraper, AI personalization&#10;- Guarantee: 14-day money back guarantee"
+                          className="w-full bg-[#161B1F] border border-[#2C353D] rounded-lg p-3 text-xs text-white focus:outline-none focus:border-white transition-all font-mono"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Submit button bar */}
@@ -554,9 +652,16 @@ export default function LandingPages() {
                         <h4 className="font-bold text-white text-base line-clamp-1" title={page.title}>
                           {page.title}
                         </h4>
-                        <span className="text-[11px] text-[#8E9BA8] font-mono">
-                          /p/{page.slug}
-                        </span>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[11px] text-[#8E9BA8] font-mono">
+                            /p/{page.slug}
+                          </span>
+                          {page.chatbot_enabled !== false && (
+                            <span className="text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                              <Bot className="w-2.5 h-2.5" /> AI Chat
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -566,6 +671,10 @@ export default function LandingPages() {
                           setEditingLandingId(page.id);
                           setLandingTitle(page.title);
                           setLandingHtml(page.html_content);
+                          setChatbotEnabled(page.chatbot_enabled ?? true);
+                          setChatbotName(page.chatbot_name || "AI Sales Assistant");
+                          setChatbotWelcomeMessage(page.chatbot_welcome_message || "Hi there! 👋 Before we begin, may I know your name?");
+                          setChatbotScript(page.chatbot_script || "");
                           setIsCreatingLanding(true);
                           window.scrollTo({ top: 0, behavior: "smooth" });
                         }}

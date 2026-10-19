@@ -1793,15 +1793,490 @@ def public_landing_page_html(request, slug):
         </script>
         '''
 
+        # Inject floating chatbot widget if enabled
+        chatbot_injection = ""
+        if getattr(landing_page, "chatbot_enabled", True):
+            bot_name = (landing_page.chatbot_name or "AI Sales Assistant").replace('"', '&quot;')
+            welcome_msg = (landing_page.chatbot_welcome_message or "Hi there! 👋 Before we begin, may I know your name?").replace('"', '&quot;')
+            landing_slug = landing_page.slug
+            chatbot_injection = f'''
+            <!-- ReachEngine Floating Animated Chatbot Widget -->
+            <style>
+            #re-chatbot-root {{
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                z-index: 9999999;
+                position: fixed;
+                bottom: 24px;
+                right: 24px;
+            }}
+            #re-chatbot-launcher {{
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                cursor: pointer;
+                user-select: none;
+            }}
+            #re-chatbot-badge {{
+                background: #161B1F;
+                color: #FFFFFF;
+                border: 1px solid #2C353D;
+                padding: 8px 14px;
+                border-radius: 20px;
+                font-size: 13px;
+                font-weight: 600;
+                box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+                animation: re-chat-bounce 2s infinite ease-in-out;
+            }}
+            @keyframes re-chat-bounce {{
+                0%, 100% {{ transform: translateY(0); }}
+                50% {{ transform: translateY(-4px); }}
+            }}
+            #re-chatbot-btn {{
+                width: 54px;
+                height: 54px;
+                border-radius: 50%;
+                background: #FFFFFF;
+                color: #161B1F;
+                border: none;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                position: relative;
+                cursor: pointer;
+                transition: transform 0.2s, box-shadow 0.2s;
+            }}
+            #re-chatbot-btn:hover {{
+                transform: scale(1.08);
+                box-shadow: 0 12px 28px rgba(0,0,0,0.6);
+            }}
+            #re-chatbot-pulse {{
+                position: absolute;
+                inset: -4px;
+                border-radius: 50%;
+                border: 2px solid rgba(255, 255, 255, 0.4);
+                animation: re-pulse-ring 2s infinite;
+            }}
+            @keyframes re-pulse-ring {{
+                0% {{ transform: scale(0.95); opacity: 0.8; }}
+                100% {{ transform: scale(1.3); opacity: 0; }}
+            }}
+            #re-chatbot-window {{
+                display: none;
+                position: fixed;
+                bottom: 90px;
+                right: 24px;
+                width: 360px;
+                max-width: calc(100vw - 32px);
+                height: 500px;
+                max-height: calc(100vh - 120px);
+                background: #161B1F;
+                border: 1px solid #2C353D;
+                border-radius: 16px;
+                box-shadow: 0 24px 48px rgba(0,0,0,0.65);
+                flex-direction: column;
+                overflow: hidden;
+                z-index: 9999999;
+            }}
+            #re-chatbot-header {{
+                padding: 12px 16px;
+                background: #1C2227;
+                border-bottom: 1px solid #2C353D;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }}
+            .re-bot-avatar {{
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                background: #2A333C;
+                color: #FFF;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: bold;
+                font-size: 13px;
+                position: relative;
+            }}
+            .re-bot-dot {{
+                width: 8px;
+                height: 8px;
+                background: #10B981;
+                border: 2px solid #1C2227;
+                border-radius: 50%;
+                position: absolute;
+                bottom: 0;
+                right: 0;
+            }}
+            #re-chatbot-close {{
+                background: transparent;
+                border: none;
+                color: #8E9BA8;
+                font-size: 18px;
+                cursor: pointer;
+                padding: 4px 8px;
+                border-radius: 6px;
+            }}
+            #re-chatbot-close:hover {{
+                color: #FFF;
+                background: #2C353D;
+            }}
+            #re-chatbot-messages {{
+                flex: 1;
+                overflow-y: auto;
+                padding: 16px;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                background: #12161A;
+            }}
+            .re-msg {{
+                max-width: 82%;
+                padding: 10px 14px;
+                font-size: 13px;
+                line-height: 1.45;
+                word-wrap: break-word;
+            }}
+            .re-msg-bot {{
+                background: #222930;
+                color: #F1F5F9;
+                border: 1px solid #2C353D;
+                border-radius: 14px 14px 14px 3px;
+                align-self: flex-start;
+            }}
+            .re-msg-user {{
+                background: #FFFFFF;
+                color: #161B1F;
+                font-weight: 500;
+                border-radius: 14px 14px 3px 14px;
+                align-self: flex-end;
+            }}
+            #re-chatbot-typing {{
+                display: none;
+                align-self: flex-start;
+                background: #222930;
+                border: 1px solid #2C353D;
+                border-radius: 14px 14px 14px 3px;
+                padding: 8px 12px;
+                gap: 4px;
+            }}
+            .re-dot {{
+                width: 5px;
+                height: 5px;
+                background: #8E9BA8;
+                border-radius: 50%;
+                animation: re-typing-bounce 1.4s infinite ease-in-out both;
+            }}
+            .re-dot:nth-child(1) {{ animation-delay: -0.32s; }}
+            .re-dot:nth-child(2) {{ animation-delay: -0.16s; }}
+            @keyframes re-typing-bounce {{
+                0%, 80%, 100% {{ transform: scale(0); }}
+                40% {{ transform: scale(1); }}
+            }}
+            #re-chatbot-footer {{
+                padding: 10px 12px;
+                background: #1A2026;
+                border-top: 1px solid #2C353D;
+                display: flex;
+                gap: 8px;
+            }}
+            #re-chatbot-input {{
+                flex: 1;
+                background: #12161A;
+                border: 1px solid #2C353D;
+                border-radius: 8px;
+                padding: 8px 12px;
+                color: #FFF;
+                font-size: 13px;
+                outline: none;
+            }}
+            #re-chatbot-input:focus {{
+                border-color: #64748B;
+            }}
+            #re-chatbot-send {{
+                background: #FFFFFF;
+                color: #161B1F;
+                border: none;
+                border-radius: 8px;
+                padding: 0 12px;
+                font-weight: bold;
+                font-size: 13px;
+                cursor: pointer;
+            }}
+            #re-chatbot-send:hover {{
+                background: #CBD5E1;
+            }}
+            </style>
+
+            <div id="re-chatbot-root">
+                <!-- Floating Animated Launcher -->
+                <div id="re-chatbot-launcher" onclick="toggleReChat()">
+                    <div id="re-chatbot-badge">💬 Chat with us</div>
+                    <button id="re-chatbot-btn" type="button" aria-label="Open Chat">
+                        <div id="re-chatbot-pulse"></div>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Chat Window -->
+                <div id="re-chatbot-window">
+                    <div id="re-chatbot-header">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <div class="re-bot-avatar">
+                                🤖
+                                <div class="re-bot-dot"></div>
+                            </div>
+                            <div>
+                                <div style="color:#FFF;font-size:13px;font-weight:bold;">{bot_name}</div>
+                                <div style="color:#10B981;font-size:10px;font-weight:500;">Online & Ready</div>
+                            </div>
+                        </div>
+                        <button id="re-chatbot-close" onclick="toggleReChat()">✕</button>
+                    </div>
+
+                    <div id="re-chatbot-messages">
+                        <div class="re-msg re-msg-bot">{welcome_msg}</div>
+                        <div id="re-chatbot-typing">
+                            <div class="re-dot"></div>
+                            <div class="re-dot"></div>
+                            <div class="re-dot"></div>
+                        </div>
+                    </div>
+
+                    <form id="re-chatbot-footer" onsubmit="handleReChatSend(event)">
+                        <input id="re-chatbot-input" type="text" placeholder="Type your response..." autocomplete="off" required />
+                        <button id="re-chatbot-send" type="submit">Send</button>
+                    </form>
+                </div>
+            </div>
+
+            <script>
+            let reChatOpen = false;
+            let reStep = 0; // 0: ask name, 1: ask email, 2: Q&A with Laya
+            let reLeadName = "";
+            let reLeadEmail = "";
+            let reSubmissionId = null;
+            let reHistory = [];
+
+            function toggleReChat() {{
+                reChatOpen = !reChatOpen;
+                const win = document.getElementById("re-chatbot-window");
+                const launcher = document.getElementById("re-chatbot-launcher");
+                if (reChatOpen) {{
+                    win.style.display = "flex";
+                    launcher.style.display = "none";
+                    document.getElementById("re-chatbot-input").focus();
+                }} else {{
+                    win.style.display = "none";
+                    launcher.style.display = "flex";
+                }}
+            }}
+
+            function appendReMsg(text, sender) {{
+                const box = document.getElementById("re-chatbot-messages");
+                const typing = document.getElementById("re-chatbot-typing");
+                const div = document.createElement("div");
+                div.className = "re-msg " + (sender === "user" ? "re-msg-user" : "re-msg-bot");
+                div.innerText = text;
+                box.insertBefore(div, typing);
+                box.scrollTop = box.scrollHeight;
+                reHistory.push({{ role: sender === "user" ? "user" : "assistant", content: text }});
+            }}
+
+            function setReTyping(show) {{
+                const typing = document.getElementById("re-chatbot-typing");
+                const box = document.getElementById("re-chatbot-messages");
+                typing.style.display = show ? "flex" : "none";
+                box.scrollTop = box.scrollHeight;
+            }}
+
+            async function handleReChatSend(e) {{
+                e.preventDefault();
+                const input = document.getElementById("re-chatbot-input");
+                const text = input.value.trim();
+                if (!text) return;
+                input.value = "";
+                appendReMsg(text, "user");
+
+                if (reStep === 0) {{
+                    // Visitor provided Name
+                    reLeadName = text;
+                    reStep = 1;
+                    setTimeout(() => {{
+                        appendReMsg("Nice to meet you, " + reLeadName + "! What's your email address so our team can follow up with details?", "bot");
+                        input.placeholder = "e.g., name@domain.com";
+                    }}, 400);
+                }} else if (reStep === 1) {{
+                    // Visitor provided Email
+                    const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+                    if (!emailRegex.test(text)) {{
+                        setTimeout(() => {{
+                            appendReMsg("Please enter a valid email address (e.g. name@domain.com) so we can stay in touch.", "bot");
+                        }}, 300);
+                        return;
+                    }}
+                    reLeadEmail = text;
+                    reStep = 2;
+                    setReTyping(true);
+                    input.placeholder = "Ask me anything about our product...";
+
+                    try {{
+                        const res = await fetch("/api/public/chat/{landing_slug}/", {{
+                            method: "POST",
+                            headers: {{ "Content-Type": "application/json" }},
+                            body: JSON.stringify({{
+                                lead_data: {{ name: reLeadName, email: reLeadEmail }},
+                                history: reHistory,
+                                message: ""
+                            }})
+                        }});
+                        const data = await res.json();
+                        if (data.submission_id) reSubmissionId = data.submission_id;
+                        setReTyping(false);
+                        appendReMsg("Thanks " + reLeadName + "! Your details are saved. Ask me anything about our product, pricing, or features!", "bot");
+                    }} catch (err) {{
+                        setReTyping(false);
+                        appendReMsg("Thanks " + reLeadName + "! What questions do you have about our product?", "bot");
+                    }}
+                }} else {{
+                    // Q&A via Laya API
+                    setReTyping(true);
+                    try {{
+                        const res = await fetch("/api/public/chat/{landing_slug}/", {{
+                            method: "POST",
+                            headers: {{ "Content-Type": "application/json" }},
+                            body: JSON.stringify({{
+                                message: text,
+                                lead_data: {{ name: reLeadName, email: reLeadEmail }},
+                                submission_id: reSubmissionId,
+                                history: reHistory
+                            }})
+                        }});
+                        const data = await res.json();
+                        setReTyping(false);
+                        if (data.reply) {{
+                            appendReMsg(data.reply, "bot");
+                        }} else {{
+                            appendReMsg("Thanks for your question! A member of our team will follow up via email with complete details.", "bot");
+                        }}
+                    }} catch (err) {{
+                        setReTyping(false);
+                        appendReMsg("Our team has noted your question and will follow up with you at " + (reLeadEmail || "your email") + " shortly!", "bot");
+                    }}
+                }}
+            }}
+            </script>
+            '''
+
+        full_injection = injection_script + "\n" + chatbot_injection
         if "</body>" in rendered_html:
-            rendered_html = rendered_html.replace("</body>", f"{injection_script}</body>")
+            rendered_html = rendered_html.replace("</body>", f"{full_injection}</body>")
         else:
-            rendered_html += injection_script
+            rendered_html += full_injection
 
         return HttpResponse(rendered_html, content_type="text/html; charset=utf-8")
 
     except LandingPage.DoesNotExist:
         return HttpResponse("<h1>404 - Landing Page Not Found</h1>", status=404, content_type="text/html")
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def public_landing_chat(request, slug):
+    """
+    Public conversational chatbot endpoint for landing pages.
+    Handles conversational lead capture (saving Name & Email) and
+    answers visitor questions using Laya AI + the product script.
+    """
+    try:
+        landing_page = LandingPage.objects.get(slug=slug)
+    except LandingPage.DoesNotExist:
+        return Response({"error": "Landing page not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    message = request.data.get("message", "").strip()
+    history = request.data.get("history", [])
+    lead_data = request.data.get("lead_data", {})
+    submission_id = request.data.get("submission_id")
+    visitor_name = lead_data.get("name", "")
+    visitor_email = lead_data.get("email", "")
+
+    submission = None
+    if submission_id:
+        try:
+            submission = FormSubmission.objects.get(id=submission_id, landing_page=landing_page)
+        except FormSubmission.DoesNotExist:
+            submission = None
+
+    # If lead email was provided and no submission exists yet, create FormSubmission
+    if visitor_email and not submission:
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        ip = x_forwarded_for.split(",")[0] if x_forwarded_for else request.META.get("REMOTE_ADDR")
+        user_agent = request.META.get("HTTP_USER_AGENT", "")
+
+        sub_data = {
+            "name": visitor_name,
+            "email": visitor_email,
+            "source": "chatbot",
+            "chat_history": history + ([{"role": "user", "text": message}] if message else [])
+        }
+
+        # Evaluate qualification via Laya
+        eval_res = {}
+        try:
+            eval_res = LayaAIService.evaluate_lead_qualification(sub_data)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Lead qualification failed for chat lead: %s", e)
+
+        submission = FormSubmission.objects.create(
+            landing_page=landing_page,
+            form=None,
+            data=sub_data,
+            ip_address=ip,
+            user_agent=user_agent,
+            qualification_status=eval_res.get("status", "unprocessed"),
+            qualification_score=eval_res.get("score", 0),
+            is_qualified=eval_res.get("is_qualified", False),
+            qualification_reason=eval_res.get("reason", "Lead captured via interactive AI Chatbot"),
+        )
+    elif submission:
+        sub_data = submission.data or {}
+        if visitor_name:
+            sub_data["name"] = visitor_name
+        if visitor_email:
+            sub_data["email"] = visitor_email
+        sub_data["chat_history"] = history + ([{"role": "user", "text": message}] if message else [])
+        submission.data = sub_data
+        submission.save(update_fields=["data"])
+
+    # If message is empty (just saving lead), return confirmation
+    if not message:
+        name_str = f" {visitor_name}" if visitor_name else ""
+        return Response({
+            "success": True,
+            "reply": f"Thanks{name_str}! Your details have been saved. How can I help you today? Ask me anything about our product or services!",
+            "submission_id": submission.id if submission else None,
+            "lead_saved": bool(submission)
+        })
+
+    # Generate answer via Laya AI using the product script
+    product_script = landing_page.chatbot_script or ""
+    ai_reply = LayaAIService.answer_landing_page_chat(
+        product_script=product_script,
+        conversation_history=history,
+        user_message=message,
+        visitor_name=visitor_name
+    )
+
+    return Response({
+        "success": True,
+        "reply": ai_reply,
+        "submission_id": submission.id if submission else None,
+        "lead_saved": bool(submission)
+    })
 
 
 @api_view(["POST"])
