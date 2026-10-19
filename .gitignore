@@ -59,11 +59,25 @@ pnpm-debug.log*
 frontend/dist/
 dist/
 .vite/
+.turbo/
+.next/
 *.tsbuildinfo
+frontend/tsconfig.tsbuildinfo
+
+# Testing & Coverage
+coverage/
+.nyc_output/
+.playwright/
+playwright-report/
+test-results/
 
 # Environment & Secrets
 .env
 .env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 !.env.example
 *.pem
 *.key
@@ -76,10 +90,14 @@ Thumbs.db
 desktop.ini
 .vscode/
 .idea/
+*.sublime-project
+*.sublime-workspace
 *.swp
 *.swo
 *~
 .ruff_cache/
+.pytest_cache/
+.mypy_cache/
 Bugs/
 
 # Docker
@@ -91,3 +109,4 @@ graphify-out/
 .gemini/
 plans/
 scratch/
+
