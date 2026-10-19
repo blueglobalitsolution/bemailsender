@@ -343,30 +343,6 @@ export default function LandingPages() {
             </div>
           )}
 
-          {/* Top Banner: AI Sales Chatbot Studio */}
-          <div className="bg-gradient-to-r from-purple-950/30 via-[#1E252D] to-emerald-950/30 border border-purple-500/20 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg">
-            <div className="flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-purple-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-                <Bot className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                  AI Sales Chatbot Studio <span className="text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-full font-mono font-semibold flex items-center gap-1"><Sparkles className="w-3 h-3 text-purple-400" /> New Dedicated Page</span>
-                </h4>
-                <p className="text-xs text-[#8E9BA8]">
-                  Configure your product knowledge base, greeting personas, and test live conversations in the interactive simulator.
-                </p>
-              </div>
-            </div>
-            <Link
-              to="/chatbot"
-              className="px-4 py-2 bg-white hover:bg-[#CBD5E1] text-[#161B1F] text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow shrink-0"
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>Configure Chatbots</span>
-            </Link>
-          </div>
-
           {/* Landing Pages List */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {landingPages.map((page) => (

@@ -207,13 +207,22 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
             )}
 
             {location.pathname === "/landing-pages" && (
-              <button
-                onClick={() => window.dispatchEvent(new CustomEvent("open-create-landing-modal"))}
-                className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold text-xs px-3.5 py-2 rounded-md flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
-                title="Create Landing Page"
-              >
-                <Plus className="w-3.5 h-3.5" /> Create Landing Page
-              </button>
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/chatbot"
+                  className="bg-[#222930] hover:bg-[#29323A] border border-[#2C353D] text-[#CBD5E1] hover:text-white font-medium text-xs px-3.5 py-2 rounded-md flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="Configure AI Sales Chatbots"
+                >
+                  <Bot className="w-3.5 h-3.5 text-purple-400" /> Configure Chatbot
+                </Link>
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent("open-create-landing-modal"))}
+                  className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold text-xs px-3.5 py-2 rounded-md flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                  title="Create Landing Page"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Create Landing Page
+                </button>
+              </div>
             )}
 
             {location.pathname === "/identities" && (
