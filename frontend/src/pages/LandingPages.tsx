@@ -367,8 +367,14 @@ export default function LandingPages() {
                           let rendered = landingHtml || "<div style='font-family:sans-serif;color:#666;text-align:center;padding:50px;'>Type HTML on the left to see live preview</div>";
                           if (chatbotEnabled) {
                             const badge = `
-                              <div style="position:fixed;bottom:16px;right:16px;z-index:9999;display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,#059669,#10b981);color:white;padding:10px 18px;border-radius:9999px;box-shadow:0 8px 24px rgba(5,150,105,0.4);font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:12px;font-weight:700;pointer-events:none;">
-                                <span>💬 Chat with ${chatbotName || 'AI Assistant'}</span>
+                              <div style="position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;align-items:center;gap:10px;background:#14181C;color:#FFFFFF;border:1px solid #2C353D;padding:10px 18px;border-radius:9999px;font-size:13px;font-weight:600;box-shadow:0 10px 28px rgba(0,0,0,0.5);font-family:-apple-system,BlinkMacSystemFont,sans-serif;pointer-events:none;">
+                                <div style="display:flex;align-items:center;justify-content:center;position:relative;width:8px;height:8px;">
+                                  <div style="width:8px;height:8px;background:#10B981;border-radius:50%;"></div>
+                                </div>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                                <span>Chat with us</span>
                               </div>
                             `;
                             if (rendered.includes("</body>")) {

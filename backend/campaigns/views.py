@@ -1811,56 +1811,71 @@ def public_landing_page_html(request, slug):
                 right: 24px;
             }}
             #re-chatbot-launcher {{
-                display: flex;
+                display: inline-flex;
                 align-items: center;
                 gap: 10px;
-                cursor: pointer;
-                user-select: none;
-            }}
-            #re-chatbot-badge {{
-                background: #161B1F;
+                background: #14181C;
                 color: #FFFFFF;
                 border: 1px solid #2C353D;
-                padding: 8px 14px;
-                border-radius: 20px;
+                padding: 10px 18px;
+                border-radius: 9999px;
                 font-size: 13px;
                 font-weight: 600;
-                box-shadow: 0 4px 14px rgba(0,0,0,0.5);
-                animation: re-chat-bounce 2s infinite ease-in-out;
+                cursor: pointer;
+                box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+                animation: re-chat-float 2.8s ease-in-out infinite;
+                transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s, border-color 0.2s, background 0.2s;
+                user-select: none;
+                outline: none;
             }}
-            @keyframes re-chat-bounce {{
+            #re-chatbot-launcher:hover {{
+                transform: translateY(-3px) scale(1.03);
+                border-color: rgba(255, 255, 255, 0.3);
+                box-shadow: 0 14px 36px rgba(0, 0, 0, 0.65), 0 0 20px rgba(16, 185, 129, 0.25);
+                background: #1B2127;
+            }}
+            #re-chatbot-launcher:active {{
+                transform: translateY(0) scale(0.98);
+            }}
+            @keyframes re-chat-float {{
                 0%, 100% {{ transform: translateY(0); }}
-                50% {{ transform: translateY(-4px); }}
+                50% {{ transform: translateY(-5px); }}
             }}
-            #re-chatbot-btn {{
-                width: 54px;
-                height: 54px;
-                border-radius: 50%;
-                background: #FFFFFF;
-                color: #161B1F;
-                border: none;
-                box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+            .re-live-indicator {{
+                position: relative;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                position: relative;
-                cursor: pointer;
-                transition: transform 0.2s, box-shadow 0.2s;
+                width: 8px;
+                height: 8px;
             }}
-            #re-chatbot-btn:hover {{
-                transform: scale(1.08);
-                box-shadow: 0 12px 28px rgba(0,0,0,0.6);
-            }}
-            #re-chatbot-pulse {{
-                position: absolute;
-                inset: -4px;
+            .re-live-dot {{
+                width: 8px;
+                height: 8px;
+                background: #10B981;
                 border-radius: 50%;
-                border: 2px solid rgba(255, 255, 255, 0.4);
-                animation: re-pulse-ring 2s infinite;
             }}
-            @keyframes re-pulse-ring {{
-                0% {{ transform: scale(0.95); opacity: 0.8; }}
-                100% {{ transform: scale(1.3); opacity: 0; }}
+            .re-live-ring {{
+                position: absolute;
+                inset: -3px;
+                border-radius: 50%;
+                border: 2px solid #10B981;
+                animation: re-live-pulse 2s infinite ease-out;
+            }}
+            @keyframes re-live-pulse {{
+                0% {{ transform: scale(0.8); opacity: 0.9; }}
+                100% {{ transform: scale(2.2); opacity: 0; }}
+            }}
+            .re-chat-icon {{
+                color: #FFFFFF;
+                flex-shrink: 0;
+            }}
+            .re-launcher-text {{
+                font-size: 13px;
+                font-weight: 600;
+                letter-spacing: -0.01em;
+                color: #FFFFFF;
+                white-space: nowrap;
             }}
             #re-chatbot-window {{
                 display: none;
@@ -2011,16 +2026,17 @@ def public_landing_page_html(request, slug):
             </style>
 
             <div id="re-chatbot-root">
-                <!-- Floating Animated Launcher -->
-                <div id="re-chatbot-launcher" onclick="toggleReChat()">
-                    <div id="re-chatbot-badge">💬 Chat with us</div>
-                    <button id="re-chatbot-btn" type="button" aria-label="Open Chat">
-                        <div id="re-chatbot-pulse"></div>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                        </svg>
-                    </button>
-                </div>
+                <!-- Single Floating Animated Black Launcher Button -->
+                <button id="re-chatbot-launcher" onclick="toggleReChat()" type="button" aria-label="Open Chat">
+                    <span class="re-live-indicator">
+                        <span class="re-live-dot"></span>
+                        <span class="re-live-ring"></span>
+                    </span>
+                    <svg class="re-chat-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <span class="re-launcher-text">Chat with us</span>
+                </button>
 
                 <!-- Chat Window -->
                 <div id="re-chatbot-window">
@@ -2072,7 +2088,7 @@ def public_landing_page_html(request, slug):
                     document.getElementById("re-chatbot-input").focus();
                 }} else {{
                     win.style.display = "none";
-                    launcher.style.display = "flex";
+                    launcher.style.display = "inline-flex";
                 }}
             }}
 
