@@ -49,7 +49,7 @@ export default function LandingPages() {
   const [landingHtml, setLandingHtml] = useState("");
   const [chatbotEnabled, setChatbotEnabled] = useState(true);
   const [chatbotName, setChatbotName] = useState("AI Sales Assistant");
-  const [chatbotWelcomeMessage, setChatbotWelcomeMessage] = useState("Hi there! 👋 Before we begin, may I know your name?");
+  const [chatbotWelcomeMessage, setChatbotWelcomeMessage] = useState("Hi there! 👋 Welcome! Please introduce yourself below to start chatting.");
   const [chatbotScript, setChatbotScript] = useState("");
   const [savingLanding, setSavingLanding] = useState(false);
   const landingTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -93,7 +93,7 @@ export default function LandingPages() {
       setActiveSubTab("landing-pages");
       setChatbotEnabled(true);
       setChatbotName("AI Sales Assistant");
-      setChatbotWelcomeMessage("Hi there! 👋 Before we begin, may I know your name?");
+      setChatbotWelcomeMessage("Hi there! 👋 Welcome! Please introduce yourself below to start chatting.");
       setChatbotScript("");
       setIsCreatingLanding(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -170,7 +170,7 @@ export default function LandingPages() {
         setLandingHtml("");
         setChatbotEnabled(true);
         setChatbotName("AI Sales Assistant");
-        setChatbotWelcomeMessage("Hi there! 👋 Before we begin, may I know your name?");
+        setChatbotWelcomeMessage("Hi there! 👋 Welcome! Please introduce yourself below to start chatting.");
         setChatbotScript("");
         fetchLandingPages();
       } else {
@@ -443,7 +443,7 @@ export default function LandingPages() {
                             type="text"
                             value={chatbotWelcomeMessage}
                             onChange={(e) => setChatbotWelcomeMessage(e.target.value)}
-                            placeholder="e.g. Hi there! 👋 Before we begin, may I know your name?"
+                            placeholder="e.g. Hi there! 👋 Welcome! Please introduce yourself below to start chatting."
                             className="w-full bg-[#161B1F] border border-[#2C353D] rounded-lg px-3.5 py-2 text-xs text-white focus:outline-none focus:border-white transition-all font-mono"
                           />
                         </div>

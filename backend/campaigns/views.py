@@ -1798,7 +1798,7 @@ def public_landing_page_html(request, slug):
         landing_page = page
         if getattr(landing_page, "chatbot_enabled", True):
             bot_name = (landing_page.chatbot_name or "AI Sales Assistant").replace('"', '&quot;')
-            welcome_msg = (landing_page.chatbot_welcome_message or "Hi there! 👋 Before we begin, may I know your name?").replace('"', '&quot;')
+            welcome_msg = (landing_page.chatbot_welcome_message or "Hi there! 👋 Welcome! Please introduce yourself below to start chatting.").replace('"', '&quot;')
             landing_slug = landing_page.slug
             chatbot_injection = f'''
             <!-- ReachEngine Floating Animated Chatbot Widget -->
@@ -1997,6 +1997,106 @@ def public_landing_page_html(request, slug):
                 display: flex;
                 gap: 8px;
             }}
+            .re-lead-card {{
+                background: #1C2227;
+                border: 1px solid #2C353D;
+                border-radius: 12px;
+                padding: 14px;
+                box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+                align-self: stretch;
+                margin-top: 4px;
+            }}
+            .re-lead-card-header {{
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 6px;
+            }}
+            .re-lead-card-title {{
+                color: #FFFFFF;
+                font-size: 13px;
+                font-weight: 700;
+            }}
+            .re-lead-card-badge {{
+                font-size: 10px;
+                background: rgba(16, 185, 129, 0.15);
+                color: #34D399;
+                border: 1px solid rgba(16, 185, 129, 0.3);
+                padding: 2px 7px;
+                border-radius: 10px;
+                font-weight: 600;
+            }}
+            .re-lead-card-desc {{
+                color: #94A3B8;
+                font-size: 11px;
+                line-height: 1.4;
+                margin: 0 0 12px 0;
+            }}
+            .re-field-group {{
+                margin-bottom: 10px;
+            }}
+            .re-field-label {{
+                display: block;
+                font-size: 10px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                color: #CBD5E1;
+                margin-bottom: 4px;
+            }}
+            .re-field-group input {{
+                width: 100%;
+                box-sizing: border-box;
+                background: #12161A;
+                border: 1px solid #2C353D;
+                border-radius: 8px;
+                padding: 8px 12px;
+                color: #FFF;
+                font-size: 12px;
+                outline: none;
+                transition: border-color 0.2s;
+            }}
+            .re-field-group input:focus {{
+                border-color: #CBD5E1;
+            }}
+            .re-lead-submit-btn {{
+                width: 100%;
+                box-sizing: border-box;
+                background: #FFFFFF;
+                color: #12161A;
+                border: none;
+                border-radius: 8px;
+                padding: 9px 14px;
+                font-size: 12px;
+                font-weight: 700;
+                cursor: pointer;
+                transition: background 0.2s, transform 0.1s;
+                margin-top: 4px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+            }}
+            .re-lead-submit-btn:hover {{
+                background: #E2E8F0;
+            }}
+            .re-lead-submit-btn:disabled {{
+                opacity: 0.6;
+                cursor: not-allowed;
+            }}
+            .re-verified-badge {{
+                background: rgba(16, 185, 129, 0.1);
+                border: 1px solid rgba(16, 185, 129, 0.25);
+                color: #E2E8F0;
+                padding: 8px 12px;
+                border-radius: 10px;
+                font-size: 11px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-top: 4px;
+                align-self: stretch;
+            }}
             #re-chatbot-input {{
                 flex: 1;
                 background: #12161A;
@@ -2010,6 +2110,11 @@ def public_landing_page_html(request, slug):
             #re-chatbot-input:focus {{
                 border-color: #64748B;
             }}
+            #re-chatbot-input:disabled {{
+                opacity: 0.5;
+                cursor: not-allowed;
+                background: #161B1F;
+            }}
             #re-chatbot-send {{
                 background: #FFFFFF;
                 color: #161B1F;
@@ -2022,6 +2127,10 @@ def public_landing_page_html(request, slug):
             }}
             #re-chatbot-send:hover {{
                 background: #CBD5E1;
+            }}
+            #re-chatbot-send:disabled {{
+                opacity: 0.4;
+                cursor: not-allowed;
             }}
             </style>
 
@@ -2056,6 +2165,29 @@ def public_landing_page_html(request, slug):
 
                     <div id="re-chatbot-messages">
                         <div class="re-msg re-msg-bot">{welcome_msg}</div>
+
+                        <!-- Embedded Interactive Lead Capture Form -->
+                        <div id="re-lead-card" class="re-lead-card">
+                            <div class="re-lead-card-header">
+                                <span class="re-lead-card-title">⚡ Quick Introduction</span>
+                                <span class="re-lead-card-badge">Required</span>
+                            </div>
+                            <p class="re-lead-card-desc">Enter your details below to unlock instant answers from our AI specialist:</p>
+                            <form id="re-lead-card-form" onsubmit="handleReLeadFormSubmit(event)">
+                                <div class="re-field-group">
+                                    <label class="re-field-label">Your Full Name *</label>
+                                    <input id="re-lead-name-input" type="text" placeholder="e.g. Alex Morgan" required autocomplete="name" />
+                                </div>
+                                <div class="re-field-group">
+                                    <label class="re-field-label">Your Email Address *</label>
+                                    <input id="re-lead-email-input" type="email" placeholder="e.g. alex@company.com" required autocomplete="email" />
+                                </div>
+                                <button id="re-lead-submit-btn" type="submit" class="re-lead-submit-btn">
+                                    <span>Start Chatting</span> →
+                                </button>
+                            </form>
+                        </div>
+
                         <div id="re-chatbot-typing">
                             <div class="re-dot"></div>
                             <div class="re-dot"></div>
@@ -2064,15 +2196,14 @@ def public_landing_page_html(request, slug):
                     </div>
 
                     <form id="re-chatbot-footer" onsubmit="handleReChatSend(event)">
-                        <input id="re-chatbot-input" type="text" placeholder="Type your response..." autocomplete="off" required />
-                        <button id="re-chatbot-send" type="submit">Send</button>
+                        <input id="re-chatbot-input" type="text" placeholder="Please fill the form above to chat..." autocomplete="off" disabled required />
+                        <button id="re-chatbot-send" type="submit" disabled>Send</button>
                     </form>
                 </div>
             </div>
 
             <script>
             let reChatOpen = false;
-            let reStep = 0; // 0: ask name, 1: ask email, 2: Q&A with Laya
             let reLeadName = "";
             let reLeadEmail = "";
             let reSubmissionId = null;
@@ -2085,7 +2216,11 @@ def public_landing_page_html(request, slug):
                 if (reChatOpen) {{
                     win.style.display = "flex";
                     launcher.style.display = "none";
-                    document.getElementById("re-chatbot-input").focus();
+                    if (reLeadEmail) {{
+                        document.getElementById("re-chatbot-input").focus();
+                    }} else {{
+                        document.getElementById("re-lead-name-input").focus();
+                    }}
                 }} else {{
                     win.style.display = "none";
                     launcher.style.display = "inline-flex";
@@ -2110,79 +2245,95 @@ def public_landing_page_html(request, slug):
                 box.scrollTop = box.scrollHeight;
             }}
 
+            async function handleReLeadFormSubmit(e) {{
+                e.preventDefault();
+                const nameInput = document.getElementById("re-lead-name-input");
+                const emailInput = document.getElementById("re-lead-email-input");
+                const btn = document.getElementById("re-lead-submit-btn");
+                const nameVal = nameInput.value.trim();
+                const emailVal = emailInput.value.trim();
+                if (!nameVal || !emailVal) return;
+
+                const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+                if (!emailRegex.test(emailVal)) {{
+                    alert("Please enter a valid email address.");
+                    return;
+                }}
+
+                btn.disabled = true;
+                btn.innerText = "Connecting...";
+
+                try {{
+                    const res = await fetch("/api/public/chat/{landing_slug}/", {{
+                        method: "POST",
+                        headers: {{ "Content-Type": "application/json" }},
+                        body: JSON.stringify({{
+                            lead_data: {{ name: nameVal, email: emailVal }},
+                            history: reHistory,
+                            message: ""
+                        }})
+                    }});
+                    const data = await res.json();
+                    if (data.submission_id) reSubmissionId = data.submission_id;
+                    reLeadName = nameVal;
+                    reLeadEmail = emailVal;
+
+                    // Morph form into verified badge
+                    const card = document.getElementById("re-lead-card");
+                    if (card) {{
+                        card.outerHTML = '<div class="re-verified-badge"><span style="color:#10B981;font-size:14px;font-weight:bold;">✓</span><span>Connected as <b>' + nameVal + '</b> (' + emailVal + ')</span></div>';
+                    }}
+
+                    // Unlock bottom chat input
+                    const chatInput = document.getElementById("re-chatbot-input");
+                    const sendBtn = document.getElementById("re-chatbot-send");
+                    chatInput.disabled = false;
+                    sendBtn.disabled = false;
+                    chatInput.placeholder = "Ask me anything about our product...";
+                    chatInput.focus();
+
+                    appendReMsg("Thanks " + nameVal + "! Your details have been saved. How can I help you today? Ask me anything about our features, pricing, or plans!", "bot");
+                }} catch (err) {{
+                    btn.disabled = false;
+                    btn.innerText = "Start Chatting →";
+                    alert("Network error connecting to chat. Please try again.");
+                }}
+            }}
+
             async function handleReChatSend(e) {{
                 e.preventDefault();
+                if (!reLeadEmail) {{
+                    alert("Please submit your name and email above first.");
+                    return;
+                }}
                 const input = document.getElementById("re-chatbot-input");
                 const text = input.value.trim();
                 if (!text) return;
                 input.value = "";
                 appendReMsg(text, "user");
 
-                if (reStep === 0) {{
-                    // Visitor provided Name
-                    reLeadName = text;
-                    reStep = 1;
-                    setTimeout(() => {{
-                        appendReMsg("Nice to meet you, " + reLeadName + "! What's your email address so our team can follow up with details?", "bot");
-                        input.placeholder = "e.g., name@domain.com";
-                    }}, 400);
-                }} else if (reStep === 1) {{
-                    // Visitor provided Email
-                    const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
-                    if (!emailRegex.test(text)) {{
-                        setTimeout(() => {{
-                            appendReMsg("Please enter a valid email address (e.g. name@domain.com) so we can stay in touch.", "bot");
-                        }}, 300);
-                        return;
+                setReTyping(true);
+                try {{
+                    const res = await fetch("/api/public/chat/{landing_slug}/", {{
+                        method: "POST",
+                        headers: {{ "Content-Type": "application/json" }},
+                        body: JSON.stringify({{
+                            message: text,
+                            lead_data: {{ name: reLeadName, email: reLeadEmail }},
+                            submission_id: reSubmissionId,
+                            history: reHistory
+                        }})
+                    }});
+                    const data = await res.json();
+                    setReTyping(false);
+                    if (data.reply) {{
+                        appendReMsg(data.reply, "bot");
+                    }} else {{
+                        appendReMsg("Thanks for your question! A member of our team will follow up via email with complete details.", "bot");
                     }}
-                    reLeadEmail = text;
-                    reStep = 2;
-                    setReTyping(true);
-                    input.placeholder = "Ask me anything about our product...";
-
-                    try {{
-                        const res = await fetch("/api/public/chat/{landing_slug}/", {{
-                            method: "POST",
-                            headers: {{ "Content-Type": "application/json" }},
-                            body: JSON.stringify({{
-                                lead_data: {{ name: reLeadName, email: reLeadEmail }},
-                                history: reHistory,
-                                message: ""
-                            }})
-                        }});
-                        const data = await res.json();
-                        if (data.submission_id) reSubmissionId = data.submission_id;
-                        setReTyping(false);
-                        appendReMsg("Thanks " + reLeadName + "! Your details are saved. Ask me anything about our product, pricing, or features!", "bot");
-                    }} catch (err) {{
-                        setReTyping(false);
-                        appendReMsg("Thanks " + reLeadName + "! What questions do you have about our product?", "bot");
-                    }}
-                }} else {{
-                    // Q&A via Laya API
-                    setReTyping(true);
-                    try {{
-                        const res = await fetch("/api/public/chat/{landing_slug}/", {{
-                            method: "POST",
-                            headers: {{ "Content-Type": "application/json" }},
-                            body: JSON.stringify({{
-                                message: text,
-                                lead_data: {{ name: reLeadName, email: reLeadEmail }},
-                                submission_id: reSubmissionId,
-                                history: reHistory
-                            }})
-                        }});
-                        const data = await res.json();
-                        setReTyping(false);
-                        if (data.reply) {{
-                            appendReMsg(data.reply, "bot");
-                        }} else {{
-                            appendReMsg("Thanks for your question! A member of our team will follow up via email with complete details.", "bot");
-                        }}
-                    }} catch (err) {{
-                        setReTyping(false);
-                        appendReMsg("Our team has noted your question and will follow up with you at " + (reLeadEmail || "your email") + " shortly!", "bot");
-                    }}
+                }} catch (err) {{
+                    setReTyping(false);
+                    appendReMsg("Our team has noted your question and will follow up with you at " + (reLeadEmail || "your email") + " shortly!", "bot");
                 }}
             }}
             </script>
