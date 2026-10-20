@@ -8,7 +8,6 @@ from cryptography.fernet import Fernet
 class Template(models.Model):
     TEMPLATE_TYPE_CHOICES = [
         ("email", "Email"),
-        ("whatsapp", "WhatsApp"),
     ]
 
     user = models.ForeignKey(
@@ -95,7 +94,6 @@ class Campaign(models.Model):
     ]
     TYPE_CHOICES = [
         ("email", "Email"),
-        ("whatsapp", "WhatsApp"),
     ]
 
     user = models.ForeignKey(
@@ -357,4 +355,34 @@ class FormSubmission(models.Model):
 
     def __str__(self):
         return f"Submission for {self.form.name} at {self.submitted_at}"
+
+
+class Suppression(models.Model):
+    REASON_CHOICES = [
+        ("unsubscribed", "Unsubscribed"),
+        ("bounced", "Bounced"),
+        ("complaint", "Spam Complaint"),
+        ("manual", "Manual Entry"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="suppressions"
+    )
+    email = models.EmailField(max_length=255, db_index=True)
+    reason = models.CharField(max_length=50, choices=REASON_CHOICES, default="unsubscribed")
+    campaign = models.ForeignKey(
+        Campaign, on_delete=models.SET_NULL, null=True, blank=True, related_name="suppressions"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "suppressions"
+        unique_together = ("user", "email")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "email"]),
+        ]
+
+    def __str__(self):
+        return f"{self.email} ({self.reason})"
 

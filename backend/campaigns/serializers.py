@@ -14,6 +14,7 @@ from .models import (
     LandingPage,
     ChatbotScript,
     FormSubmission,
+    Suppression,
 )
 
 
@@ -387,4 +388,23 @@ class LandingPageSerializer(serializers.ModelSerializer):
 
     def get_submissions_count(self, obj):
         return obj.submissions.count()
+
+
+class SuppressionSerializer(serializers.ModelSerializer):
+    campaign_name = serializers.CharField(source="campaign.name", read_only=True)
+
+    class Meta:
+        model = Suppression
+        fields = [
+            "id",
+            "email",
+            "reason",
+            "campaign",
+            "campaign_name",
+            "created_at",
+        ]
+        read_only_fields = ["id", "campaign_name", "created_at"]
+
+    def validate_email(self, value):
+        return value.strip().lower()
 

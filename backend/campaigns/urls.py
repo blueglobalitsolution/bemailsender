@@ -12,10 +12,12 @@ from .views import (
     CustomFormViewSet,
     LandingPageViewSet,
     ChatbotScriptViewSet,
+    SuppressionViewSet,
     public_landing_page_data,
     public_landing_page_html,
     public_landing_chat,
     public_form_submit,
+    public_unsubscribe,
     inbound_webhook,
     health_check,
     check_spam_score,
@@ -37,6 +39,7 @@ router.register(r"identities", IdentityViewSet, basename="identity")
 router.register(r"identity-groups", IdentityGroupViewSet, basename="identitygroup")
 router.register(r"saved-csvs", SavedCsvViewSet, basename="savedcsv")
 router.register(r"campaigns", CampaignViewSet, basename="campaign")
+router.register(r"suppressions", SuppressionViewSet, basename="suppression")
 router.register(r"logs", LogViewSet, basename="log")
 router.register(r"inbound/configs", InboundConfigurationViewSet, basename="inboundconfig")
 router.register(r"inbound/emails", ReceivedEmailViewSet, basename="receivedemail")
@@ -50,6 +53,7 @@ urlpatterns = [
     path("templates/check-spam/", check_spam_score, name="check-spam"),
     path("ai/generate-email/", ai_generate_email, name="ai-generate-email"),
     path("track/open/<int:campaign_id>/<str:recipient>/", track_open, name="track-open"),
+    path("unsubscribe/<int:campaign_id>/<str:recipient>/", public_unsubscribe, name="public-unsubscribe"),
     path("campaigns/verify-emails/", verify_emails, name="verify-emails"),
     path("campaigns/check-bounces/", check_bounces, name="check-bounces"),
     path("campaigns/scan-csv/", scan_csv, name="scan-csv"),

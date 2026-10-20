@@ -14,7 +14,14 @@ import {
   AlertTriangle,
   Eye,
   X,
-  Sparkles
+  Sparkles,
+  Upload,
+  Code,
+  Layout,
+  Smartphone,
+  Monitor,
+  CheckCircle2,
+  FileCode
 } from "lucide-react";
 import EmailEditor, { EditorRef } from "react-email-editor";
 import { apiFetch } from "../lib/api";
@@ -46,6 +53,12 @@ export default function Templates() {
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
+  const [editorMode, setEditorMode] = useState<"drag_drop" | "custom_html">("drag_drop");
+  const [customHtml, setCustomHtml] = useState<string>("");
+  const [uploadedFileName, setUploadedFileName] = useState<string>("");
+  const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [newTemplate, setNewTemplate] = useState<{
     name: string;
     subject: string;
@@ -112,6 +125,12 @@ export default function Templates() {
     const handleOpenAI = () => setIsAIModalOpen(true);
     const handleOpenCreate = () => {
       setNewTemplate({ name: "", subject: "", body: "", type: "email", design: undefined });
+      setCustomHtml("");
+      setUploadedFileName("");
+      setEditorMode("drag_drop");
+        setCustomHtml("");
+        setUploadedFileName("");
+        setEditorMode("drag_drop");
       setEditingId(null);
       setIsCreating(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -126,10 +145,72 @@ export default function Templates() {
     };
   }, []);
 
+  const ensureUnsubscribeFooter = (rawHtml: string): string => {
+    if (!rawHtml || !rawHtml.trim()) return rawHtml;
+    const hasUnsubscribe = /unsubscribe|opt-out|list-unsubscribe/i.test(rawHtml);
+    if (hasUnsubscribe) {
+      return rawHtml;
+    }
+
+    const defaultFooter = '<div style="margin-top:32px;padding:20px;border-top:1px solid #eaeaea;text-align:center;font-family:sans-serif;font-size:12px;color:#888888;line-height:1.5;">' +
+      '<p style="margin:0 0 8px 0;">You received this email because you are subscribed to our updates.</p>' +
+      '<p style="margin:0;"><a href="{{unsubscribe_url}}" style="color:#666666;text-decoration:underline;font-weight:500;">Unsubscribe</a> from these emails.</p>' +
+      '</div>';
+
+    if (rawHtml.includes("</body>")) {
+      return rawHtml.replace("</body>", defaultFooter + "\n</body>");
+    } else {
+      return rawHtml + defaultFooter;
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith(".html") && !file.name.endsWith(".htm") && file.type !== "text/html") {
+      toast.error("Please upload a valid .html or .htm file");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        const enriched = ensureUnsubscribeFooter(content);
+        setCustomHtml(enriched);
+        setUploadedFileName(file.name);
+        setEditorMode("custom_html");
+
+        if (!newTemplate.name) {
+          const autoName = file.name.replace(/\.(html|htm)$/i, "").replace(/[-_]/g, " ");
+          setNewTemplate((prev) => ({
+            ...prev,
+            name: autoName.charAt(0).toUpperCase() + autoName.slice(1),
+          }));
+        }
+
+        toast.success(`Loaded "${file.name}" with auto-unsubscribe verification.`);
+      }
+    };
+    reader.onerror = () => {
+      toast.error("Failed to read the HTML file");
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (newTemplate.type === "email" && emailEditorRef.current?.editor) {
+    if (editorMode === "custom_html") {
+      if (!customHtml.trim()) {
+        toast.error("Please upload an HTML file or enter HTML content.");
+        return;
+      }
+      const finalHtml = ensureUnsubscribeFooter(customHtml);
+      await saveTemplate(finalHtml, undefined);
+    } else if (newTemplate.type === "email" && emailEditorRef.current?.editor) {
       emailEditorRef.current.editor.exportHtml(async (data) => {
         const { design, html } = data;
         await saveTemplate(html, design);
@@ -184,6 +265,15 @@ export default function Templates() {
       design: template.design,
     });
     setEditingId(template.id);
+    if (!template.design && template.body) {
+      setEditorMode("custom_html");
+      setCustomHtml(template.body);
+      setUploadedFileName("Saved HTML Template");
+    } else {
+      setEditorMode("drag_drop");
+      setCustomHtml("");
+      setUploadedFileName("");
+    }
     setIsCreating(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -291,16 +381,153 @@ export default function Templates() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Email Design</label>
-                <p className="text-xs text-gray-500 mb-2 font-medium">Use {'{{variable_name}}'} for dynamic content (e.g., {'{{first_name}}'})</p>
-                <div className="w-full h-[600px] border border-gray-300 rounded-lg overflow-hidden shadow-inner">
-                  <EmailEditor
-                    key={editingId || "new"}
-                    ref={emailEditorRef}
-                    onReady={onReady}
-                    minHeight={600}
-                  />
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 skeuo-text">Email Design</label>
+                    <p className="text-xs text-gray-500 font-medium">Use {'{{variable_name}}'} for dynamic content (e.g., {'{{first_name}}'}, {'{{unsubscribe_url}}'})</p>
+                  </div>
+
+                  {/* Mode Selector Tabs & Upload Button */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".html,.htm"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-3.5 py-1.5 bg-[#00ffff]/10 hover:bg-[#00ffff]/20 border border-[#00ffff]/40 hover:border-[#00ffff] text-[#00ffff] hover:text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+                      title="Upload an existing HTML template"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Upload .HTML</span>
+                    </button>
+
+                    <div className="flex items-center bg-[#11161B] p-1 rounded-lg border border-[#222B35]">
+                      <button
+                        type="button"
+                        onClick={() => setEditorMode("drag_drop")}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
+                          editorMode === "drag_drop"
+                            ? "bg-[#1E2730] text-white shadow-sm font-semibold border border-[#2C3845]"
+                            : "text-[#8E9BA8] hover:text-white"
+                        }`}
+                      >
+                        <Layout className="w-3.5 h-3.5" />
+                        <span>Drag & Drop</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setEditorMode("custom_html")}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
+                          editorMode === "custom_html"
+                            ? "bg-[#1E2730] text-white shadow-sm font-semibold border border-[#2C3845]"
+                            : "text-[#8E9BA8] hover:text-white"
+                        }`}
+                      >
+                        <Code className="w-3.5 h-3.5" />
+                        <span>Uploaded HTML & Preview</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Drag and Drop Mode View */}
+                {editorMode === "drag_drop" && (
+                  <div className="w-full h-[600px] border border-gray-300 rounded-lg overflow-hidden shadow-inner">
+                    <EmailEditor
+                      key={editingId || "new"}
+                      ref={emailEditorRef}
+                      onReady={onReady}
+                      minHeight={600}
+                    />
+                  </div>
+                )}
+
+                {/* Uploaded HTML & Live Preview Mode View */}
+                {editorMode === "custom_html" && (
+                  <div className="border border-[#222B35] bg-[#0E1318] rounded-xl overflow-hidden shadow-2xl">
+                    {/* Top Status Bar with Device Toggle & Unsubscribe Verification Badge */}
+                    <div className="px-4 py-2.5 bg-[#141B22] border-b border-[#222B35] flex flex-wrap items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-[#8E9BA8] font-mono text-[11px] flex items-center gap-1.5">
+                          <FileCode className="w-4 h-4 text-[#00ffff]" />
+                          {uploadedFileName || "Custom HTML Template"}
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                          <CheckCircle2 className="w-3 h-3" /> Auto-Unsubscribe Ready
+                        </span>
+                      </div>
+
+                      {/* Device View Toggles */}
+                      <div className="flex items-center gap-1 bg-[#0E1318] p-1 rounded-lg border border-[#222B35]">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewDevice("desktop")}
+                          className={`px-2.5 py-1 rounded text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+                            previewDevice === "desktop" ? "bg-[#1E2730] text-white" : "text-[#8E9BA8] hover:text-white"
+                          }`}
+                        >
+                          <Monitor className="w-3.5 h-3.5" /> Desktop
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewDevice("mobile")}
+                          className={`px-2.5 py-1 rounded text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+                            previewDevice === "mobile" ? "bg-[#1E2730] text-white" : "text-[#8E9BA8] hover:text-white"
+                          }`}
+                        >
+                          <Smartphone className="w-3.5 h-3.5" /> Mobile
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Side-by-side or stacked Editor & Preview Canvas */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 h-[600px] divide-y lg:divide-y-0 lg:divide-x divide-[#222B35]">
+                      {/* Left: Code Editor Textarea */}
+                      <div className="flex flex-col h-full bg-[#0B0F13]">
+                        <div className="px-3 py-1.5 bg-[#12181F] border-b border-[#222B35] flex items-center justify-between">
+                          <span className="text-[10px] font-mono uppercase text-[#8E9BA8] tracking-wider">HTML Source Code</span>
+                          <span className="text-[10px] text-[#666666]">Live Editable</span>
+                        </div>
+                        <textarea
+                          value={customHtml}
+                          onChange={(e) => setCustomHtml(e.target.value)}
+                          placeholder="Upload an HTML file above or paste your raw HTML template here..."
+                          className="flex-1 w-full p-4 bg-[#0B0F13] text-[#E2E8F0] font-mono text-xs leading-relaxed resize-none focus:outline-none border-0"
+                          spellCheck={false}
+                        />
+                      </div>
+
+                      {/* Right: Live Interactive Render Preview */}
+                      <div className="flex flex-col h-full bg-[#182028] overflow-hidden">
+                        <div className="px-3 py-1.5 bg-[#12181F] border-b border-[#222B35] flex items-center justify-between">
+                          <span className="text-[10px] font-mono uppercase text-[#8E9BA8] tracking-wider">Rendered Live Preview</span>
+                          <span className="text-[10px] text-emerald-400 font-mono">Live DOM</span>
+                        </div>
+                        <div className="flex-1 p-4 flex items-center justify-center overflow-auto bg-[#182028]">
+                          <div
+                            className={`h-full bg-white transition-all duration-300 shadow-2xl overflow-hidden rounded-md border border-gray-400 ${
+                              previewDevice === "mobile" ? "w-[375px]" : "w-full"
+                            }`}
+                          >
+                            <iframe
+                              srcDoc={customHtml || '<div style="font-family: sans-serif; text-align: center; padding: 40px; color: #888;">Upload an HTML file or write code on the left to see live preview.</div>'}
+                              className="w-full h-full border-0 bg-white"
+                              title="Custom HTML Template Preview"
+                              sandbox="allow-same-origin allow-popups"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

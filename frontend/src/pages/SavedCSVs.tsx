@@ -22,7 +22,10 @@ import {
   ChevronLeft,
   Filter,
   CheckCircle2,
-  Layers
+  Layers,
+  UserX,
+  Ban,
+  ShieldCheck,
 } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { useToast } from "../components/Toast";
@@ -37,6 +40,7 @@ interface SavedCsv {
 
 export default function SavedCSVs() {
   const toast = useToast();
+  const [activeTab, setActiveTab] = useState<'lists' | 'suppression'>('lists');
   const [csvs, setCsvs] = useState<SavedCsv[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -59,6 +63,14 @@ export default function SavedCSVs() {
   const [newName, setNewName] = useState("");
   const [newFile, setNewFile] = useState<File | null>(null);
 
+  // Suppression State
+  const [suppressions, setSuppressions] = useState<any[]>([]);
+  const [loadingSuppressions, setLoadingSuppressions] = useState(false);
+  const [suppressionSearch, setSuppressionSearch] = useState("");
+  const [isAddingSuppression, setIsAddingSuppression] = useState(false);
+  const [suppressionEmailInput, setSuppressionEmailInput] = useState("");
+  const [suppressionReasonInput, setSuppressionReasonInput] = useState("unsubscribed");
+
   // Quick Add Contact Modal
   const [isAddingContact, setIsAddingContact] = useState(false);
   const [contactEmail, setContactEmail] = useState("");
@@ -71,6 +83,67 @@ export default function SavedCSVs() {
   const [checkGravatar, setCheckGravatar] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState<any>(null);
+
+  const fetchSuppressions = async () => {
+    try {
+      setLoadingSuppressions(true);
+      const res = await apiFetch("/api/suppressions/");
+      if (res.ok) {
+        setSuppressions(await res.json());
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingSuppressions(false);
+    }
+  };
+
+  const handleAddSuppression = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!suppressionEmailInput.trim()) {
+      toast.warning("Email is required");
+      return;
+    }
+    try {
+      const res = await apiFetch("/api/suppressions/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: suppressionEmailInput.trim().toLowerCase(),
+          reason: suppressionReasonInput,
+        }),
+      });
+      if (res.ok) {
+        toast.success("Address added to suppression list.");
+        setSuppressionEmailInput("");
+        setIsAddingSuppression(false);
+        fetchSuppressions();
+      } else {
+        const err = await res.json();
+        toast.error(err.email?.[0] || err.error || "Failed to add suppression");
+      }
+    } catch (err) {
+      toast.error("Error adding to suppression list");
+    }
+  };
+
+  const handleDeleteSuppression = (id: number, email: string) => {
+    toast.confirm(`Remove ${email} from suppression list?`, async () => {
+      try {
+        const res = await apiFetch(`/api/suppressions/${id}/`, {
+          method: "DELETE",
+        });
+        if (res.ok) {
+          toast.success("Removed from suppression list.");
+          fetchSuppressions();
+        } else {
+          toast.error("Failed to remove suppression.");
+        }
+      } catch (err) {
+        toast.error("Network error removing suppression.");
+      }
+    });
+  };
 
   // Fetch all CSV lists
   const fetchCsvs = async (targetSelectId?: number) => {
@@ -132,6 +205,7 @@ export default function SavedCSVs() {
 
   useEffect(() => {
     fetchCsvs();
+    fetchSuppressions();
 
     const handleOpenAddContact = () => {
       setIsAddingContact(true);
@@ -553,12 +627,40 @@ export default function SavedCSVs() {
   }
 
   return (
-    <div className="space-y-6 font-sans">
-      {/* Main Table Card */}
-      {activeCsvId ? (
-        <div className="bg-[#181E24] border border-[#2C353D] rounded-2xl shadow-xl flex flex-col overflow-hidden">
-          {/* Table Toolbar Header */}
-          <div className="p-4 sm:p-5 border-b border-[#2C353D] bg-[#1A1F26] flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 font-sans pb-16">
+      {/* Top Tab Switcher */}
+      <div className="flex items-center justify-between">
+        <div className="flex gap-1.5 bg-[#222930] border border-[#2C353D] rounded-lg p-1 w-fit">
+          <button
+            onClick={() => setActiveTab('lists')}
+            className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+              activeTab === 'lists'
+                ? 'bg-white text-[#161B1F] shadow-sm'
+                : 'text-[#8E9BA8] hover:text-white'
+            }`}
+          >
+            Contact Lists ({csvs.length})
+          </button>
+          <button
+            onClick={() => { setActiveTab('suppression'); fetchSuppressions(); }}
+            className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+              activeTab === 'suppression'
+                ? 'bg-white text-[#161B1F] shadow-sm'
+                : 'text-[#8E9BA8] hover:text-white'
+            }`}
+          >
+            Suppression & Unsubscribes ({suppressions.length})
+          </button>
+        </div>
+      </div>
+
+      {activeTab === 'lists' && (
+        <>
+          {/* Main Table Card */}
+          {activeCsvId ? (
+            <div className="bg-[#181E24] border border-[#2C353D] rounded-2xl shadow-xl flex flex-col overflow-hidden">
+              {/* Table Toolbar Header */}
+              <div className="p-4 sm:p-5 border-b border-[#2C353D] bg-[#1A1F26] flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 flex-wrap">
                 {csvs.length > 1 ? (
@@ -1136,6 +1238,160 @@ export default function SavedCSVs() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+        </>
+      )}
+
+      {/* Suppression List Tab */}
+      {activeTab === 'suppression' && (
+        <div className="space-y-6">
+          {/* Top Info Banner */}
+          <div className="bg-[#222930] border border-[#2C353D] rounded-xl p-5 flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400 mt-0.5">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">Automated Consent & Suppression Enforcement</h3>
+                <p className="text-xs text-[#8E9BA8] mt-1 leading-relaxed">
+                  Contacts on this list are guaranteed never to receive emails from any of your campaigns, protecting your domain deliverability and ensuring compliance with CAN-SPAM and GDPR regulations.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsAddingSuppression(!isAddingSuppression)}
+              className="px-4 py-2 bg-white hover:bg-[#CBD5E1] text-[#161B1F] text-xs font-bold rounded-lg flex items-center gap-2 transition-all cursor-pointer shrink-0 shadow-sm"
+            >
+              <UserX className="w-3.5 h-3.5 text-rose-600" />
+              {isAddingSuppression ? "Cancel" : "Add Address"}
+            </button>
+          </div>
+
+          {/* Add Suppression Form */}
+          {isAddingSuppression && (
+            <div className="bg-[#222930] border border-[#2C353D] rounded-xl p-6 animate-in fade-in duration-200">
+              <h4 className="text-sm font-bold text-white mb-1">Add Contact to Suppression List</h4>
+              <p className="text-xs text-[#8E9BA8] mb-4">Manually exclude an email from all future outreach campaigns.</p>
+              <form onSubmit={handleAddSuppression} className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="email"
+                  value={suppressionEmailInput}
+                  onChange={(e) => setSuppressionEmailInput(e.target.value)}
+                  placeholder="recipient@domain.com"
+                  required
+                  className="flex-1 bg-[#1C2227] border border-[#2C353D] rounded-lg px-3.5 py-2 text-xs text-white placeholder-[#8E9BA8] focus:outline-none focus:border-[#CBD5E1] font-mono"
+                />
+                <select
+                  value={suppressionReasonInput}
+                  onChange={(e) => setSuppressionReasonInput(e.target.value)}
+                  className="bg-[#1C2227] border border-[#2C353D] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#CBD5E1]"
+                >
+                  <option value="unsubscribed">Unsubscribed (Opt-Out)</option>
+                  <option value="bounced">Bounced (Hard / Permanent)</option>
+                  <option value="complaint">Spam Complaint</option>
+                  <option value="manual">Manual Entry</option>
+                </select>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-lg transition-all cursor-pointer shrink-0"
+                >
+                  Confirm Suppression
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* Stats Bar & Search */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-mono px-3 py-1 bg-[#1C2227] border border-[#2C353D] rounded-md text-white font-bold">
+                Total: {suppressions.length}
+              </span>
+              <span className="text-xs font-mono px-3 py-1 bg-amber-950/30 border border-amber-800/40 rounded-md text-amber-400">
+                Unsubscribed: {suppressions.filter(s => s.reason === 'unsubscribed').length}
+              </span>
+              <span className="text-xs font-mono px-3 py-1 bg-rose-950/30 border border-rose-800/40 rounded-md text-rose-400">
+                Bounced: {suppressions.filter(s => s.reason === 'bounced').length}
+              </span>
+            </div>
+
+            <div className="relative w-full sm:w-64">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#8E9BA8]" />
+              <input
+                type="text"
+                placeholder="Search suppressed..."
+                value={suppressionSearch}
+                onChange={(e) => setSuppressionSearch(e.target.value)}
+                className="w-full bg-[#1C2227] border border-[#2C353D] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-[#8E9BA8] focus:outline-none focus:border-[#CBD5E1] font-mono"
+              />
+            </div>
+          </div>
+
+          {/* Suppressions Table */}
+          <div className="bg-[#222930] border border-[#2C353D] rounded-xl overflow-hidden">
+            {loadingSuppressions ? (
+              <div className="py-12 text-center text-xs text-[#8E9BA8] font-mono">Loading suppression list...</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#1C2227] text-[#8E9BA8] font-semibold border-b border-[#2C353D]">
+                    <tr>
+                      <th className="py-3 px-4">Suppressed Address</th>
+                      <th className="py-3 px-4">Reason</th>
+                      <th className="py-3 px-4">Source Campaign</th>
+                      <th className="py-3 px-4">Date Suppressed</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#2C353D]">
+                    {suppressions
+                      .filter(s => !suppressionSearch || s.email.toLowerCase().includes(suppressionSearch.toLowerCase()))
+                      .map((item) => (
+                        <tr key={item.id} className="hover:bg-[#29323A]/50 transition-colors">
+                          <td className="py-3 px-4 font-mono font-medium text-white">
+                            {item.email}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-mono uppercase font-bold border ${
+                              item.reason === 'unsubscribed'
+                                ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+                                : item.reason === 'bounced'
+                                ? 'bg-rose-500/10 text-rose-300 border-rose-500/20'
+                                : 'bg-gray-500/10 text-gray-300 border-gray-500/20'
+                            }`}>
+                              {item.reason}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-[#8E9BA8]">
+                            {item.campaign_name || "—"}
+                          </td>
+                          <td className="py-3 px-4 text-[#8E9BA8] font-mono">
+                            {new Date(item.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <button
+                              onClick={() => handleDeleteSuppression(item.id, item.email)}
+                              title="Remove suppression"
+                              className="p-1.5 hover:bg-rose-950/40 text-[#8E9BA8] hover:text-rose-400 rounded transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    {suppressions.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="py-12 text-center text-xs text-[#8E9BA8]">
+                          No suppressed contacts yet. Recipients who click unsubscribe will automatically appear here.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

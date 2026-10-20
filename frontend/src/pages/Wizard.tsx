@@ -300,25 +300,25 @@ export default function Wizard() {
   return (
     <div className="w-full space-y-8">
 
-      {/* Progress Bar */}
-      <div className="bg-[#000000] border border-[#1a1a1a] rounded-none p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+      {/* Stepper Progress Bar */}
+      <div className="bg-[#222930] border border-[#2C353D] rounded-xl p-6">
         <div className="flex justify-between items-center relative">
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-[#141414] -z-10"></div>
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-[#1C2227] -z-10"></div>
           <div
-            className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-[#00ffff] -z-10 shadow-[0_0_12px_rgba(0,255,255,0.4)] transition-all duration-300"
+            className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-white -z-10 transition-all duration-300"
             style={{ width: `${((step - 1) / 3) * 100}%` }}></div>
 
           {steps.map((s) => (
             <div key={s.id} className="flex flex-col items-center gap-2 px-2">
-              <div className={`w-10 h-10 rounded-none flex items-center justify-center transition-all duration-300 ${
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-300 ${
                 step >= s.id 
-                  ? 'bg-[#00ffff] text-black shadow-[0_0_16px_rgba(0,255,255,0.4)]' 
-                  : 'bg-[#111111] text-[#555555] border border-[#222222]'
+                  ? 'bg-white text-[#161B1F] font-bold shadow-sm' 
+                  : 'bg-[#1C2227] text-[#8E9BA8] border border-[#2C353D]'
               }`}>
                 <s.icon className="w-4 h-4" />
               </div>
-              <span className={`text-[11px] font-mono uppercase tracking-wider ${
-                step >= s.id ? 'text-[#00ffff]' : 'text-[#555555]'
+              <span className={`text-[11px] font-sans font-semibold uppercase tracking-wider ${
+                step >= s.id ? 'text-white' : 'text-[#8E9BA8]'
               }`}>{s.title}</span>
             </div>
           ))}
@@ -326,36 +326,36 @@ export default function Wizard() {
       </div>
 
       {/* Step Content */}
-      <div className="bg-[#000000] border border-[#1a1a1a] rounded-none p-8 min-h-[400px] shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+      <div className="bg-[#222930] border border-[#2C353D] rounded-xl p-6 md:p-8 min-h-[400px]">
         {step === 1 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div>
-              <h3 className="text-2xl font-serif text-white mb-1">Configure Email Identity</h3>
-              <p className="text-[#777777] text-sm mb-6">Choose your sender identity or rotation pool.</p>
+              <h3 className="text-xl font-bold text-white mb-1">Configure Email Identity</h3>
+              <p className="text-[#8E9BA8] text-xs mb-6">Choose your sender identity or rotation pool.</p>
             </div>
 
             <div className="grid grid-cols-1 gap-6">
               <div>
-                <label className="block text-xs uppercase tracking-widest text-[#777777] mb-2 font-medium">Campaign Name (Optional)</label>
+                <label className="block text-xs uppercase tracking-wider text-[#8E9BA8] mb-2 font-semibold">Campaign Name (Optional)</label>
                 <input
                   type="text"
                   value={campaignName}
                   onChange={(e) => setCampaignName(e.target.value)}
-                  className="w-full bg-[#0a0a0a] border border-[#1e1e1e] rounded-none py-3 px-4 text-white placeholder-[#555555]"
+                  className="w-full bg-[#1C2227] border border-[#2C353D] rounded-lg py-2.5 px-4 text-white text-xs placeholder-[#8E9BA8] focus:outline-none focus:border-[#CBD5E1]"
                   placeholder="e.g., Q3 Outreach"
                 />
               </div>
 
               <div>
-                <label className="block text-xs uppercase tracking-widest text-[#777777] mb-2 font-medium">Select Sender</label>
-                <div className="flex gap-2 mb-4">
+                <label className="block text-xs uppercase tracking-wider text-[#8E9BA8] mb-2 font-semibold">Select Sender Mode</label>
+                <div className="flex gap-1.5 bg-[#1C2227] border border-[#2C353D] rounded-lg p-1 w-full max-w-sm mb-4">
                   <button
                     type="button"
                     onClick={() => { setSenderMode('single'); setIdentityGroupId(""); }}
-                    className={`px-5 py-2.5 text-xs font-semibold rounded-none transition-all flex-1 cursor-pointer ${
+                    className={`px-4 py-2 text-xs font-semibold rounded-md transition-all flex-1 cursor-pointer ${
                       senderMode === 'single'
-                        ? 'bg-[#00ffff] text-black shadow-[0_0_16px_rgba(0,255,255,0.3)]'
-                        : 'bg-[#111111] text-[#888888] hover:text-white border border-[#222222]'
+                        ? 'bg-white text-[#161B1F] shadow-sm'
+                        : 'text-[#8E9BA8] hover:text-white'
                     }`}
                   >
                     Single Identity
@@ -363,10 +363,10 @@ export default function Wizard() {
                   <button
                     type="button"
                     onClick={() => { setSenderMode('group'); setIdentityId(""); }}
-                    className={`px-5 py-2.5 text-xs font-semibold rounded-none transition-all flex-1 cursor-pointer ${
+                    className={`px-4 py-2 text-xs font-semibold rounded-md transition-all flex-1 cursor-pointer ${
                       senderMode === 'group'
-                        ? 'bg-[#00ffff] text-black shadow-[0_0_16px_rgba(0,255,255,0.3)]'
-                        : 'bg-[#111111] text-[#888888] hover:text-white border border-[#222222]'
+                        ? 'bg-white text-[#161B1F] shadow-sm'
+                        : 'text-[#8E9BA8] hover:text-white'
                     }`}
                   >
                     Identity Group
@@ -375,29 +375,29 @@ export default function Wizard() {
 
                 {senderMode !== 'group' ? (
                   <>
-                    <p className="text-xs text-[#777777] mb-3">Choose a single sender identity.</p>
+                    <p className="text-xs text-[#8E9BA8] mb-3">Choose a single sender identity.</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                       {identities.length === 0 ? (
-                        <div className="col-span-full text-center py-8 text-[#666666] bg-[#0a0a0a] border border-[#1a1a1a] rounded-none">
-                          No identities found. <a href="/identities" className="text-[#00ffff] hover:underline">Add one here</a>.
+                        <div className="col-span-full text-center py-8 text-[#8E9BA8] bg-[#1C2227] border border-[#2C353D] rounded-lg text-xs">
+                          No identities found. <a href="/identities" className="text-sky-400 hover:underline">Add one here</a>.
                         </div>
                       ) : (
                         identities.map((identity) => (
                           <div
                             key={identity.id}
                             onClick={() => { setSenderMode('single'); setIdentityId(identity.id.toString()); setIdentityGroupId(""); }}
-                            className={`p-4 rounded-none cursor-pointer transition-all border ${
+                            className={`p-4 rounded-lg cursor-pointer transition-all border ${
                               identityId === identity.id.toString()
-                                ? 'bg-[#00ffff]/10 border-[#00ffff] shadow-[0_0_16px_rgba(0,255,255,0.2)]'
-                                : 'bg-[#0a0a0a] border-[#1e1e1e] hover:border-[#333333]'
+                                ? 'bg-[#29323A] border-white/60 shadow-sm ring-1 ring-white/20'
+                                : 'bg-[#1C2227] border-[#2C353D] hover:border-[#4A5866]'
                             }`}
                           >
                             <div className="flex justify-between items-start mb-2">
-                              <h4 className="font-serif text-lg text-white">{identity.name}</h4>
-                              {identityId === identity.id.toString() && <CheckCircle className="w-4 h-4 text-[#00ffff]" />}
+                              <h4 className="font-bold text-sm text-white">{identity.name}</h4>
+                              {identityId === identity.id.toString() && <CheckCircle className="w-4 h-4 text-emerald-400" />}
                             </div>
-                            <p className="text-xs text-[#888888]">{identity.smtp_user}</p>
-                            <p className="text-[10px] font-mono text-[#555555] mt-1">{identity.host}:{identity.port}</p>
+                            <p className="text-xs text-[#CBD5E1] truncate">{identity.smtp_user}</p>
+                            <p className="text-[11px] font-mono text-[#8E9BA8] mt-1">{identity.host}:{identity.port}</p>
                           </div>
                         ))
                       )}
@@ -405,27 +405,28 @@ export default function Wizard() {
                   </>
                 ) : (
                   <>
-                    <p className="text-xs text-[#777777] mb-3 font-medium">Choose an identity group for automatic rotation across multiple senders.</p>
+                    <p className="text-xs text-[#8E9BA8] mb-3">Choose an identity group for automatic rotation across multiple senders.</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                       {identityGroups.length === 0 ? (
-                        <div className="col-span-full text-center py-8 text-[#555555] bg-[#0a0a0a] border border-[#1e1e1e]">
-                          No identity groups found. <a href="/identities" className="text-[#00ffff] hover:underline font-bold">Create one here</a>.
+                        <div className="col-span-full text-center py-8 text-[#8E9BA8] bg-[#1C2227] border border-[#2C353D] rounded-lg text-xs">
+                          No identity groups found. <a href="/identities" className="text-sky-400 hover:underline font-semibold">Create one here</a>.
                         </div>
                       ) : (
                         identityGroups.map((group) => (
                           <div
                             key={group.id}
                             onClick={() => { setSenderMode('group'); setIdentityGroupId(group.id.toString()); setIdentityId(""); }}
-                            className={`p-4 cursor-pointer transition-all border ${identityGroupId === group.id.toString()
-                              ? 'bg-[#00ffff]/10 border-[#00ffff] shadow-[0_0_16px_rgba(0,255,255,0.2)]'
-                              : 'bg-[#0a0a0a] border-[#1e1e1e] hover:border-[#333333]'
-                              }`}
+                            className={`p-4 rounded-lg cursor-pointer transition-all border ${
+                              identityGroupId === group.id.toString()
+                                ? 'bg-[#29323A] border-white/60 shadow-sm ring-1 ring-white/20'
+                                : 'bg-[#1C2227] border-[#2C353D] hover:border-[#4A5866]'
+                            }`}
                           >
                             <div className="flex justify-between items-start mb-2">
-                              <h4 className="font-serif text-lg text-white font-medium">{group.name}</h4>
-                              {identityGroupId === group.id.toString() && <CheckCircle className="w-4 h-4 text-[#00ffff]" />}
+                              <h4 className="font-bold text-sm text-white">{group.name}</h4>
+                              {identityGroupId === group.id.toString() && <CheckCircle className="w-4 h-4 text-emerald-400" />}
                             </div>
-                            <p className="text-xs text-[#888888]">{group.identities?.length || 0} identities</p>
+                            <p className="text-xs text-[#CBD5E1]">{group.identities?.length || 0} identities</p>
                           </div>
                         ))
                       )}
@@ -440,18 +441,18 @@ export default function Wizard() {
         {step === 2 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div>
-              <h3 className="text-2xl font-serif text-white mb-1">Import Audience</h3>
-              <p className="text-[#777777] text-sm mb-6">Upload a CSV file or select a previously saved one.</p>
+              <h3 className="text-xl font-bold text-white mb-1">Import Audience</h3>
+              <p className="text-[#8E9BA8] text-xs mb-6">Upload a CSV file or select a previously saved one.</p>
             </div>
 
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-1.5 bg-[#1C2227] border border-[#2C353D] rounded-lg p-1 w-full max-w-sm mb-4">
               <button
                 type="button"
                 onClick={() => { setSavedCsvId(""); setShowSavedList(false); setCsvFile(null); setScanData(null); setCsvRows([]); }}
-                className={`px-5 py-2.5 text-xs font-semibold rounded-none transition-all flex-1 cursor-pointer ${
+                className={`px-4 py-2 text-xs font-semibold rounded-md transition-all flex-1 cursor-pointer ${
                   !showSavedList 
-                    ? 'bg-[#00ffff] text-black shadow-[0_0_16px_rgba(0,255,255,0.3)]' 
-                    : 'bg-[#111111] text-[#888888] hover:text-white border border-[#222222]'
+                    ? 'bg-white text-[#161B1F] shadow-sm' 
+                    : 'text-[#8E9BA8] hover:text-white'
                 }`}
               >
                 Upload CSV
@@ -459,10 +460,10 @@ export default function Wizard() {
               <button
                 type="button"
                 onClick={() => { setShowSavedList(true); setCsvFile(null); setScanData(null); setCsvRows([]); }}
-                className={`px-5 py-2.5 text-xs font-semibold rounded-none transition-all flex-1 cursor-pointer ${
+                className={`px-4 py-2 text-xs font-semibold rounded-md transition-all flex-1 cursor-pointer ${
                   showSavedList 
-                    ? 'bg-[#00ffff] text-black shadow-[0_0_16px_rgba(0,255,255,0.3)]' 
-                    : 'bg-[#111111] text-[#888888] hover:text-white border border-[#222222]'
+                    ? 'bg-white text-[#161B1F] shadow-sm' 
+                    : 'text-[#8E9BA8] hover:text-white'
                 }`}
               >
                 Saved CSV
@@ -470,7 +471,7 @@ export default function Wizard() {
             </div>
 
             {!showSavedList ? (
-              <div className="bg-[#0a0a0a] border-2 border-dashed border-[#222222] hover:border-[#00ffff] rounded-none p-12 text-center transition-colors cursor-pointer relative">
+              <div className="bg-[#1C2227] border-2 border-dashed border-[#2C353D] hover:border-[#CBD5E1] rounded-xl p-10 text-center transition-colors cursor-pointer relative">
                 <input
                   type="file"
                   accept=".csv"
@@ -503,23 +504,23 @@ export default function Wizard() {
                   }}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
-                <Upload className="w-10 h-10 text-[#555555] mx-auto mb-3 drop-shadow-sm" />
-                <h4 className="text-base font-medium text-white mb-1">Click to upload or drag and drop</h4>
-                <p className="text-xs text-[#666666] font-mono">CSV files only</p>
+                <Upload className="w-10 h-10 text-[#8E9BA8] mx-auto mb-3" />
+                <h4 className="text-sm font-semibold text-white mb-1">Click to upload or drag and drop</h4>
+                <p className="text-xs text-[#8E9BA8] font-mono">CSV files only</p>
 
                 {csvFile && (
-                  <div className="mt-4 inline-flex items-center gap-2 bg-[#00ffff]/10 text-[#00ffff] px-4 py-2 text-xs font-mono border border-[#00ffff]/30 shadow-[0_0_12px_rgba(0,255,255,0.15)]">
+                  <div className="mt-4 inline-flex items-center gap-2 bg-emerald-500/10 text-emerald-400 px-3.5 py-1.5 text-xs font-mono rounded-md border border-emerald-500/20">
                     <CheckCircle className="w-3.5 h-3.5" /> {csvFile.name} ({csvRows.length} contacts)
                   </div>
                 )}
               </div>
             ) : (
               <div className="space-y-4">
-                <label className="block text-xs uppercase tracking-widest text-[#777777] mb-2 font-medium">Select Saved CSV</label>
+                <label className="block text-xs uppercase tracking-wider text-[#8E9BA8] mb-2 font-semibold">Select Saved CSV</label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {savedCsvs.length === 0 ? (
-                    <div className="col-span-full text-center py-8 text-[#555555] bg-[#0a0a0a] border border-[#1e1e1e]">
-                      No leads found. <a href="/saved-csvs" className="text-[#00ffff] hover:underline font-bold">Upload one here</a>.
+                    <div className="col-span-full text-center py-8 text-[#8E9BA8] bg-[#1C2227] border border-[#2C353D] rounded-lg text-xs">
+                      No leads found. <a href="/saved-csvs" className="text-sky-400 hover:underline font-semibold">Upload one here</a>.
                     </div>
                   ) : (
                     savedCsvs.map((scsv) => (
@@ -532,17 +533,18 @@ export default function Wizard() {
                           setCsvHeaders(scsv.columns || []);
                           setCsvRows([]);
                         }}
-                        className={`p-5 cursor-pointer transition-all border ${savedCsvId === scsv.id.toString()
-                          ? 'bg-[#00ffff]/10 border-[#00ffff] shadow-[0_0_16px_rgba(0,255,255,0.2)]'
-                          : 'bg-[#0a0a0a] border-[#1e1e1e] hover:border-[#333333]'
-                          }`}
+                        className={`p-4 rounded-lg cursor-pointer transition-all border ${
+                          savedCsvId === scsv.id.toString()
+                            ? 'bg-[#29323A] border-white/60 shadow-sm ring-1 ring-white/20'
+                            : 'bg-[#1C2227] border-[#2C353D] hover:border-[#4A5866]'
+                        }`}
                       >
                         <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-serif text-lg text-white font-medium">{scsv.name}</h4>
-                          {savedCsvId === scsv.id.toString() && <CheckCircle className="w-4 h-4 text-[#00ffff]" />}
+                          <h4 className="font-bold text-sm text-white">{scsv.name}</h4>
+                          {savedCsvId === scsv.id.toString() && <CheckCircle className="w-4 h-4 text-emerald-400" />}
                         </div>
-                        <p className="text-xs text-[#888888] font-medium">{scsv.row_count} contacts</p>
-                        <p className="text-[10px] text-[#555555] mt-1 font-mono">Uploaded {new Date(scsv.created_at).toLocaleDateString()}</p>
+                        <p className="text-xs text-[#CBD5E1]">{scsv.row_count} contacts</p>
+                        <p className="text-[11px] text-[#8E9BA8] mt-1 font-mono">Uploaded {new Date(scsv.created_at).toLocaleDateString()}</p>
                       </div>
                     ))
                   )}
@@ -550,19 +552,19 @@ export default function Wizard() {
               </div>
             )}
 
-            {(csvFile || (showSavedList && savedCsvId)) && campaignType === 'email' && (
+            {(csvFile || (showSavedList && savedCsvId)) && (
               <div className="space-y-4">
-                <div className="bg-[#0a0a0a] border border-[#1e1e1e] p-4 flex items-center justify-between">
+                <div className="bg-[#1C2227] border border-[#2C353D] rounded-lg p-4 flex items-center justify-between">
                   <label className="flex items-center gap-3 cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={checkGravatar}
                       onChange={(e) => setCheckGravatar(e.target.checked)}
-                      className="w-4 h-4 bg-[#111111] border-[#333333] rounded-none accent-[#00ffff] cursor-pointer"
+                      className="w-4 h-4 bg-[#14181C] border-[#2C353D] rounded text-white focus:ring-0 cursor-pointer"
                     />
                     <div>
                       <span className="text-xs font-semibold text-white block">Check Gravatar profile</span>
-                      <span className="text-[11px] text-[#666666]">Verify profile existence and avatar presence during scan</span>
+                      <span className="text-[11px] text-[#8E9BA8]">Verify profile existence and avatar presence during scan</span>
                     </div>
                   </label>
                 </div>
@@ -570,7 +572,7 @@ export default function Wizard() {
                 <button
                   onClick={handleScan}
                   disabled={scanning}
-                  className="bg-[#19b3d2] hover:bg-[#20c4e6] text-black font-semibold rounded-none px-6 py-2.5 text-xs flex items-center gap-2 transition-all cursor-pointer border border-[#1499b4] disabled:opacity-50"
+                  className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold rounded-lg px-5 py-2.5 text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm disabled:opacity-50"
                 >
                   {scanning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Shield className="w-3.5 h-3.5" />}
                   {scanning ? "Scanning..." : "Scan CSV"}
@@ -580,56 +582,56 @@ export default function Wizard() {
                   <div className="space-y-4">
                     {/* Stats summary */}
                     <div className="flex flex-wrap gap-2 text-xs font-mono">
-                      <span className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-950/40 border border-emerald-500/30 text-emerald-400">
+                      <span className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 rounded-md">
                         <CheckCircle className="w-3.5 h-3.5" /> {scanData.stats.valid} Safe
                       </span>
                       {scanData.stats.gravatar > 0 && (
-                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-950/40 border border-purple-500/30 text-purple-400">
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-950/40 border border-purple-500/30 text-purple-400 rounded-md">
                           <CheckCircle className="w-3.5 h-3.5" /> {scanData.stats.gravatar} Gravatar
                         </span>
                       )}
                       {scanData.stats.disposable > 0 && (
-                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-950/40 border border-amber-500/30 text-amber-400">
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-950/40 border border-amber-500/30 text-amber-400 rounded-md">
                           <AlertCircle className="w-3.5 h-3.5" /> {scanData.stats.disposable} Disposable
                         </span>
                       )}
                       {scanData.stats.bounced > 0 && (
-                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-950/40 border border-sky-500/30 text-sky-400">
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-950/40 border border-sky-500/30 text-sky-400 rounded-md">
                           <X className="w-3.5 h-3.5" /> {scanData.stats.bounced} Bounced
                         </span>
                       )}
-                      <span className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-950/40 border border-rose-500/30 text-rose-400">
+                      <span className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-950/40 border border-rose-500/30 text-rose-400 rounded-md">
                         <X className="w-3.5 h-3.5" /> {scanData.stats.invalid} Invalid
                       </span>
                       {removedEmails.length > 0 && (
-                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 border border-gray-700 text-gray-400">
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1C2227] border border-[#2C353D] text-[#8E9BA8] rounded-md">
                           🗑️ {removedEmails.length} Removed
                         </span>
                       )}
                     </div>
 
                     {/* Remaining count */}
-                    <div className="bg-[#0a0a0a] border border-[#1e1e1e] p-3 text-center">
-                      <span className="text-sm font-mono text-[#00ffff]">
-                        {csvRows.length - removedEmails.length} of {csvRows.length} contacts will be sent
+                    <div className="bg-[#1C2227] border border-[#2C353D] rounded-lg p-3 text-center">
+                      <span className="text-xs font-mono text-[#CBD5E1]">
+                        <strong className="text-white">{csvRows.length - removedEmails.length}</strong> of {csvRows.length} contacts will be sent
                       </span>
                     </div>
 
                     {/* Invalid emails - with delete */}
                     {scanData.results.filter((r) => !r.valid).length > 0 && (
-                      <div className="bg-[#0a0a0a] border border-rose-950/50 p-4">
+                      <div className="bg-[#1C2227] border border-rose-950/50 rounded-lg p-4">
                         <div className="flex items-center justify-between mb-3">
                           <h4 className="font-mono text-xs font-bold text-rose-400">Invalid ({scanData.stats.invalid})</h4>
                           <button
                             onClick={removeAllInvalid}
-                            className="text-[11px] font-mono text-rose-400 hover:text-white bg-rose-950/40 border border-rose-900/50 hover:bg-rose-900/60 px-2.5 py-1 transition-all cursor-pointer"
+                            className="text-[11px] font-mono text-rose-400 hover:text-white bg-rose-950/40 border border-rose-900/50 hover:bg-rose-900/60 px-2.5 py-1 rounded transition-all cursor-pointer"
                           >
                             🗑️ Remove All
                           </button>
                         </div>
                         <div className="max-h-48 overflow-y-auto space-y-1.5">
                           {scanData.results.filter((r) => !r.valid).map((r, i) => (
-                            <div key={i} className="text-xs font-mono flex items-center gap-2 p-2 bg-[#050505] border border-[#1a1a1a] text-rose-300">
+                            <div key={i} className="text-xs font-mono flex items-center gap-2 p-2 bg-[#14181C] border border-[#2C353D] rounded text-rose-300">
                               <X className="w-3.5 h-3.5 text-rose-400 shrink-0" />
                               <span className="truncate flex-1">{r.email} <span className="text-rose-500">— {r.reason}</span></span>
                               {!removedEmails.includes(r.email) && (
@@ -644,19 +646,19 @@ export default function Wizard() {
 
                     {/* Bounced emails - with delete */}
                     {scanData.results.filter((r) => r.flags.includes("bounced") && r.valid).length > 0 && (
-                      <div className="bg-[#0a0a0a] border border-sky-950/50 p-4">
+                      <div className="bg-[#1C2227] border border-sky-950/50 rounded-lg p-4">
                         <div className="flex items-center justify-between mb-3">
                           <h4 className="font-mono text-xs font-bold text-sky-400">Previously Bounced ({scanData.stats.bounced})</h4>
                           <button
                             onClick={removeAllBounced}
-                            className="text-[11px] font-mono text-sky-400 hover:text-white bg-sky-950/40 border border-sky-900/50 hover:bg-sky-900/60 px-2.5 py-1 transition-all cursor-pointer"
+                            className="text-[11px] font-mono text-sky-400 hover:text-white bg-sky-950/40 border border-sky-900/50 hover:bg-sky-900/60 px-2.5 py-1 rounded transition-all cursor-pointer"
                           >
                             🗑️ Remove All
                           </button>
                         </div>
                         <div className="max-h-48 overflow-y-auto space-y-1.5">
                           {scanData.results.filter((r) => r.flags.includes("bounced") && r.valid).map((r, i) => (
-                            <div key={i} className="text-xs font-mono flex items-center gap-2 p-2 bg-[#050505] border border-[#1a1a1a] text-sky-300">
+                            <div key={i} className="text-xs font-mono flex items-center gap-2 p-2 bg-[#14181C] border border-[#2C353D] rounded text-sky-300">
                               <X className="w-3.5 h-3.5 text-sky-400 shrink-0" />
                               <span className="truncate flex-1">{r.email} <span className="text-sky-500">(bounced {r.bounce_count}x)</span></span>
                               {!removedEmails.includes(r.email) && (
@@ -671,13 +673,13 @@ export default function Wizard() {
 
                     {/* Disposable warning */}
                     {scanData.results.filter((r) => r.flags.includes("disposable")).length > 0 && (
-                      <div className="bg-[#0a0a0a] border border-amber-950/50 p-4">
+                      <div className="bg-[#1C2227] border border-amber-950/50 rounded-lg p-4">
                         <div className="flex items-center justify-between mb-3">
                           <h4 className="font-mono text-xs font-bold text-amber-400">Disposable ({scanData.stats.disposable})</h4>
                         </div>
                         <div className="max-h-32 overflow-y-auto space-y-1.5">
                           {scanData.results.filter((r) => r.flags.includes("disposable")).map((r, i) => (
-                            <div key={i} className="text-xs font-mono flex items-center gap-2 p-2 bg-[#050505] border border-[#1a1a1a] text-amber-300">
+                            <div key={i} className="text-xs font-mono flex items-center gap-2 p-2 bg-[#14181C] border border-[#2C353D] rounded text-amber-300">
                               <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                               <span className="truncate flex-1">{r.email} <span className="text-amber-500">— {r.warning}</span></span>
                               {!removedEmails.includes(r.email) && (
@@ -699,13 +701,13 @@ export default function Wizard() {
         {step === 3 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div>
-              <h3 className="text-2xl font-serif text-white mb-1">Select Creative</h3>
-              <p className="text-[#777777] text-sm mb-6">Choose an email template from your Script Architect library.</p>
+              <h3 className="text-xl font-bold text-white mb-1">Select Creative</h3>
+              <p className="text-[#8E9BA8] text-xs mb-6">Choose an email template from your Script Architect library.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {templates.length === 0 ? (
-                <div className="col-span-full text-center py-12 text-[#555555] bg-[#0a0a0a] border border-[#1e1e1e]">
+                <div className="col-span-full text-center py-12 text-[#8E9BA8] bg-[#1C2227] border border-[#2C353D] rounded-lg text-xs">
                   No email templates found. Please create one in Script Architect first.
                 </div>
               ) : (
@@ -718,30 +720,30 @@ export default function Wizard() {
                         setTemplateId(t.id.toString());
                         toast.success(`Selected template: ${t.name}`);
                       }}
-                      className={`p-5 cursor-pointer transition-all border relative flex flex-col justify-between group rounded-none ${
+                      className={`p-5 cursor-pointer transition-all border relative flex flex-col justify-between group rounded-lg ${
                         isSelected
-                          ? 'bg-[#00ffff]/10 border-[#00ffff] shadow-[0_0_20px_rgba(0,255,255,0.25)]'
-                          : 'bg-[#0a0a0a] border-[#1e1e1e] hover:border-[#3a3a3a]'
+                          ? 'bg-[#29323A] border-white/60 shadow-sm ring-1 ring-white/20'
+                          : 'bg-[#1C2227] border-[#2C353D] hover:border-[#4A5866]'
                       }`}
                     >
                       <div>
                         <div className="flex justify-between items-start mb-2 gap-2">
-                          <h4 className="font-serif text-lg text-white font-medium line-clamp-1" title={t.name}>
+                          <h4 className="font-bold text-sm text-white line-clamp-1" title={t.name}>
                             {t.name}
                           </h4>
-                          {isSelected && <CheckCircle className="w-4 h-4 text-[#00ffff] shrink-0" />}
+                          {isSelected && <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />}
                         </div>
                         {t.subject && (
-                          <p className="text-xs text-[#888888] font-medium mb-3 line-clamp-1" title={t.subject}>
-                            <span className="text-[#555555]">Subject:</span> {t.subject}
+                          <p className="text-xs text-[#CBD5E1] font-medium mb-3 line-clamp-1" title={t.subject}>
+                            <span className="text-[#8E9BA8]">Subject:</span> {t.subject}
                           </p>
                         )}
-                        <p className="text-xs text-[#777777] line-clamp-3 leading-relaxed mb-4">
+                        <p className="text-xs text-[#8E9BA8] line-clamp-3 leading-relaxed mb-4">
                           {stripHtml(t.body) || "No plain text excerpt available."}
                         </p>
                       </div>
 
-                      <div className="pt-3 border-t border-[#141414] flex items-center justify-between gap-2">
+                      <div className="pt-3 border-t border-[#2C353D] flex items-center justify-between gap-2">
                         <button
                           type="button"
                           onClick={(e) => {
@@ -749,13 +751,13 @@ export default function Wizard() {
                             setTemplateId(t.id.toString());
                             toast.success(`Selected template: ${t.name}`);
                           }}
-                          className={`text-xs font-semibold px-3 py-1.5 transition-all cursor-pointer flex items-center gap-1.5 ${
+                          className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
                             isSelected
-                              ? 'bg-[#00ffff] text-black font-bold'
-                              : 'bg-[#161B1F] text-[#CBD5E1] hover:text-white border border-[#2C353D] hover:bg-[#222930]'
+                              ? 'bg-white text-[#161B1F] font-bold shadow-sm'
+                              : 'bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white border border-[#2C353D]'
                           }`}
                         >
-                          <CheckCircle className={`w-3.5 h-3.5 ${isSelected ? 'text-black' : 'text-[#8E9BA8]'}`} />
+                          <CheckCircle className={`w-3.5 h-3.5 ${isSelected ? 'text-emerald-600' : 'text-[#8E9BA8]'}`} />
                           {isSelected ? 'Selected' : 'Select'}
                         </button>
 
@@ -765,7 +767,7 @@ export default function Wizard() {
                             e.stopPropagation();
                             setPreviewTemplate(t);
                           }}
-                          className="text-xs font-medium text-[#00ffff] hover:text-white flex items-center gap-1.5 px-3 py-1.5 bg-[#00ffff]/10 hover:bg-[#00ffff]/20 border border-[#00ffff]/30 transition-all cursor-pointer"
+                          className="text-xs font-medium text-[#CBD5E1] hover:text-white flex items-center gap-1.5 px-3 py-1.5 bg-[#222930] hover:bg-[#2C353D] border border-[#2C353D] rounded-md transition-all cursor-pointer"
                         >
                           <Eye className="w-3.5 h-3.5" /> Preview
                         </button>
@@ -781,18 +783,19 @@ export default function Wizard() {
         {step === 4 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div>
-              <h3 className="text-2xl font-serif text-white mb-1">Governance & Control</h3>
-              <p className="text-gray-500 text-sm mb-6">Set delivery rules and scheduling.</p>
+              <h3 className="text-xl font-bold text-white mb-1">Governance & Control</h3>
+              <p className="text-[#8E9BA8] text-xs mb-6">Set delivery pacing, sending schedules, and throttling limits.</p>
             </div>
-            <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-none p-6">
+            
+            <div className="bg-[#1C2227] border border-[#2C353D] rounded-lg p-5">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h4 className="font-serif text-lg text-white">Traffic Control</h4>
-                  <p className="text-xs text-[#777777]">Set custom delay between consecutive emails to control delivery speed & prevent spam flagging.</p>
+                  <h4 className="font-bold text-sm text-white">Traffic Control</h4>
+                  <p className="text-xs text-[#8E9BA8]">Set custom delay between consecutive emails to control delivery speed & protect sender reputation.</p>
                 </div>
-                <div className="flex items-center gap-2 bg-[#111111] border border-[#222222] px-3 py-1.5 rounded-none">
-                  <span className="font-mono text-base font-bold text-[#19b3d2]">{delaySeconds}</span>
-                  <span className="text-[11px] font-mono text-[#777777]">seconds</span>
+                <div className="flex items-center gap-1.5 bg-[#222930] border border-[#2C353D] px-3 py-1.5 rounded-md">
+                  <span className="font-mono text-sm font-bold text-white">{delaySeconds}</span>
+                  <span className="text-[11px] font-mono text-[#8E9BA8]">sec</span>
                 </div>
               </div>
 
@@ -805,12 +808,12 @@ export default function Wizard() {
                   step="5"
                   value={delaySeconds}
                   onChange={(e) => setDelaySeconds(Number(e.target.value))}
-                  className="w-full accent-[#19b3d2] cursor-pointer h-1.5 bg-[#1a1a1a] rounded-none"
+                  className="w-full accent-white cursor-pointer h-1.5 bg-[#2C353D] rounded-lg"
                 />
 
                 <div className="flex items-center justify-between flex-wrap gap-2 pt-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] uppercase tracking-wider text-[#666666]">Quick Presets:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] uppercase tracking-wider text-[#8E9BA8] font-semibold">Presets:</span>
                     {[
                       { label: "15s (Fast)", val: 15 },
                       { label: "30s (Balanced)", val: 30 },
@@ -822,10 +825,10 @@ export default function Wizard() {
                         key={preset.val}
                         type="button"
                         onClick={() => setDelaySeconds(preset.val)}
-                        className={`px-2.5 py-1 text-[11px] font-mono rounded-none transition-all cursor-pointer border ${
+                        className={`px-2.5 py-1 text-[11px] font-mono rounded-md transition-all cursor-pointer border ${
                           delaySeconds === preset.val
-                            ? "bg-[#19b3d2]/15 border-[#19b3d2] text-[#19b3d2]"
-                            : "bg-[#111111] border-[#222222] text-[#888888] hover:text-white"
+                            ? "bg-white text-[#161B1F] border-white font-bold"
+                            : "bg-[#222930] border-[#2C353D] text-[#8E9BA8] hover:text-white"
                         }`}
                       >
                         {preset.label}
@@ -833,9 +836,9 @@ export default function Wizard() {
                     ))}
                   </div>
 
-                  <div className="text-[11px] font-mono text-[#666666]">
+                  <div className="text-[11px] font-mono text-[#8E9BA8]">
                     {delaySeconds < 25 ? (
-                      <span className="text-amber-400">⚡ Faster speed (high-volume accounts)</span>
+                      <span className="text-amber-400">⚡ Faster pacing</span>
                     ) : (
                       <span className="text-emerald-400">🛡️ Optimal inbox deliverability</span>
                     )}
@@ -844,13 +847,13 @@ export default function Wizard() {
               </div>
             </div>
 
-            <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-none p-6">
+            <div className="bg-[#1C2227] border border-[#2C353D] rounded-lg p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h4 className="font-serif text-lg text-white flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-[#19b3d2]" /> Campaign Schedule
+                  <h4 className="font-bold text-sm text-white flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-sky-400" /> Campaign Schedule
                   </h4>
-                  <p className="text-xs text-[#777777] mt-1">Automate delivery windows, timezones, and daily throttling limits.</p>
+                  <p className="text-xs text-[#8E9BA8] mt-1">Automate delivery windows, timezones, and daily throttling limits.</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -859,22 +862,22 @@ export default function Wizard() {
                     checked={isScheduled}
                     onChange={(e) => setIsScheduled(e.target.checked)}
                   />
-                  <div className="w-12 h-6 bg-[#1a1a1a] border border-[#2a2a2a] peer-focus:outline-none rounded-none peer peer-checked:after:translate-x-6 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-none after:h-5 after:w-5 after:transition-all peer-checked:bg-[#19b3d2] peer-checked:after:bg-black"></div>
+                  <div className="w-11 h-6 bg-[#222930] border border-[#2C353D] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
                 </label>
               </div>
 
               {isScheduled && (
-                <div className="space-y-6 pt-5 border-t border-[#1a1a1a] animate-in fade-in duration-300">
-                  {/* 1. Timezone Selector */}
+                <div className="space-y-6 pt-5 border-t border-[#2C353D] animate-in fade-in duration-300">
+                  {/* Timezone & Launch Date */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs uppercase tracking-widest text-[#777777] mb-2 font-medium flex items-center gap-1.5">
-                        <Globe className="w-3.5 h-3.5 text-[#19b3d2]" /> Target Timezone
+                      <label className="block text-xs uppercase tracking-wider text-[#8E9BA8] mb-2 font-semibold flex items-center gap-1.5">
+                        <Globe className="w-3.5 h-3.5 text-sky-400" /> Target Timezone
                       </label>
                       <select
                         value={timezone}
                         onChange={(e) => setTimezone(e.target.value)}
-                        className="w-full bg-[#111111] border border-[#222222] rounded-none py-2.5 px-3 text-xs text-white focus:outline-none focus:border-[#19b3d2] font-mono cursor-pointer"
+                        className="w-full bg-[#222930] border border-[#2C353D] rounded-md py-2 px-3 text-xs text-white focus:outline-none focus:border-[#CBD5E1] font-mono cursor-pointer"
                       >
                         <option value="UTC+05:30 (Asia/Kolkata - IST)">UTC+05:30 (Asia/Kolkata - IST)</option>
                         <option value="UTC-05:00 (America/New_York - EST)">UTC-05:00 (America/New_York - EST)</option>
@@ -888,25 +891,24 @@ export default function Wizard() {
                       </select>
                     </div>
 
-                    {/* 5. Launch Date Picker ("Schedule for Later") */}
                     <div>
-                      <label className="block text-xs uppercase tracking-widest text-[#777777] mb-2 font-medium flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-[#19b3d2]" /> Launch Date (Optional)
+                      <label className="block text-xs uppercase tracking-wider text-[#8E9BA8] mb-2 font-semibold flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-sky-400" /> Launch Date (Optional)
                       </label>
                       <input
                         type="date"
                         value={launchDate}
                         onChange={(e) => setLaunchDate(e.target.value)}
                         min={new Date().toISOString().split("T")[0]}
-                        className="w-full bg-[#111111] border border-[#222222] rounded-none py-2 px-3 text-xs text-white focus:outline-none focus:border-[#19b3d2] font-mono"
+                        className="w-full bg-[#222930] border border-[#2C353D] rounded-md py-2 px-3 text-xs text-white focus:outline-none focus:border-[#CBD5E1] font-mono"
                       />
                     </div>
                   </div>
 
-                  {/* 2. Pre-Configured Business Hour Presets */}
+                  {/* Schedule Presets */}
                   <div>
-                    <label className="block text-xs uppercase tracking-widest text-[#777777] mb-2 font-medium flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-[#19b3d2]" /> Schedule Presets
+                    <label className="block text-xs uppercase tracking-wider text-[#8E9BA8] mb-2 font-semibold flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-sky-400" /> Schedule Presets
                     </label>
                     <div className="flex flex-wrap gap-2">
                       <button
@@ -916,7 +918,7 @@ export default function Wizard() {
                           setStartTime("09:00");
                           setEndTime("17:00");
                         }}
-                        className="px-3 py-1.5 text-xs font-mono rounded-none border border-[#222222] bg-[#111111] hover:bg-[#1a1a1a] text-[#cccccc] hover:text-white transition-all cursor-pointer flex items-center gap-1.5"
+                        className="px-3 py-1.5 text-xs font-mono rounded-md border border-[#2C353D] bg-[#222930] hover:bg-[#29323A] text-[#CBD5E1] hover:text-white transition-all cursor-pointer flex items-center gap-1.5"
                       >
                         💼 Standard Business (Mon-Fri 9AM-5PM)
                       </button>
@@ -927,7 +929,7 @@ export default function Wizard() {
                           setStartTime("08:00");
                           setEndTime("11:30");
                         }}
-                        className="px-3 py-1.5 text-xs font-mono rounded-none border border-[#222222] bg-[#111111] hover:bg-[#1a1a1a] text-[#cccccc] hover:text-white transition-all cursor-pointer flex items-center gap-1.5"
+                        className="px-3 py-1.5 text-xs font-mono rounded-md border border-[#2C353D] bg-[#222930] hover:bg-[#29323A] text-[#CBD5E1] hover:text-white transition-all cursor-pointer flex items-center gap-1.5"
                       >
                         ⚡ Morning Outreach Peak (Mon-Thu 8AM-11:30AM)
                       </button>
@@ -938,16 +940,16 @@ export default function Wizard() {
                           setStartTime("00:00");
                           setEndTime("23:59");
                         }}
-                        className="px-3 py-1.5 text-xs font-mono rounded-none border border-[#222222] bg-[#111111] hover:bg-[#1a1a1a] text-[#cccccc] hover:text-white transition-all cursor-pointer flex items-center gap-1.5"
+                        className="px-3 py-1.5 text-xs font-mono rounded-md border border-[#2C353D] bg-[#222930] hover:bg-[#29323A] text-[#CBD5E1] hover:text-white transition-all cursor-pointer flex items-center gap-1.5"
                       >
                         🌐 24/7 Continuous
                       </button>
                     </div>
                   </div>
 
-                  {/* Active Days Selection */}
+                  {/* Active Days */}
                   <div>
-                    <label className="block text-xs uppercase tracking-widest text-[#777777] mb-2 font-medium">Active Days</label>
+                    <label className="block text-xs uppercase tracking-wider text-[#8E9BA8] mb-2 font-semibold">Active Days</label>
                     <div className="flex flex-wrap gap-2">
                       {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
                         <button
@@ -960,10 +962,10 @@ export default function Wizard() {
                               setScheduleDays([...scheduleDays, index]);
                             }
                           }}
-                          className={`px-4 py-2 text-xs font-semibold rounded-none transition-all cursor-pointer border ${
+                          className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer border ${
                             scheduleDays.includes(index)
-                              ? 'bg-[#19b3d2] text-black border-[#1499b4]'
-                              : 'bg-[#111111] text-[#888888] hover:text-white border-[#222222]'
+                              ? 'bg-white text-[#161B1F] border-white font-bold'
+                              : 'bg-[#222930] text-[#8E9BA8] hover:text-white border-[#2C353D]'
                           }`}
                         >
                           {day}
@@ -975,35 +977,34 @@ export default function Wizard() {
                   {/* Start and End Time */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs uppercase tracking-widest text-[#777777] mb-2 font-medium">Start Time</label>
+                      <label className="block text-xs uppercase tracking-wider text-[#8E9BA8] mb-2 font-semibold">Start Time</label>
                       <input
                         type="time"
                         value={startTime}
                         onChange={(e) => setStartTime(e.target.value)}
-                        className="w-full bg-[#111111] border border-[#222222] rounded-none py-2 px-4 text-white text-xs font-mono focus:outline-none focus:border-[#19b3d2]"
+                        className="w-full bg-[#222930] border border-[#2C353D] rounded-md py-2 px-3 text-white text-xs font-mono focus:outline-none focus:border-[#CBD5E1]"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs uppercase tracking-widest text-[#777777] mb-2 font-medium">End Time</label>
+                      <label className="block text-xs uppercase tracking-wider text-[#8E9BA8] mb-2 font-semibold">End Time</label>
                       <input
                         type="time"
                         value={endTime}
                         onChange={(e) => setEndTime(e.target.value)}
-                        className="w-full bg-[#111111] border border-[#222222] rounded-none py-2 px-4 text-white text-xs font-mono focus:outline-none focus:border-[#19b3d2]"
+                        className="w-full bg-[#222930] border border-[#2C353D] rounded-md py-2 px-3 text-white text-xs font-mono focus:outline-none focus:border-[#CBD5E1]"
                       />
                     </div>
                   </div>
 
-                  {/* 4. Random Humanized Jitter + 3. Daily Sending Limit */}
+                  {/* Jitter and Daily Limit */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                    {/* Humanized Jitter */}
-                    <div className="bg-[#111111] border border-[#222222] p-4 rounded-none flex items-center justify-between">
+                    <div className="bg-[#222930] border border-[#2C353D] p-4 rounded-lg flex items-center justify-between">
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <Shuffle className="w-3.5 h-3.5 text-[#19b3d2]" />
-                          <span className="text-xs font-semibold text-white">Humanized Jitter</span>
+                          <Shuffle className="w-3.5 h-3.5 text-sky-400" />
+                          <span className="text-xs font-semibold text-white">Humanized Variance</span>
                         </div>
-                        <p className="text-[11px] text-[#777777] mt-0.5">Adds ±5 to 15s natural variance between emails to simulate human typing.</p>
+                        <p className="text-[11px] text-[#8E9BA8] mt-0.5">Adds ±5 to 15s natural variance between sends.</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer ml-3 shrink-0">
                         <input
@@ -1012,16 +1013,15 @@ export default function Wizard() {
                           checked={humanJitter}
                           onChange={(e) => setHumanJitter(e.target.checked)}
                         />
-                        <div className="w-10 h-5 bg-[#1a1a1a] border border-[#2a2a2a] peer-focus:outline-none rounded-none peer peer-checked:after:translate-x-5 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-none after:h-4 after:w-4 after:transition-all peer-checked:bg-[#19b3d2] peer-checked:after:bg-black"></div>
+                        <div className="w-9 h-5 bg-[#1C2227] border border-[#2C353D] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
                       </label>
                     </div>
 
-                    {/* Daily Sending Limit */}
-                    <div className="bg-[#111111] border border-[#222222] p-4 rounded-none">
+                    <div className="bg-[#222930] border border-[#2C353D] p-4 rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-1.5">
-                          <Target className="w-3.5 h-3.5 text-[#19b3d2]" />
-                          <span className="text-xs font-semibold text-white">Daily Sending Cap</span>
+                          <Target className="w-3.5 h-3.5 text-sky-400" />
+                          <span className="text-xs font-semibold text-white">Daily Cap</span>
                         </div>
                         <label className="relative inline-flex items-center cursor-pointer">
                           <input
@@ -1030,7 +1030,7 @@ export default function Wizard() {
                             checked={enableDailyLimit}
                             onChange={(e) => setEnableDailyLimit(e.target.checked)}
                           />
-                          <div className="w-10 h-5 bg-[#1a1a1a] border border-[#2a2a2a] peer-focus:outline-none rounded-none peer peer-checked:after:translate-x-5 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-none after:h-4 after:w-4 after:transition-all peer-checked:bg-[#19b3d2] peer-checked:after:bg-black"></div>
+                          <div className="w-9 h-5 bg-[#1C2227] border border-[#2C353D] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
                         </label>
                       </div>
                       {enableDailyLimit ? (
@@ -1042,12 +1042,12 @@ export default function Wizard() {
                             step="10"
                             value={dailyLimit}
                             onChange={(e) => setDailyLimit(Number(e.target.value))}
-                            className="w-28 bg-[#0a0a0a] border border-[#222222] px-2.5 py-1 text-xs text-white font-mono rounded-none focus:outline-none focus:border-[#19b3d2]"
+                            className="w-28 bg-[#1C2227] border border-[#2C353D] px-2.5 py-1 text-xs text-white font-mono rounded-md focus:outline-none focus:border-[#CBD5E1]"
                           />
-                          <span className="text-[11px] text-[#777777]">max emails per day</span>
+                          <span className="text-[11px] text-[#8E9BA8]">max emails per day</span>
                         </div>
                       ) : (
-                        <p className="text-[11px] text-[#777777]">Automatically pauses once limit is reached and resumes next day.</p>
+                        <p className="text-[11px] text-[#8E9BA8]">Automatically pauses once limit is reached and resumes next day.</p>
                       )}
                     </div>
                   </div>
@@ -1063,8 +1063,11 @@ export default function Wizard() {
         <button
           onClick={handlePrev}
           disabled={step === 1}
-          className={`px-6 py-3 font-semibold rounded-none flex items-center gap-2 transition-all text-xs cursor-pointer ${step === 1 ? 'text-[#444444] border border-[#1c1c1c] cursor-not-allowed opacity-40' : 'bg-[#111111] text-[#cccccc] hover:text-white border border-[#222222]'
-            }`}
+          className={`px-5 py-2.5 font-semibold rounded-lg flex items-center gap-2 transition-all text-xs cursor-pointer ${
+            step === 1 
+              ? 'text-[#8E9BA8]/40 border border-[#2C353D]/40 cursor-not-allowed opacity-40' 
+              : 'bg-[#222930] hover:bg-[#29323A] text-[#CBD5E1] hover:text-white border border-[#2C353D]'
+          }`}
         >
           <ArrowLeft className="w-4 h-4" /> Back
         </button>
@@ -1072,7 +1075,7 @@ export default function Wizard() {
         {step < 4 ? (
           <button
             onClick={handleNext}
-            className="bg-[#19b3d2] hover:bg-[#20c4e6] text-black font-semibold rounded-none px-7 py-3 text-xs flex items-center gap-2 transition-all cursor-pointer border border-[#1499b4]"
+            className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold rounded-lg px-6 py-2.5 text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm"
           >
             Continue <ArrowRight className="w-4 h-4" />
           </button>
@@ -1080,7 +1083,7 @@ export default function Wizard() {
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="bg-[#19b3d2] hover:bg-[#20c4e6] text-black font-semibold rounded-none px-8 py-3.5 text-xs flex items-center gap-2 transition-all cursor-pointer border border-[#1499b4] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold rounded-lg px-7 py-2.5 text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Launching..." : "Launch Campaign"} <ArrowRight className="w-4 h-4" />
           </button>
@@ -1089,22 +1092,22 @@ export default function Wizard() {
 
       {/* Progress Modal */}
       {showProgress && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#0a0a0a] border border-[#1e1e1e] p-6 w-full max-w-lg shadow-[0_16px_48px_rgba(0,0,0,0.8)]">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#222930] border border-[#2C353D] rounded-xl p-6 w-full max-w-lg shadow-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-serif text-white flex items-center gap-2">
-                <Loader2 className="w-5 h-5 text-[#00ffff] animate-spin" />
-                {campaignName || "Campaign"}
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Loader2 className="w-4 h-4 text-white animate-spin" />
+                {campaignName || "Campaign Execution"}
               </h3>
               <div className="flex items-center gap-2">
                 {progress?.status === "running" && (
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 animate-pulse">Running</span>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 rounded-md animate-pulse">Running</span>
                 )}
                 {progress?.status === "completed" && (
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-emerald-950/60 border border-emerald-500/40 text-emerald-400">Completed</span>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 rounded-md">Completed</span>
                 )}
                 {progress?.status === "scheduled" && (
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-sky-950/60 border border-sky-500/40 text-sky-400">Scheduled</span>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-sky-950/60 border border-sky-500/40 text-sky-400 rounded-md">Scheduled</span>
                 )}
               </div>
             </div>
@@ -1113,14 +1116,14 @@ export default function Wizard() {
             {progress && (
               <div className="mb-4">
                 <div className="flex justify-between text-xs font-mono mb-1.5">
-                  <span className="text-[#888888]">{progress.sent} of {progress.total} sent</span>
-                  <span className="font-bold text-[#00ffff]">
+                  <span className="text-[#8E9BA8]">{progress.sent} of {progress.total} sent</span>
+                  <span className="font-bold text-white">
                     {progress.total > 0 ? Math.round(progress.sent / progress.total * 100) : 0}%
                   </span>
                 </div>
-                <div className="w-full bg-[#141414] border border-[#222222] h-2 overflow-hidden">
+                <div className="w-full bg-[#1C2227] border border-[#2C353D] h-2 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-[#00ffff] shadow-[0_0_12px_rgba(0,255,255,0.6)] transition-all duration-700 ease-out"
+                    className="h-full bg-white rounded-full transition-all duration-700 ease-out"
                     style={{ width: `${progress.total > 0 ? Math.min(progress.sent / progress.total * 100, 100) : 0}%` }}
                   />
                 </div>
@@ -1129,42 +1132,42 @@ export default function Wizard() {
 
             {/* Countdown timer */}
             {(progress?.status === "running" || progress?.status === "scheduled") && progress?.pending > 0 && (
-              <div className="bg-[#050505] border border-[#1a1a1a] p-4 mb-4 text-center">
-                <div className="text-3xl font-bold text-[#00ffff] font-mono">
+              <div className="bg-[#1C2227] border border-[#2C353D] rounded-lg p-4 mb-4 text-center">
+                <div className="text-3xl font-bold text-white font-mono">
                   {countdown}s
                 </div>
-                <div className="text-[10px] font-mono text-[#777777] mt-1 uppercase tracking-widest">Next email in</div>
+                <div className="text-[10px] font-mono text-[#8E9BA8] mt-1 uppercase tracking-wider">Next email in</div>
               </div>
             )}
 
             {/* Errors */}
             {progress?.failed > 0 && (
-              <div className="bg-rose-950/30 border border-rose-900/50 text-rose-400 p-3 mb-4 text-xs font-mono flex items-center gap-2">
+              <div className="bg-rose-950/30 border border-rose-900/50 text-rose-400 p-3 mb-4 text-xs font-mono rounded-lg flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 {progress.failed} email{progress.failed > 1 ? 's' : ''} failed
               </div>
             )}
 
             {/* Live log */}
-            <div className="bg-[#050505] border border-[#1a1a1a] overflow-hidden mb-4">
-              <div className="p-2.5 border-b border-[#1a1a1a] flex items-center justify-between">
-                <span className="font-mono text-[11px] text-[#888888] uppercase tracking-wider">Live Feed</span>
+            <div className="bg-[#1C2227] border border-[#2C353D] rounded-lg overflow-hidden mb-4">
+              <div className="p-2.5 border-b border-[#2C353D] flex items-center justify-between">
+                <span className="font-mono text-[11px] text-[#8E9BA8] uppercase tracking-wider">Live Feed</span>
               </div>
               <div className="p-3 h-48 overflow-y-auto font-mono text-xs space-y-1.5">
                 {progressLogs.length === 0 ? (
-                  <div className="text-[#555555] text-center py-4">Waiting for first email to send...</div>
+                  <div className="text-[#8E9BA8] text-center py-4">Waiting for first email to send...</div>
                 ) : (
                   [...progressLogs].reverse().map((log: any) => (
-                    <div key={log.id} className={`flex items-start gap-2 p-1.5 border border-[#141414] ${log.status === 'success' ? 'text-emerald-400 bg-emerald-950/10' : 'text-rose-400 bg-rose-950/10'}`}>
-                      <span className="text-[#555555] shrink-0 text-[10px]">[{new Date(log.created_at).toLocaleTimeString()}]</span>
+                    <div key={log.id} className={`flex items-start gap-2 p-1.5 border border-[#2C353D] rounded ${log.status === 'success' ? 'text-emerald-400 bg-emerald-950/10' : 'text-rose-400 bg-rose-950/10'}`}>
+                      <span className="text-[#8E9BA8] shrink-0 text-[10px]">[{new Date(log.created_at).toLocaleTimeString()}]</span>
                       {log.status === 'success' ? (
                         <CheckCircle className="w-3 h-3 mt-0.5 shrink-0 text-emerald-400" />
                       ) : (
                         <X className="w-3 h-3 mt-0.5 shrink-0 text-rose-400" />
                       )}
-                      <span className="text-[#cccccc] truncate">{log.recipient}</span>
-                      <span className="text-[#555555]">-</span>
-                      <span className="truncate text-[#888888]">{log.message}</span>
+                      <span className="text-[#CBD5E1] truncate">{log.recipient}</span>
+                      <span className="text-[#8E9BA8]">-</span>
+                      <span className="truncate text-[#8E9BA8]">{log.message}</span>
                     </div>
                   ))
                 )}
@@ -1176,7 +1179,7 @@ export default function Wizard() {
               {progress?.status === "completed" && campaignId && (
                 <button
                   onClick={() => navigate(`/campaigns/${campaignId}/logs`)}
-                  className="bg-[#19b3d2] hover:bg-[#20c4e6] text-black font-semibold px-5 py-2 text-xs border border-[#1499b4] transition-all cursor-pointer"
+                  className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold px-4 py-2 text-xs rounded-lg transition-all cursor-pointer shadow-sm"
                 >
                   View Full Logs
                 </button>
@@ -1190,7 +1193,7 @@ export default function Wizard() {
                     navigate("/campaigns");
                   }
                 }}
-                className="bg-[#111111] hover:bg-[#1a1a1a] text-[#cccccc] hover:text-white border border-[#222222] px-5 py-2 text-xs font-semibold cursor-pointer transition-all"
+                className="bg-[#1C2227] hover:bg-[#29323A] text-[#CBD5E1] hover:text-white border border-[#2C353D] px-4 py-2 text-xs font-semibold rounded-lg cursor-pointer transition-all"
               >
                 {progress?.status === "completed" ? "Done" : "Close"}
               </button>

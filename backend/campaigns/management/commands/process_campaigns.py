@@ -10,7 +10,7 @@ from django.core.mail import get_connection, EmailMultiAlternatives
 from django.utils import timezone
 from django.db import models, close_old_connections
 from django.db.models import Q
-from campaigns.models import Campaign, CampaignContact, Log, Identity, IdentityGroup, Template
+from campaigns.models import Campaign, CampaignContact, Log, Identity, IdentityGroup, Template, Suppression
 
 class Command(BaseCommand):
     help = 'Processes scheduled and running campaigns'
@@ -171,6 +171,19 @@ class Command(BaseCommand):
         return True
 
     def send_email(self, campaign, contact, subject, body):
+        # 1. Suppression check: abort if recipient unsubscribed or suppressed
+        recipient_clean = contact.recipient.strip().lower()
+        if Suppression.objects.filter(user=campaign.user, email=recipient_clean).exists():
+            contact.status = 'failed'
+            contact.save()
+            Log.objects.create(
+                campaign=campaign,
+                recipient=contact.recipient,
+                status='error',
+                message="Skipped: recipient is on suppression list (unsubscribed/bounced)",
+            )
+            return
+
         identity = self.get_identity_for_send(campaign)
         api_key = identity.get_decrypted_password()
         is_brevo_api = (identity.host in ["api.brevo.com", "brevo", "brevo_api"]) or (api_key and api_key.startswith("xkeysib-"))
@@ -187,10 +200,11 @@ class Command(BaseCommand):
         # Append unsubscribe link and tracking pixel
         base_url = settings.FRONTEND_URL
         pixel_url = f"{base_url}/api/track/open/{campaign.id}/{contact.recipient}/"
+        unsub_url = f"{base_url}/api/unsubscribe/{campaign.id}/{contact.recipient}/"
         pixel_tag = f'<img src="{pixel_url}" width="1" height="1" alt="" style="display:none"/>'
         unsubscribe_html = (
             '<p style="font-size:12px;color:#999;text-align:center;margin-top:20px;">'
-            f'<a href="mailto:{from_email}?subject=unsubscribe" style="color:#999;">Unsubscribe</a>'
+            f'<a href="{unsub_url}" style="color:#999;text-decoration:underline;">Unsubscribe</a>'
             '</p>'
         )
         footer_html = unsubscribe_html + "\n" + pixel_tag
@@ -213,7 +227,8 @@ class Command(BaseCommand):
                 "textContent": plain_text,
                 "replyTo": {"email": from_email},
                 "headers": {
-                    "List-Unsubscribe": f"<mailto:{from_email}?subject=unsubscribe>",
+                    "List-Unsubscribe": f"<{unsub_url}>, <mailto:{from_email}?subject=unsubscribe>",
+                    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
                     "Message-ID": f"<{campaign.id}.{contact.id}.{int(time.time())}@bemailsender>",
                 },
             }
@@ -272,7 +287,8 @@ class Command(BaseCommand):
             headers={
                 "Date": tz_util.now().strftime("%a, %d %b %Y %H:%M:%S %z"),
                 "Message-ID": f"<{campaign.id}.{contact.id}.{int(time.time())}@bemailsender>",
-                "List-Unsubscribe": f"<mailto:{identity.smtp_user}?subject=unsubscribe>",
+                "List-Unsubscribe": f"<{unsub_url}>, <mailto:{identity.smtp_user}?subject=unsubscribe>",
+                "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
                 "Reply-To": identity.smtp_user,
             },
         )

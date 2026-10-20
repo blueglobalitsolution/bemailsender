@@ -178,11 +178,6 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://mailer.blueglobaltechnology.com")
 
-WHATSAPP_SERVICE_URL = os.environ.get("WHATSAPP_SERVICE_URL", "http://localhost:3001")
-WHATSAPP_API_KEY = os.environ.get("WHATSAPP_API_KEY")
-if not WHATSAPP_API_KEY and not DEBUG:
-    raise ValueError("WHATSAPP_API_KEY environment variable is required in production")
-WHATSAPP_API_KEY = WHATSAPP_API_KEY or "whatsapp-dev-key-fallback"
 
 # Laya & Llama AI Service
 LAYA_BASE_URL = os.environ.get("LAYA_BASE_URL", "http://127.0.0.1:8081/predict")

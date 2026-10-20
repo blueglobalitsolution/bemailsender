@@ -36,6 +36,7 @@ from .models import (
     LandingPage,
     ChatbotScript,
     FormSubmission,
+    Suppression,
 )
 from .serializers import (
     TemplateSerializer,
@@ -52,6 +53,7 @@ from .serializers import (
     LandingPageSerializer,
     ChatbotScriptSerializer,
     FormSubmissionSerializer,
+    SuppressionSerializer,
 )
 
 
@@ -655,29 +657,34 @@ class CampaignViewSet(viewsets.ModelViewSet):
             cleaned = {k.strip().lower(): v.strip() if v else v for k, v in row.items()}
             normalized.append(cleaned)
 
+        # Load suppressed emails for this user to ensure consent compliance
+        suppressed_emails = set(
+            Suppression.objects.filter(user=request.user).values_list("email", flat=True)
+        )
+
         contacts_to_create = []
+        skipped_suppressed_count = 0
         for row in normalized:
             email = None
             # Try common email column patterns
             for col in ("email", "e-mail", "email_address", "emailaddress", "mail", "recipient"):
-                if col in row:
-                    email = row[col]
+                if col in row and row[col]:
+                    email = str(row[col]).strip()
                     break
-            # Fallback: find first column containing "email" or look for phone columns
+            # Fallback: find first column containing "email"
             if not email:
                 for col in row:
-                    if "email" in col:
-                        email = row[col]
+                    if "email" in col and row[col]:
+                        email = str(row[col]).strip()
                         break
-            if not email:
-                for col in ("phone", "mobile", "phone_number", "phonenumber"):
-                    if col in row:
-                        email = row[col]
-                        break
-            if email:
+            if email and "@" in email:
+                clean_email = email.lower()
+                if clean_email in suppressed_emails:
+                    skipped_suppressed_count += 1
+                    continue
                 contacts_to_create.append(
                     CampaignContact(
-                        campaign=campaign, recipient=email, data=json.dumps(row)
+                        campaign=campaign, recipient=clean_email, data=json.dumps(row)
                     )
                 )
 
@@ -785,6 +792,21 @@ class LogViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Log.objects.filter(campaign__user=self.request.user)
+
+
+class SuppressionViewSet(viewsets.ModelViewSet):
+    serializer_class = SuppressionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = Suppression.objects.filter(user=self.request.user)
+        email_query = self.request.query_params.get("email")
+        if email_query:
+            qs = qs.filter(email__icontains=email_query.strip())
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
 
 POSTMARK_SPAMCHECK_URL = "https://spamcheck.postmarkapp.com/filter"
@@ -1218,6 +1240,122 @@ def track_open(request, campaign_id, recipient):
         pass
 
     return HttpResponse(TRANSPARENT_GIF, content_type="image/gif")
+
+
+@api_view(["GET", "POST"])
+@permission_classes([AllowAny])
+def public_unsubscribe(request, campaign_id, recipient):
+    clean_recipient = recipient.replace("%40", "@").strip().lower()
+    if "@" not in clean_recipient:
+        try:
+            import base64
+            decoded = base64.urlsafe_b64decode(recipient.encode()).decode("utf-8")
+            if "@" in decoded:
+                clean_recipient = decoded.strip().lower()
+        except Exception:
+            pass
+
+    campaign = None
+    try:
+        campaign = Campaign.objects.select_related("user").get(id=campaign_id)
+        user = campaign.user
+    except Campaign.DoesNotExist:
+        user = None
+
+    if user and clean_recipient:
+        Suppression.objects.get_or_create(
+            user=user,
+            email=clean_recipient,
+            defaults={"reason": "unsubscribed", "campaign": campaign},
+        )
+        # Cancel any pending contacts in active campaigns for this user
+        CampaignContact.objects.filter(
+            campaign__user=user,
+            recipient__iexact=clean_recipient,
+            status="pending",
+        ).update(status="failed")
+
+    if request.method == "POST":
+        return Response({"status": "unsubscribed", "email": clean_recipient})
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unsubscribed</title>
+  <style>
+    body {{
+      margin: 0;
+      padding: 0;
+      background-color: #161B1F;
+      color: #FFFFFF;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }}
+    .card {{
+      background: #222930;
+      border: 1px solid #2C353D;
+      border-radius: 8px;
+      padding: 40px;
+      max-width: 460px;
+      text-align: center;
+      box-sizing: border-box;
+      margin: 20px;
+    }}
+    .icon {{
+      width: 48px;
+      height: 48px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      color: #34D399;
+      font-size: 24px;
+    }}
+    h1 {{
+      font-size: 20px;
+      margin: 0 0 12px 0;
+      color: #FFFFFF;
+      font-weight: 600;
+    }}
+    p {{
+      color: #8E9BA8;
+      font-size: 14px;
+      line-height: 1.6;
+      margin: 0 0 16px 0;
+    }}
+    .email {{
+      color: #CBD5E1;
+      font-weight: 600;
+      background: #1C2227;
+      border: 1px solid #2C353D;
+      padding: 6px 12px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-top: 8px;
+      font-family: monospace;
+      word-break: break-all;
+    }}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">✓</div>
+    <h1>You have been unsubscribed</h1>
+    <p>Your address has been removed from future campaigns for this sender:</p>
+    <div class="email">{clean_recipient}</div>
+    <p style="margin-top: 24px; font-size: 12px; color: #64748B;">You can safely close this window.</p>
+  </div>
+</body>
+</html>"""
+    return HttpResponse(html, content_type="text/html")
 
 
 @api_view(["GET"])
