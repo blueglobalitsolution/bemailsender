@@ -289,6 +289,15 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
               </button>
             )}
 
+            {location.pathname === "/settings" && (
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent("save-settings"))}
+                className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold text-xs px-4 py-2 rounded-md flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+              >
+                <Save className="w-3.5 h-3.5" /> Save Changes
+              </button>
+            )}
+
             {(location.pathname === "/analytics" || location.pathname === "/campaigns" || location.pathname === "/") && (
               <Link 
                 to="/wizard" 
