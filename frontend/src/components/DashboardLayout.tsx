@@ -253,7 +253,7 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
                   onClick={() => window.dispatchEvent(new CustomEvent("open-upload-csv-modal"))}
                   className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold text-xs px-4 py-2 rounded-md flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
                 >
-                  <Upload className="w-3.5 h-3.5" /> Upload CSV
+                  <Upload className="w-3.5 h-3.5" /> Upload Leads
                 </button>
               </div>
             )}

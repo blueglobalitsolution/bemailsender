@@ -942,7 +942,7 @@ export default function SavedCSVs() {
               onClick={() => setIsUploading(true)}
               className="px-4 py-2 bg-white text-[#161B1F] text-xs font-bold rounded-xl flex items-center gap-2 hover:bg-[#CBD5E1] transition-all cursor-pointer shadow"
             >
-              <Upload className="w-3.5 h-3.5" /> Upload CSV
+              <Upload className="w-3.5 h-3.5" /> Upload Leads
             </button>
             <button
               onClick={() => setIsAddingContact(true)}
@@ -1062,7 +1062,7 @@ export default function SavedCSVs() {
                 <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
                   <Upload className="w-4 h-4" />
                 </div>
-                <h3 className="text-sm font-bold text-white">Upload New CSV</h3>
+                <h3 className="text-sm font-bold text-white">Upload Leads</h3>
               </div>
               <button
                 onClick={() => setIsUploading(false)}
