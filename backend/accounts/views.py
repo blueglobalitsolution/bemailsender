@@ -190,6 +190,20 @@ class LogoutView(generics.GenericAPIView):
         return response
 
 
+class LogoutAllDevicesView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        user.jwt_token_version = (user.jwt_token_version or 1) + 1
+        user.save(update_fields=["jwt_token_version"])
+        response = Response({
+            "message": "Successfully logged out across all devices and sessions."
+        })
+        response.delete_cookie("refresh_token")
+        return response
+
+
 class ChangePasswordView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ChangePasswordSerializer

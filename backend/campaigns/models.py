@@ -90,6 +90,7 @@ class Campaign(models.Model):
         ("draft", "Draft"),
         ("scheduled", "Scheduled"),
         ("running", "Running"),
+        ("paused", "Paused"),
         ("completed", "Completed"),
         ("failed", "Failed"),
     ]

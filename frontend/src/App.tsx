@@ -16,6 +16,7 @@ import PublicLandingPage from "./pages/PublicLandingPage";
 import LandingPages from "./pages/LandingPages";
 import LeadScraper from "./pages/LeadScraper";
 import AIChatbot from "./pages/AIChatbot";
+import Settings from "./pages/Settings";
 import { ToastProvider } from "./components/Toast";
 
 export default function App() {
@@ -52,6 +53,7 @@ export default function App() {
             <Route path="identities" element={<Identities />} />
             <Route path="saved-csvs" element={<SavedCSVs />} />
             <Route path="lead-scraper" element={<LeadScraper />} />
+            <Route path="settings" element={<Settings />} />
           </Route>
         ) : (
           <Route path="*" element={<Navigate to="/login" replace />} />

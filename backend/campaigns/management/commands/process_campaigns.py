@@ -94,22 +94,44 @@ class Command(BaseCommand):
 
                     is_within_window = True
 
-                    # Check schedule if days are specified
-                    if (
-                        campaign.schedule_days
-                        and campaign.schedule_start_time
-                        and campaign.schedule_end_time
-                    ):
+                    # Check schedule: campaign-specific schedule overrides user's global safeguard schedule
+                    user = campaign.user
+                    sched_days = campaign.schedule_days or getattr(user, "schedule_days", None)
+                    sched_start = campaign.schedule_start_time or getattr(user, "schedule_start_time", None)
+                    sched_end = campaign.schedule_end_time or getattr(user, "schedule_end_time", None)
+
+                    if sched_days and sched_start and sched_end:
                         try:
                             days = (
-                                json.loads(campaign.schedule_days)
-                                if isinstance(campaign.schedule_days, str)
-                                else campaign.schedule_days
+                                json.loads(sched_days)
+                                if isinstance(sched_days, str)
+                                else sched_days
                             )
-                            start_time = campaign.schedule_start_time.strftime("%H:%M")
-                            end_time = campaign.schedule_end_time.strftime("%H:%M")
+                            day_map = {"sun": 0, "mon": 1, "tue": 2, "wed": 3, "thu": 4, "fri": 5, "sat": 6}
+                            normalized_days = []
+                            for d in days:
+                                if isinstance(d, int):
+                                    normalized_days.append(d)
+                                elif str(d).lower() in day_map:
+                                    normalized_days.append(day_map[str(d).lower()])
+                                else:
+                                    try:
+                                        normalized_days.append(int(d))
+                                    except:
+                                        pass
 
-                            is_day_match = current_day in days
+                            start_time = (
+                                sched_start.strftime("%H:%M")
+                                if hasattr(sched_start, "strftime")
+                                else str(sched_start)[:5]
+                            )
+                            end_time = (
+                                sched_end.strftime("%H:%M")
+                                if hasattr(sched_end, "strftime")
+                                else str(sched_end)[:5]
+                            )
+
+                            is_day_match = current_day in normalized_days
                             is_time_match = False
 
                             if start_time <= end_time:
@@ -301,6 +323,29 @@ class Command(BaseCommand):
                 campaign.total_failed += 1
             campaign.save()
 
+            # Bounce Rate Alert: If failure rate exceeds threshold, notify and auto-pause
+            total_attempts = campaign.total_sent + campaign.total_failed
+            if total_attempts >= 10:  # Minimum sample size to calculate statistical rate
+                bounce_rate = (campaign.total_failed / total_attempts) * 100
+                user = campaign.user
+                threshold = getattr(user, "bounce_alert_threshold", 5.0) or 5.0
+                auto_pause = getattr(user, "bounce_auto_pause", True)
+                if auto_pause and bounce_rate > threshold:
+                    campaign.status = "paused"
+                    campaign.save(update_fields=["status"])
+                    alert_msg = (
+                        f"🚨 Bounce Rate Alert: Campaign automatically paused! "
+                        f"Bounce rate reached {bounce_rate:.1f}% (threshold: {threshold}%)."
+                    )
+                    Log.objects.create(
+                        campaign=campaign,
+                        recipient=contact.recipient,
+                        status="warning",
+                        message=alert_msg,
+                    )
+                    self.stdout.write(self.style.ERROR(alert_msg))
+                    return False
+
             # Don't sleep on failure, try next contact immediately
             return True
 
@@ -397,17 +442,40 @@ class Command(BaseCommand):
         plain_text = re.sub(r"\n\s*\n", "\n\n", plain_text.strip())
         plain_text = plain_text.replace("&nbsp;", " ").replace("&amp;", "&")
 
-        # Append unsubscribe link and tracking pixel
+        # Append unsubscribe link, company physical address, and tracking pixel
         base_url = settings.FRONTEND_URL
         pixel_url = f"{base_url}/api/track/open/{campaign.id}/{contact.recipient}/"
         unsub_url = f"{base_url}/api/unsubscribe/{campaign.id}/{contact.recipient}/"
         pixel_tag = (
             f'<img src="{pixel_url}" width="1" height="1" alt="" style="display:none"/>'
         )
+
+        user = campaign.user
+        unsub_text = (
+            getattr(user, "global_unsubscribe_text", "")
+            or "If you'd rather not hear from us, click here to unsubscribe."
+        )
+        company_addr = getattr(user, "company_address", "") or ""
+        company_name = getattr(user, "company_name", "") or ""
+
+        company_html = ""
+        if company_name or company_addr:
+            c_lines = []
+            if company_name:
+                c_lines.append(f"<span style='font-weight:600;'>{html_module.escape(company_name)}</span>")
+            if company_addr:
+                c_lines.append(html_module.escape(company_addr).replace("\n", "<br/>"))
+            company_html = (
+                f'<div style="margin-top:6px;font-size:11px;color:#9ca3af;line-height:1.4;">'
+                f"{'<br/>'.join(c_lines)}"
+                f'</div>'
+            )
+
         unsubscribe_html = (
-            '<p style="font-size:12px;color:#999;text-align:center;margin-top:20px;">'
-            f'<a href="{unsub_url}" style="color:#999;text-decoration:underline;">Unsubscribe</a>'
-            "</p>"
+            '<div style="font-size:12px;color:#9ca3af;text-align:center;margin-top:28px;padding-top:16px;border-top:1px solid #e5e7eb;">'
+            f'<p style="margin:0;"><a href="{unsub_url}" style="color:#6b7280;text-decoration:underline;">{html_module.escape(unsub_text)}</a></p>'
+            f'{company_html}'
+            "</div>"
         )
         footer_html = unsubscribe_html + "\n" + pixel_tag
         final_body = body
@@ -416,10 +484,19 @@ class Command(BaseCommand):
         else:
             final_body = final_body + footer_html
 
+        enforce_one_click = getattr(user, "enforce_one_click_unsub", True)
+
         if is_brevo_api:
             sender_payload = {"email": from_email}
             if from_name:
                 sender_payload["name"] = from_name
+
+            brevo_headers = {
+                "List-Unsubscribe": f"<{unsub_url}>, <mailto:{from_email}?subject=unsubscribe>",
+                "Message-ID": message_id,
+            }
+            if enforce_one_click:
+                brevo_headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
 
             payload = {
                 "sender": sender_payload,
@@ -428,11 +505,7 @@ class Command(BaseCommand):
                 "htmlContent": final_body,
                 "textContent": plain_text,
                 "replyTo": {"email": from_email},
-                "headers": {
-                    "List-Unsubscribe": f"<{unsub_url}>, <mailto:{from_email}?subject=unsubscribe>",
-                    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-                    "Message-ID": message_id,
-                },
+                "headers": brevo_headers,
             }
 
             resp = requests.post(
@@ -489,18 +562,21 @@ class Command(BaseCommand):
         if from_name:
             sender = f"{from_name} <{from_email}>"
 
+        smtp_headers = {
+            "Message-ID": message_id,
+            "List-Unsubscribe": f"<{unsub_url}>, <mailto:{identity.smtp_user}?subject=unsubscribe>",
+            "Reply-To": from_email,
+        }
+        if enforce_one_click:
+            smtp_headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
+
         email = EmailMultiAlternatives(
             subject=subject,
             body=plain_text,
             from_email=sender,
             to=[contact.recipient],
             connection=connection,
-            headers={
-                "Message-ID": message_id,
-                "List-Unsubscribe": f"<{unsub_url}>, <mailto:{identity.smtp_user}?subject=unsubscribe>",
-                "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-                "Reply-To": from_email,
-            },
+            headers=smtp_headers,
         )
         email.attach_alternative(final_body, "text/html")
         email.send()

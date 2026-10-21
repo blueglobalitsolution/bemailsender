@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, Menu, X, BarChart3, PanelLeftClose, PanelLeftOpen, Plus, Inbox as InboxIcon, Sparkles, UserPlus, Upload, Globe, Compass, Server, Bot, Save, ExternalLink, Download } from "lucide-react";
+import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, Menu, X, BarChart3, PanelLeftClose, PanelLeftOpen, Plus, Inbox as InboxIcon, Sparkles, UserPlus, Upload, Globe, Compass, Server, Bot, Save, ExternalLink, Download, Settings as SettingsIcon } from "lucide-react";
 import { cn } from "../lib/utils";
 import Beams from "./Beams";
 
@@ -44,6 +44,7 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
     { name: "AI Chatbot", path: "/chatbot", icon: Bot },
     { name: "Connect Provider", path: "/identities", icon: Server },
     { name: "Leads", path: "/saved-csvs", icon: Database },
+    { name: "Settings", path: "/settings", icon: SettingsIcon },
   ];
 
   return (
@@ -181,6 +182,8 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
                     return "Find Leads";
                   case "inbox":
                     return "Inbound Mail & Reply Center";
+                  case "settings":
+                    return "Settings & Deliverability Safeguards";
                   default:
                     return path ? path.replace("-", " ") : "Dashboard";
                 }
