@@ -1340,6 +1340,7 @@ export default function SavedCSVs() {
                     <tr>
                       <th className="py-3 px-4">Suppressed Address</th>
                       <th className="py-3 px-4">Reason</th>
+                      <th className="py-3 px-4">Feedback / Notes</th>
                       <th className="py-3 px-4">Source Campaign</th>
                       <th className="py-3 px-4">Date Suppressed</th>
                       <th className="py-3 px-4 text-right">Actions</th>
@@ -1352,6 +1353,11 @@ export default function SavedCSVs() {
                         <tr key={item.id} className="hover:bg-[#29323A]/50 transition-colors">
                           <td className="py-3 px-4 font-mono font-medium text-white">
                             {item.email}
+                            {item.is_active === false && (
+                              <span className="ml-2 text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-sans uppercase">
+                                Resubscribed
+                              </span>
+                            )}
                           </td>
                           <td className="py-3 px-4">
                             <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-mono uppercase font-bold border ${
@@ -1363,6 +1369,22 @@ export default function SavedCSVs() {
                             }`}>
                               {item.reason}
                             </span>
+                          </td>
+                          <td className="py-3 px-4 text-xs text-[#CBD5E1]">
+                            {item.feedback_reason ? (
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-[11px] font-medium text-amber-400/90 capitalize">
+                                  {item.feedback_reason.replace(/_/g, " ")}
+                                </span>
+                                {item.feedback_text && (
+                                  <span className="text-[10px] text-[#8E9BA8] line-clamp-1 italic">
+                                    "{item.feedback_text}"
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-[#64748B]">—</span>
+                            )}
                           </td>
                           <td className="py-3 px-4 text-[#8E9BA8]">
                             {item.campaign_name || "—"}
@@ -1383,7 +1405,7 @@ export default function SavedCSVs() {
                       ))}
                     {suppressions.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="py-12 text-center text-xs text-[#8E9BA8]">
+                        <td colSpan={6} className="py-12 text-center text-xs text-[#8E9BA8]">
                           No suppressed contacts yet. Recipients who click unsubscribe will automatically appear here.
                         </td>
                       </tr>

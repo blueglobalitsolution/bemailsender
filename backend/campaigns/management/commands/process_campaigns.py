@@ -155,12 +155,30 @@ class Command(BaseCommand):
             campaign.save()
 
         except Exception as e:
-            self.stderr.write(f"Failed to send to {contact.recipient}: {str(e)}")
+            err_msg = str(e)
+            self.stderr.write(f"Failed to send to {contact.recipient}: {err_msg}")
             contact.status = 'failed'
             contact.save()
-            Log.objects.create(campaign=campaign, recipient=contact.recipient, status='error', message=str(e))
+            Log.objects.create(campaign=campaign, recipient=contact.recipient, status='error', message=err_msg)
             campaign.total_failed += 1
             campaign.save()
+
+            # Auto-suppress on Hard Bounce or invalid recipient errors
+            err_lower = err_msg.lower()
+            hard_bounce_triggers = [
+                "550", "user unknown", "user not found", "mailbox unavailable", 
+                "mailbox not found", "recipient address rejected", "no such user",
+                "does not exist", "invalid recipient", "551", "552", "553", "554"
+            ]
+            if any(trigger in err_lower for trigger in hard_bounce_triggers):
+                clean_r = contact.recipient.strip().lower()
+                Suppression.objects.update_or_create(
+                    user=campaign.user,
+                    email=clean_r,
+                    defaults={"reason": "bounced", "campaign": campaign, "is_active": True, "feedback_reason": "hard_bounce"}
+                )
+                self.stdout.write(self.style.WARNING(f"Auto-suppressed hard bounced recipient: {clean_r}"))
+
             # Don't sleep on failure, try next contact immediately
             return True
 
@@ -173,7 +191,7 @@ class Command(BaseCommand):
     def send_email(self, campaign, contact, subject, body):
         # 1. Suppression check: abort if recipient unsubscribed or suppressed
         recipient_clean = contact.recipient.strip().lower()
-        if Suppression.objects.filter(user=campaign.user, email=recipient_clean).exists():
+        if Suppression.objects.filter(user=campaign.user, email=recipient_clean, is_active=True).exists():
             contact.status = 'failed'
             contact.save()
             Log.objects.create(

@@ -373,7 +373,11 @@ class Suppression(models.Model):
     campaign = models.ForeignKey(
         Campaign, on_delete=models.SET_NULL, null=True, blank=True, related_name="suppressions"
     )
+    feedback_reason = models.CharField(max_length=100, blank=True, default="")
+    feedback_text = models.TextField(blank=True, default="")
+    is_active = models.BooleanField(default=True, help_text="False if resubscribed")
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "suppressions"

@@ -401,9 +401,13 @@ class SuppressionSerializer(serializers.ModelSerializer):
             "reason",
             "campaign",
             "campaign_name",
+            "feedback_reason",
+            "feedback_text",
+            "is_active",
             "created_at",
+            "updated_at",
         ]
-        read_only_fields = ["id", "campaign_name", "created_at"]
+        read_only_fields = ["id", "campaign_name", "created_at", "updated_at"]
 
     def validate_email(self, value):
         return value.strip().lower()

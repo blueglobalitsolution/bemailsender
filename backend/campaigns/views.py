@@ -657,9 +657,9 @@ class CampaignViewSet(viewsets.ModelViewSet):
             cleaned = {k.strip().lower(): v.strip() if v else v for k, v in row.items()}
             normalized.append(cleaned)
 
-        # Load suppressed emails for this user to ensure consent compliance
+        # Load active suppressed emails for this user to ensure consent compliance
         suppressed_emails = set(
-            Suppression.objects.filter(user=request.user).values_list("email", flat=True)
+            Suppression.objects.filter(user=request.user, is_active=True).values_list("email", flat=True)
         )
 
         contacts_to_create = []
@@ -1268,12 +1268,56 @@ def public_unsubscribe(request, campaign_id, recipient):
     except Campaign.DoesNotExist:
         user = None
 
+    # Handle feedback submission or resubscribe request via POST
+    if request.method == "POST":
+        action = request.data.get("action", "")
+        feedback_reason = request.data.get("feedback_reason", "")
+        feedback_text = request.data.get("feedback_text", "")
+
+        # Resubscribe action
+        if action == "resubscribe":
+            if user and clean_recipient:
+                Suppression.objects.filter(user=user, email=clean_recipient).update(is_active=False)
+            return Response({"status": "resubscribed", "email": clean_recipient})
+
+        # Feedback update action
+        if action == "feedback":
+            if user and clean_recipient:
+                Suppression.objects.filter(user=user, email=clean_recipient).update(
+                    feedback_reason=feedback_reason[:100],
+                    feedback_text=feedback_text[:500],
+                )
+            return Response({"status": "feedback_saved", "email": clean_recipient})
+
+        # Default POST: One-Click Unsubscribe (RFC 8058 standard from Gmail/Yahoo post)
+        if user and clean_recipient:
+            supp, _ = Suppression.objects.get_or_create(
+                user=user,
+                email=clean_recipient,
+                defaults={"reason": "unsubscribed", "campaign": campaign, "is_active": True},
+            )
+            if not supp.is_active:
+                supp.is_active = True
+                supp.save(update_fields=["is_active"])
+            CampaignContact.objects.filter(
+                campaign__user=user,
+                recipient__iexact=clean_recipient,
+                status="pending",
+            ).update(status="failed")
+
+        return Response({"status": "unsubscribed", "email": clean_recipient})
+
+    # GET Request: User clicked the link in email browser
     if user and clean_recipient:
-        Suppression.objects.get_or_create(
+        supp, _ = Suppression.objects.get_or_create(
             user=user,
             email=clean_recipient,
-            defaults={"reason": "unsubscribed", "campaign": campaign},
+            defaults={"reason": "unsubscribed", "campaign": campaign, "is_active": True},
         )
+        if not supp.is_active:
+            supp.is_active = True
+            supp.save(update_fields=["is_active"])
+
         # Cancel any pending contacts in active campaigns for this user
         CampaignContact.objects.filter(
             campaign__user=user,
@@ -1281,84 +1325,269 @@ def public_unsubscribe(request, campaign_id, recipient):
             status="pending",
         ).update(status="failed")
 
-    if request.method == "POST":
-        return Response({"status": "unsubscribed", "email": clean_recipient})
+    campaign_title = campaign.name if campaign else "this sender"
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Unsubscribed</title>
+  <title>Unsubscribed • ReachEngine</title>
   <style>
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
     body {{
-      margin: 0;
-      padding: 0;
-      background-color: #161B1F;
-      color: #FFFFFF;
+      background: radial-gradient(circle at 50% 20%, #1A2228 0%, #111417 100%);
+      color: #E2E8F0;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
+      padding: 24px;
     }}
     .card {{
-      background: #222930;
+      background: #181E24;
       border: 1px solid #2C353D;
-      border-radius: 8px;
-      padding: 40px;
-      max-width: 460px;
+      border-radius: 16px;
+      padding: 36px 32px;
+      max-width: 480px;
+      width: 100%;
       text-align: center;
-      box-sizing: border-box;
-      margin: 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
     }}
     .icon {{
-      width: 48px;
-      height: 48px;
-      background: rgba(16, 185, 129, 0.15);
+      width: 54px;
+      height: 54px;
+      background: rgba(16, 185, 129, 0.12);
       border: 1px solid rgba(16, 185, 129, 0.3);
       border-radius: 50%;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      margin: 0 auto 20px;
-      color: #34D399;
-      font-size: 24px;
+      margin-bottom: 20px;
+      color: #10B981;
+      font-size: 26px;
+      font-weight: bold;
     }}
     h1 {{
-      font-size: 20px;
-      margin: 0 0 12px 0;
+      font-size: 22px;
       color: #FFFFFF;
-      font-weight: 600;
+      margin-bottom: 8px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
     }}
-    p {{
+    p.subtitle {{
       color: #8E9BA8;
-      font-size: 14px;
-      line-height: 1.6;
-      margin: 0 0 16px 0;
+      font-size: 13.5px;
+      line-height: 1.5;
+      margin-bottom: 16px;
     }}
-    .email {{
-      color: #CBD5E1;
-      font-weight: 600;
-      background: #1C2227;
-      border: 1px solid #2C353D;
-      padding: 6px 12px;
-      border-radius: 4px;
+    .email-badge {{
       display: inline-block;
-      margin-top: 8px;
-      font-family: monospace;
+      background: #12161A;
+      border: 1px solid #2C353D;
+      color: #38BDF8;
+      font-family: 'SFMono-Regular', Consolas, Menlo, monospace;
+      font-size: 13px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      margin-bottom: 24px;
       word-break: break-all;
+    }}
+    .feedback-box {{
+      background: #14181C;
+      border: 1px solid #242B32;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: left;
+      margin-top: 10px;
+      margin-bottom: 20px;
+    }}
+    .feedback-title {{
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #8E9BA8;
+      margin-bottom: 12px;
+      display: block;
+    }}
+    .option-label {{
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      color: #CBD5E1;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }}
+    .option-label:hover {{
+      background: #1E252D;
+    }}
+    .option-label input[type="radio"] {{
+      accent-color: #10B981;
+      cursor: pointer;
+    }}
+    .custom-comment {{
+      width: 100%;
+      background: #1B2228;
+      border: 1px solid #2C353D;
+      color: #FFF;
+      font-size: 12.5px;
+      border-radius: 8px;
+      padding: 10px;
+      margin-top: 10px;
+      outline: none;
+      resize: vertical;
+      min-height: 60px;
+    }}
+    .btn {{
+      display: inline-block;
+      width: 100%;
+      padding: 11px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }}
+    .btn-feedback {{
+      background: #2563EB;
+      color: #FFFFFF;
+      margin-top: 12px;
+    }}
+    .btn-feedback:hover {{
+      background: #1D4ED8;
+    }}
+    .footer-actions {{
+      margin-top: 20px;
+      padding-top: 18px;
+      border-top: 1px solid #242B32;
+      font-size: 12px;
+      color: #64748B;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }}
+    .resubscribe-btn {{
+      background: none;
+      border: none;
+      color: #10B981;
+      font-size: 12px;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 0;
+    }}
+    .resubscribe-btn:hover {{
+      color: #34D399;
+    }}
+    .success-msg {{
+      display: none;
+      color: #10B981;
+      font-size: 12.5px;
+      margin-top: 10px;
+      font-weight: 500;
     }}
   </style>
 </head>
 <body>
-  <div class="card">
+  <div class="card" id="mainCard">
     <div class="icon">✓</div>
-    <h1>You have been unsubscribed</h1>
-    <p>Your address has been removed from future campaigns for this sender:</p>
-    <div class="email">{clean_recipient}</div>
-    <p style="margin-top: 24px; font-size: 12px; color: #64748B;">You can safely close this window.</p>
+    <h1>You're Unsubscribed</h1>
+    <p class="subtitle">You will no longer receive marketing or cold outreach emails from <strong>{campaign_title}</strong>.</p>
+    <div class="email-badge">{clean_recipient}</div>
+
+    <div class="feedback-box" id="feedbackSection">
+      <span class="feedback-title">Help us improve: Why did you unsubscribe?</span>
+      <label class="option-label">
+        <input type="radio" name="reason" value="too_frequent"> Too many emails received
+      </label>
+      <label class="option-label">
+        <input type="radio" name="reason" value="not_relevant"> Content is not relevant to me
+      </label>
+      <label class="option-label">
+        <input type="radio" name="reason" value="never_signed_up"> I never signed up or requested this
+      </label>
+      <label class="option-label">
+        <input type="radio" name="reason" value="competitor"> Switched to another product/service
+      </label>
+      <label class="option-label">
+        <input type="radio" name="reason" value="other"> Other reason
+      </label>
+
+      <textarea id="feedbackComment" class="custom-comment" placeholder="Optional: Any specific comments or thoughts?"></textarea>
+
+      <button type="button" class="btn btn-feedback" id="submitFeedbackBtn">Submit Feedback</button>
+      <div id="feedbackSuccess" class="success-msg">Thank you! Your feedback has been noted.</div>
+    </div>
+
+    <div class="footer-actions">
+      <span>Unsubscribed by mistake?</span>
+      <button type="button" class="resubscribe-btn" id="resubscribeBtn">Resubscribe me</button>
+    </div>
   </div>
+
+  <script>
+    const recipient = "{clean_recipient}";
+    const postUrl = window.location.href;
+
+    document.getElementById("submitFeedbackBtn").addEventListener("click", async () => {{
+      const selected = document.querySelector('input[name="reason"]:checked');
+      const comment = document.getElementById("feedbackComment").value;
+      if (!selected && !comment.trim()) {{
+        alert("Please select a reason or provide a comment.");
+        return;
+      }}
+      const btn = document.getElementById("submitFeedbackBtn");
+      btn.innerText = "Submitting...";
+      btn.disabled = true;
+
+      try {{
+        const resp = await fetch(postUrl, {{
+          method: "POST",
+          headers: {{ "Content-Type": "application/json" }},
+          body: JSON.stringify({{
+            action: "feedback",
+            feedback_reason: selected ? selected.value : "other",
+            feedback_text: comment
+          }})
+        }});
+        if (resp.ok) {{
+          document.getElementById("feedbackSuccess").style.display = "block";
+          btn.style.display = "none";
+        }}
+      }} catch (e) {{
+        alert("Unable to save feedback at this time.");
+        btn.innerText = "Submit Feedback";
+        btn.disabled = false;
+      }}
+    }});
+
+    document.getElementById("resubscribeBtn").addEventListener("click", async () => {{
+      const btn = document.getElementById("resubscribeBtn");
+      btn.innerText = "Resubscribing...";
+      btn.disabled = true;
+
+      try {{
+        const resp = await fetch(postUrl, {{
+          method: "POST",
+          headers: {{ "Content-Type": "application/json" }},
+          body: JSON.stringify({{ action: "resubscribe" }})
+        }});
+        if (resp.ok) {{
+          alert("You have been resubscribed successfully!");
+          window.location.reload();
+        }}
+      }} catch (e) {{
+        alert("Unable to resubscribe at this time.");
+        btn.innerText = "Resubscribe me";
+        btn.disabled = false;
+      }}
+    }});
+  </script>
 </body>
 </html>"""
     return HttpResponse(html, content_type="text/html")
