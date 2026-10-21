@@ -21,7 +21,9 @@ import {
   Smartphone,
   Monitor,
   CheckCircle2,
-  FileCode
+  FileCode,
+  Search,
+  Calendar,
 } from "lucide-react";
 import EmailEditor, { EditorRef } from "react-email-editor";
 import { apiFetch } from "../lib/api";
@@ -35,6 +37,8 @@ interface Template {
   body: string;
   type: string;
   design?: any;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface Identity {
@@ -48,6 +52,10 @@ export default function Templates() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [identities, setIdentities] = useState<Identity[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Search & Filter/Sort State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "alphabetical">("newest");
 
   // Template states
   const [isCreating, setIsCreating] = useState(false);
@@ -632,8 +640,73 @@ export default function Templates() {
 
       {/* TEMPLATES GRID */}
       <div className="flex-1 overflow-auto p-6 lg:p-8">
+        {/* Toolbar: Search & Date Filter */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-mono font-semibold bg-[#1C2227] text-white border border-[#2C353D] px-3 py-1.5 rounded-lg shrink-0">
+              {templates.length} {templates.length === 1 ? "Template" : "Templates"}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+            {/* Search Box */}
+            <div className="relative flex-1 sm:w-64">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#8E9BA8]" />
+              <input
+                type="text"
+                placeholder="Search templates..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-[#14181C] border border-[#2C353D] focus:border-white text-xs text-white pl-8 pr-7 py-2 rounded-xl outline-none font-mono transition-all"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8E9BA8] hover:text-white"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Date-wise Sort Filter */}
+            <div className="flex items-center gap-2 bg-[#14181C] border border-[#2C353D] rounded-xl px-3 py-1.5 shrink-0">
+              <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="text-[11px] font-mono text-[#8E9BA8] uppercase font-bold shrink-0">Sort:</span>
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as any)}
+                className="bg-transparent text-white text-xs font-semibold outline-none cursor-pointer pr-1"
+              >
+                <option value="newest" className="bg-[#181E24] text-white">Date: Latest First</option>
+                <option value="oldest" className="bg-[#181E24] text-white">Date: Oldest First</option>
+                <option value="alphabetical" className="bg-[#181E24] text-white">Name: A to Z</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Templates Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {templates.map((template) => (
+          {templates
+            .filter((t) => {
+              if (!searchQuery.trim()) return true;
+              const q = searchQuery.toLowerCase();
+              return (
+                t.name?.toLowerCase().includes(q) ||
+                t.subject?.toLowerCase().includes(q) ||
+                t.body?.toLowerCase().includes(q)
+              );
+            })
+            .sort((a, b) => {
+              if (sortOrder === "alphabetical") {
+                return (a.name || "").localeCompare(b.name || "");
+              }
+              const dateA = a.created_at ? new Date(a.created_at).getTime() : a.id;
+              const dateB = b.created_at ? new Date(b.created_at).getTime() : b.id;
+              return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
+            })
+            .map((template) => (
             <div
               key={template.id}
               onClick={() => setPreviewTemplate(template)}
@@ -680,8 +753,8 @@ export default function Templates() {
               </div>
 
               <div className="pt-3 border-t border-[#2C353D] flex items-center justify-between">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[#8E9BA8] group-hover:text-white transition-colors">
-                  Click to view preview
+                <span className="text-[10px] font-mono text-[#8E9BA8]">
+                  {template.created_at ? new Date(template.created_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "Saved"}
                 </span>
                 <button
                   type="button"
