@@ -297,10 +297,10 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
           </div>
         </header>
         <div className={cn(
-          "flex-1 overflow-auto relative z-10",
-          (location.pathname === "/inbox" || location.pathname === "/templates") ? "p-0 overflow-hidden" : "p-4 sm:p-6 md:p-8"
+          "flex-1 relative z-10",
+          location.pathname === "/inbox" ? "p-0 overflow-hidden" : location.pathname === "/templates" ? "p-0 overflow-y-auto" : "p-4 sm:p-6 md:p-8 overflow-auto"
         )}>
-          <div key={location.pathname} className="page-transition-container w-full h-full min-h-full">
+          <div key={location.pathname} className="page-transition-container w-full min-h-full">
             <Outlet />
           </div>
         </div>
