@@ -721,27 +721,7 @@ export default function SavedCSVs() {
                 )}
               </div>
 
-              {/* Add Row Button */}
-              <button
-                type="button"
-                onClick={handleAddRow}
-                className="px-3 py-2 bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white border border-[#2C353D] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                title="Add a new contact row"
-              >
-                <Plus className="w-3.5 h-3.5 text-emerald-400" />
-                <span>+ Add Row</span>
-              </button>
 
-              {/* Add Column Button */}
-              <button
-                type="button"
-                onClick={handleAddColumn}
-                className="px-3 py-2 bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white border border-[#2C353D] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                title="Add a new custom column"
-              >
-                <Plus className="w-3.5 h-3.5 text-purple-400" />
-                <span>+ Column</span>
-              </button>
 
               {/* Save Changes Button */}
               <button
