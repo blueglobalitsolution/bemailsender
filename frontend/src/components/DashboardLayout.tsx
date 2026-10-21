@@ -44,7 +44,6 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
     { name: "AI Chatbot", path: "/chatbot", icon: Bot },
     { name: "Connect Provider", path: "/identities", icon: Server },
     { name: "Leads", path: "/saved-csvs", icon: Database },
-    { name: "Settings", path: "/settings", icon: SettingsIcon },
   ];
 
   return (
@@ -126,8 +125,29 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
           })}
         </nav>
 
-        {/* Footer / Sign Out */}
-        <div className="p-3 border-t border-[#2C353D]">
+        {/* Footer / Settings & Sign Out */}
+        <div className="p-3 border-t border-[#2C353D] space-y-1">
+          <Link
+            to="/settings"
+            title={collapsed ? "Settings" : undefined}
+            className={cn(
+              "flex items-center w-full rounded-md text-sm font-medium transition-all group relative",
+              collapsed ? "justify-center px-0 py-3" : "gap-3 px-4 py-2.5",
+              location.pathname.startsWith("/settings")
+                ? "bg-[#FFFFFF] text-[#161B1F] font-bold shadow-[0_2px_10px_rgba(255,255,255,0.15)]"
+                : "text-[#8E9BA8] hover:text-white hover:bg-[#222930]"
+            )}
+          >
+            <SettingsIcon className="w-4 h-4 shrink-0" />
+            {!collapsed && <span className="truncate">Settings</span>}
+
+            {collapsed && (
+              <div className="hidden md:group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#222930] border border-[#2C353D] text-white text-xs font-medium rounded-md shadow-xl whitespace-nowrap z-50 pointer-events-none">
+                Settings
+              </div>
+            )}
+          </Link>
+
           <button 
             onClick={handleLogout}
             title={collapsed ? "Sign Out" : undefined}
