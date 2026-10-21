@@ -125,8 +125,8 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
           })}
         </nav>
 
-        {/* Footer / Settings & Sign Out */}
-        <div className="p-3 border-t border-[#2C353D] space-y-1">
+        {/* Footer / Settings */}
+        <div className="p-3 border-t border-[#2C353D]">
           <Link
             to="/settings"
             title={collapsed ? "Settings" : undefined}
@@ -147,24 +147,6 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
               </div>
             )}
           </Link>
-
-          <button 
-            onClick={handleLogout}
-            title={collapsed ? "Sign Out" : undefined}
-            className={cn(
-              "flex items-center w-full rounded-md text-sm font-medium text-[#8E9BA8] hover:text-[#f87171] hover:bg-[#222930] transition-all cursor-pointer group relative",
-              collapsed ? "justify-center px-0 py-3" : "gap-3 px-4 py-2.5"
-            )}
-          >
-            <LogOut className="w-4 h-4 shrink-0" />
-            {!collapsed && <span className="truncate">Sign Out</span>}
-
-            {collapsed && (
-              <div className="hidden md:group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#222930] border border-[#3a1a1a] text-[#f87171] text-xs font-medium rounded-md shadow-xl whitespace-nowrap z-50 pointer-events-none">
-                Sign Out
-              </div>
-            )}
-          </button>
         </div>
       </aside>
 
