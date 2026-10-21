@@ -289,7 +289,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-16">
+    <div className="w-full space-y-6 pb-16">
       {/* Tabs Bar */}
       <div className="flex border-b border-[#2C353D] gap-2 overflow-x-auto pb-px">
         <button
@@ -544,7 +544,7 @@ export default function Settings() {
 
       {/* TAB 2: Sending Windows & Cooldown Safeguards */}
       {activeTab === "safeguards" && (
-        <div className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
           {/* Recipient Cooldown Period Card */}
           <div className="bg-[#1C2227] border border-[#2C353D] rounded-xl p-6 space-y-5">
             <div className="flex items-center justify-between border-b border-[#2C353D] pb-4">
@@ -623,6 +623,18 @@ export default function Settings() {
                 <span>
                   <strong>How it works:</strong> If set to <strong>{cooldownDays} days</strong>, ReachEngine checks your historical sending ledger before sending. If a recipient was emailed in any campaign less than {cooldownDays} days ago, they are automatically safely skipped to protect you from spam complaints. (0 disables cooldown).
                 </span>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => handleSaveSettings("Cooldown Period")}
+                  disabled={saving}
+                  className="bg-emerald-500 hover:bg-emerald-400 text-[#161B1F] font-bold text-xs px-5 py-2.5 rounded-lg flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  Save Cooldown
+                </button>
               </div>
             </div>
           </div>
@@ -905,101 +917,146 @@ export default function Settings() {
 
       {/* TAB 4: Notifications & Bounce Alerts */}
       {activeTab === "alerts" && (
-        <div className="max-w-3xl space-y-6">
-          <div className="bg-[#1C2227] border border-[#2C353D] rounded-xl p-6 space-y-5">
-            <div className="flex items-center justify-between border-b border-[#2C353D] pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
-                  <AlertTriangle className="w-5 h-5" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full">
+          <div className="lg:col-span-7 space-y-6">
+            <div className="bg-[#1C2227] border border-[#2C353D] rounded-xl p-6 space-y-5">
+              <div className="flex items-center justify-between border-b border-[#2C353D] pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">
+                      Automated Bounce Rate Guardrail & Alerts
+                    </h3>
+                    <p className="text-xs text-[#8E9BA8]">
+                      Detect invalid emails and automatically pause campaigns to protect your domain reputation.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">
-                    Automated Bounce Rate Guardrail & Alerts
-                  </h3>
-                  <p className="text-xs text-[#8E9BA8]">
-                    Detect invalid emails and automatically pause campaigns to protect your domain reputation.
-                  </p>
+
+                <div className="text-right">
+                  <span className="text-2xl font-mono font-bold text-amber-400">
+                    {bounceThreshold}%
+                  </span>
                 </div>
               </div>
 
-              <div className="text-right">
-                <span className="text-2xl font-mono font-bold text-amber-400">
-                  {bounceThreshold}%
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              {/* Threshold Slider */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs text-[#8E9BA8]">
-                  <span>Bounce Rate Threshold</span>
-                  <span className="font-mono font-bold text-white">Trigger at &gt; {bounceThreshold}%</span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <input
-                    type="range"
-                    min="1.0"
-                    max="15.0"
-                    step="0.5"
-                    value={bounceThreshold}
-                    onChange={(e) => setBounceThreshold(Number(e.target.value))}
-                    className="flex-1 accent-amber-400 cursor-pointer h-2 bg-[#161B1F] rounded-lg"
-                  />
-                  <div className="w-20">
+              <div className="space-y-6">
+                {/* Threshold Slider */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-[#8E9BA8]">
+                    <span>Bounce Rate Threshold</span>
+                    <span className="font-mono font-bold text-white">Trigger at &gt; {bounceThreshold}%</span>
+                  </div>
+                  <div className="flex items-center gap-4">
                     <input
-                      type="number"
-                      min="0.5"
-                      max="50.0"
+                      type="range"
+                      min="1.0"
+                      max="15.0"
                       step="0.5"
                       value={bounceThreshold}
                       onChange={(e) => setBounceThreshold(Number(e.target.value))}
-                      className="w-full bg-[#161B1F] border border-[#2C353D] rounded-lg px-2 py-1.5 text-center font-mono font-bold text-sm text-white focus:outline-none focus:border-white"
+                      className="flex-1 accent-amber-400 cursor-pointer h-2 bg-[#161B1F] rounded-lg"
                     />
+                    <div className="w-20">
+                      <input
+                        type="number"
+                        min="0.5"
+                        max="50.0"
+                        step="0.5"
+                        value={bounceThreshold}
+                        onChange={(e) => setBounceThreshold(Number(e.target.value))}
+                        className="w-full bg-[#161B1F] border border-[#2C353D] rounded-lg px-2 py-1.5 text-center font-mono font-bold text-sm text-white focus:outline-none focus:border-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Quick Presets */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <span className="text-[11px] text-[#8E9BA8]">Presets:</span>
+                    {[
+                      { label: "3.0% (Strict)", val: 3.0 },
+                      { label: "5.0% (Recommended)", val: 5.0 },
+                      { label: "8.0%", val: 8.0 },
+                      { label: "10.0%", val: 10.0 },
+                    ].map((p) => (
+                      <button
+                        key={p.val}
+                        type="button"
+                        onClick={() => setBounceThreshold(p.val)}
+                        className={cn(
+                          "text-xs px-2.5 py-1 rounded-md border transition-all cursor-pointer",
+                          bounceThreshold === p.val
+                            ? "bg-amber-500/20 border-amber-500/50 text-amber-300 font-semibold"
+                            : "bg-[#161B1F] border-[#2C353D] text-[#8E9BA8] hover:text-white"
+                        )}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              </div>
 
-              {/* Auto Pause Toggle */}
-              <div className="p-4 bg-[#161B1F] border border-[#2C353D] rounded-lg flex items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="text-sm font-semibold text-white">
-                    Auto-Pause Active Campaigns
+                {/* Auto Pause Toggle */}
+                <div className="p-4 bg-[#161B1F] border border-[#2C353D] rounded-lg flex items-start justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="text-sm font-semibold text-white">
+                      Auto-Pause Active Campaigns
+                    </div>
+                    <p className="text-xs text-[#8E9BA8]">
+                      When enabled, if a campaign's bounce rate surpasses <strong>{bounceThreshold}%</strong> (after 10+ attempts), ReachEngine instantly sets the campaign status to <code>paused</code> and issues a critical deliverability alert.
+                    </p>
                   </div>
-                  <p className="text-xs text-[#8E9BA8]">
-                    When enabled, if a campaign's bounce rate surpasses <strong>{bounceThreshold}%</strong> (after 10+ attempts), ReachEngine instantly sets the campaign status to <code>paused</code> and issues a critical deliverability alert.
-                  </p>
+
+                  <input
+                    type="checkbox"
+                    checked={bounceAutoPause}
+                    onChange={(e) => setBounceAutoPause(e.target.checked)}
+                    className="w-5 h-5 accent-amber-400 rounded cursor-pointer mt-1"
+                  />
                 </div>
 
-                <input
-                  type="checkbox"
-                  checked={bounceAutoPause}
-                  onChange={(e) => setBounceAutoPause(e.target.checked)}
-                  className="w-5 h-5 accent-amber-400 rounded cursor-pointer mt-1"
-                />
-              </div>
-
-              {/* Best Practice Callout */}
-              <div className="p-4 bg-amber-950/20 border border-amber-800/40 rounded-xl space-y-2 text-xs text-amber-200">
-                <div className="font-bold flex items-center gap-2 text-amber-300">
-                  <Shield className="w-4 h-4" />
-                  Industry Best Practice: Keep Bounce Rate Under 5%
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => handleSaveSettings("Bounce Alerts")}
+                    disabled={saving}
+                    className="bg-amber-400 hover:bg-amber-300 text-[#161B1F] font-bold text-xs px-5 py-2.5 rounded-lg flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    Save Alert Settings
+                  </button>
                 </div>
-                <p className="text-amber-200/80 leading-relaxed">
-                  Major inbox providers (Google Workspace, Microsoft 365, Yahoo) start flagging sending domains when bounce rates exceed 3% - 5%. Auto-pausing high-bounce campaigns protects your other email identities from being permanently blacklisted.
-                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Best Practices & Deliverability Telemetry */}
+          <div className="lg:col-span-5 space-y-6">
+            <div className="bg-[#1C2227] border border-[#2C353D] rounded-xl p-6 space-y-4">
+              <div className="font-bold flex items-center gap-2 text-amber-300 text-sm">
+                <Shield className="w-4 h-4" />
+                Industry Standard: Keep Bounce Rate Under 5%
+              </div>
+              <p className="text-xs text-[#8E9BA8] leading-relaxed">
+                Major inbox providers (Google Workspace, Microsoft 365, Yahoo) start flagging sending domains and warmup pools when bounce rates cross 3% – 5%. Auto-pausing high-bounce campaigns protects your identities from being permanently blacklisted.
+              </p>
+
+              <div className="p-4 bg-amber-950/20 border border-amber-800/40 rounded-lg space-y-2.5 text-xs">
+                <div className="font-semibold text-amber-300">Auto-Protection Benefits:</div>
+                <ul className="list-disc pl-4 space-y-1 text-amber-200/80">
+                  <li>Halts high-bounce batches before SMTP blacklisting occurs.</li>
+                  <li>Auto-marks invalid recipients directly into suppression lists.</li>
+                  <li>Protects other warmup identities in rotating groups.</li>
+                </ul>
               </div>
 
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => handleSaveSettings("Bounce Alerts")}
-                  disabled={saving}
-                  className="bg-amber-400 hover:bg-amber-300 text-[#161B1F] font-bold text-xs px-5 py-2.5 rounded-lg flex items-center gap-2 transition-all cursor-pointer shadow-sm"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  Save Alert Settings
-                </button>
+              <div className="p-3 bg-[#161B1F] border border-[#2C353D] rounded-lg text-[11px] text-[#8E9BA8] flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>
+                  Auto-Pause Guardrail: <strong>{bounceAutoPause ? "Active" : "Disabled"}</strong>
+                </span>
               </div>
             </div>
           </div>
