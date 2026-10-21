@@ -29,7 +29,7 @@ class LayaAIService:
         ]
         for url in endpoints:
             try:
-                response = requests.post(url, headers=headers, json=payload, timeout=4)
+                response = requests.post(url, headers=headers, json=payload, timeout=15)
                 if response.status_code == 200:
                     data = response.json()
                     choice = data.get("choice")
@@ -69,7 +69,7 @@ class LayaAIService:
         ]
         for url in endpoints:
             try:
-                response = requests.post(url, headers=headers, json=payload, timeout=8)
+                response = requests.post(url, headers=headers, json=payload, timeout=30)
                 if response.status_code == 200:
                     data = response.json()
                     choices = data.get("choices", [])
@@ -127,7 +127,7 @@ class LayaAIService:
         ]
         for url in endpoints:
             try:
-                response = requests.post(url, headers=headers, json=payload, timeout=8)
+                response = requests.post(url, headers=headers, json=payload, timeout=30)
                 if response.status_code == 200:
                     data = response.json()
                     choices = data.get("choices", [])
@@ -182,7 +182,7 @@ class LayaAIService:
 
         ai_generated_text = cls.generate_email_completion(gen_prompt, max_tokens=450)
 
-        if ai_generated_text and "BODY:" in ai_generated_text:
+        if ai_generated_text and "BODY:" in ai_generated_text.upper():
             # Parse AI output
             lines = ai_generated_text.splitlines()
             subject = ""

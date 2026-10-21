@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, CheckCircle, XCircle, Terminal, Eye, Mail, RefreshCw, Edit3, Plus, Trash2, Save, X, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, Clock, Terminal, Eye, Mail, RefreshCw, Edit3, Plus, Trash2, Save, X, Loader2 } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { useToast } from "../components/Toast";
 
@@ -231,13 +231,19 @@ export default function CampaignLogs() {
           ) : (
             logs.map((log) => (
               <div key={log.id} className={`flex items-start gap-4 p-3 rounded border ${
-                log.status === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                log.status === 'success'
+                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                  : log.status === 'skipped'
+                  ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                  : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
                 }`}>
                 <span className="text-[#8E9BA8] whitespace-nowrap">
                   [{new Date(log.created_at).toLocaleTimeString()}]
                 </span>
                 {log.status === 'success' ? (
                   <CheckCircle className="w-4 h-4 mt-0.5 shrink-0 text-emerald-400" />
+                ) : log.status === 'skipped' ? (
+                  <Clock className="w-4 h-4 mt-0.5 shrink-0 text-amber-400" />
                 ) : (
                   <XCircle className="w-4 h-4 mt-0.5 shrink-0 text-rose-400" />
                 )}

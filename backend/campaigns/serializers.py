@@ -125,7 +125,7 @@ class IdentityGroupSerializer(serializers.ModelSerializer):
 class CampaignContactSerializer(serializers.ModelSerializer):
     class Meta:
         model = CampaignContact
-        fields = ["id", "campaign", "recipient", "data", "status", "created_at"]
+        fields = ["id", "campaign", "recipient", "data", "status", "skip_reason", "attempts", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 
@@ -198,6 +198,9 @@ class CampaignSerializer(serializers.ModelSerializer):
             "schedule_end_time",
             "total_sent",
             "total_failed",
+            "total_skipped",
+            "duplicate_rows_skipped",
+            "allow_repeat",
             "created_at",
         ]
         read_only_fields = [
@@ -207,6 +210,9 @@ class CampaignSerializer(serializers.ModelSerializer):
             "identity_group",
             "total_sent",
             "total_failed",
+            "total_skipped",
+            "duplicate_rows_skipped",
+            "allow_repeat",
             "created_at",
             "updated_at",
         ]
@@ -222,6 +228,7 @@ class CampaignListSerializer(serializers.ModelSerializer):
             "type",
             "total_sent",
             "total_failed",
+            "total_skipped",
             "created_at",
         ]
 

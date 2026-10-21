@@ -1,8 +1,39 @@
+# Dependencies
 node_modules/
+
+# Build output
 build/
 dist/
+dist-ssr/
+
+# Caches & generated artifacts
+.vite/
+.cache/
+.turbo/
+.parcel-cache/
+.next/
+.nuxt/
+*.tsbuildinfo
+.timestamp-*
+vite.config.ts.timestamp-*
+
+# Testing / coverage
 coverage/
-.DS_Store
+.nyc_output/
+
+# Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment
 .env*
 !.env.example
+*.local
+
+# Editor / OS
+.DS_Store
+.eslintcache
+Thumbs.db

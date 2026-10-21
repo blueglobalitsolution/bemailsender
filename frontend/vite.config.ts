@@ -15,11 +15,11 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      port: 3010,
+      port: 4041,
       allowedHosts: true,
       proxy: {
         '/api': {
-          target: 'http://127.0.0.1:8000',
+          target: 'http://127.0.0.1:4040',
           changeOrigin: true,
         },
       },

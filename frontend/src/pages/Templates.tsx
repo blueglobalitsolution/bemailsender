@@ -30,6 +30,7 @@ import EmailEditor, { EditorRef } from "react-email-editor";
 import { apiFetch } from "../lib/api";
 import { useToast } from "../components/Toast";
 import AIEmailWriterModal from "../components/AIEmailWriterModal";
+import TemplateValidationPanel, { ValidationResult } from "../components/TemplateValidationPanel";
 
 interface Template {
   id: number;
@@ -83,20 +84,18 @@ export default function Templates() {
   const [spamCheckIdentity, setSpamCheckIdentity] = useState("");
   const [spamScore, setSpamScore] = useState<{ score: number; report: string } | null>(null);
   const [spamChecking, setSpamChecking] = useState(false);
+  const [validation, setValidation] = useState<ValidationResult | null>(null);
+  const [validating, setValidating] = useState(false);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   // Test Email Modal State
   const [testModalTemplate, setTestModalTemplate] = useState<Template | null>(null);
   const [testRecipientEmail, setTestRecipientEmail] = useState("");
   const [testIdentityId, setTestIdentityId] = useState<string>("");
   const [sendingTest, setSendingTest] = useState(false);
+  const [testError, setTestError] = useState<string | null>(null);
 
-  const handleSendTest = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const doSendTest = async (force = false) => {
     if (!testModalTemplate) return;
-    if (!testRecipientEmail.trim()) {
-      toast.warning("Please enter a recipient email address");
-      return;
-    }
     setSendingTest(true);
     try {
       const res = await apiFetch(`/api/templates/${testModalTemplate.id}/send_test/`, {
@@ -105,14 +104,19 @@ export default function Templates() {
         body: JSON.stringify({
           recipient_email: testRecipientEmail.trim(),
           identity_id: testIdentityId ? Number(testIdentityId) : undefined,
+          force,
         }),
       });
       const data = await res.json();
       if (res.ok) {
         toast.success(data.message || `Test email sent to ${testRecipientEmail}`);
+        if (data.validation) setValidation(data.validation);
         setTestModalTemplate(null);
         setTestRecipientEmail("");
+        setTestError(null);
       } else {
+        if (data.validation) setValidation(data.validation);
+        setTestError(data.error || "Failed to send test email");
         toast.error(data.error || "Failed to send test email");
       }
     } catch (err: any) {
@@ -120,6 +124,20 @@ export default function Templates() {
     } finally {
       setSendingTest(false);
     }
+  };
+
+  const handleSendTest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testModalTemplate) return;
+    if (!testRecipientEmail.trim()) {
+      toast.warning("Please enter a recipient email address");
+      return;
+    }
+    if (validation && !validation.ok) {
+      setTestError(`Template has ${validation.summary.errors} blocking issue(s). Fix them, or use "Send anyway".`);
+      return;
+    }
+    await doSendTest(false);
   };
 
   const stripHtml = (html: string) => {
@@ -137,6 +155,65 @@ export default function Templates() {
   };
 
   const emailEditorRef = useRef<EditorRef>(null);
+
+  const getEditorHtml = async (): Promise<string> => {
+    if (editorMode === "custom_html") return customHtml || "";
+    if (newTemplate.type === "email" && emailEditorRef.current?.editor) {
+      return await new Promise<string>((resolve) => {
+        emailEditorRef.current?.editor?.exportHtml((data) => {
+          resolve(data.html || "");
+        });
+      });
+    }
+    return newTemplate.body || "";
+  };
+
+  const runValidation = async (payload: { template_id?: number; subject?: string; body?: string }) => {
+    setValidating(true);
+    try {
+      const res = await apiFetch("/api/templates/validate/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setValidation(data);
+        if (data.summary?.errors) {
+          toast.warning(`Pre-send check: ${data.summary.errors} blocking issue(s) found.`);
+        } else if (data.summary?.warnings) {
+          toast.warning(`Pre-send check: ${data.summary.warnings} warning(s) found.`);
+        } else {
+          toast.success("Pre-send checks passed.");
+        }
+        return data as ValidationResult;
+      }
+      toast.error(data.error || "Pre-send check failed");
+    } catch (err) {
+      console.error(err);
+      toast.error("Pre-send check failed");
+    } finally {
+      setValidating(false);
+    }
+    return null;
+  };
+
+  const runChecksOnEditor = async () => {
+    const body = await getEditorHtml();
+    if (!body.trim()) {
+      toast.info("Please enter or upload email content before running pre-send checks.");
+      return;
+    }
+    await runValidation({ subject: newTemplate.subject || "", body });
+  };
+
+  const openTestModal = (template: Template) => {
+    setValidation(null);
+    setTestError(null);
+    setTestRecipientEmail("");
+    setTestModalTemplate(template);
+    void runValidation({ template_id: template.id });
+  };
 
   const fetchTemplates = async () => {
     try {
@@ -286,12 +363,16 @@ export default function Templates() {
       });
 
       if (res.ok) {
+        const saved = await res.json().catch(() => null);
         fetchTemplates();
         setIsCreating(false);
         setEditingId(null);
         setSpamScore(null);
         setNewTemplate({ name: "", subject: "", body: "", type: "email", design: undefined });
         toast.success(editingId ? "Template updated successfully." : "Template created successfully.");
+        if (saved?.id) {
+          void runValidation({ template_id: saved.id });
+        }
       } else {
         const err = await res.json();
         toast.error(Object.values(err).flat().join(" ") || "Failed to save template.");
@@ -609,6 +690,15 @@ export default function Templates() {
                     {spamChecking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Shield className="w-3.5 h-3.5 text-emerald-400" />}
                     {spamChecking ? "Checking..." : "Check Spam Score"}
                   </button>
+                  <button
+                    type="button"
+                    onClick={runChecksOnEditor}
+                    disabled={validating}
+                    className="bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white px-5 py-2.5 rounded-lg text-xs font-semibold border border-[#2C353D] transition-all flex items-center gap-2 disabled:opacity-40 cursor-pointer shrink-0"
+                  >
+                    {validating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5 text-sky-400" />}
+                    {validating ? "Checking..." : "Run Pre-Send Checks"}
+                  </button>
                 </div>
 
                 {spamScore !== null && (
@@ -646,6 +736,12 @@ export default function Templates() {
                         )}
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {validation && (
+                  <div className="mt-4">
+                    <TemplateValidationPanel result={validation} />
                   </div>
                 )}
               </div>
@@ -799,7 +895,7 @@ export default function Templates() {
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setTestModalTemplate(template);
+                      openTestModal(template);
                     }}
                     className="text-xs font-semibold text-sky-400 hover:text-sky-300 flex items-center gap-1 px-2 py-1 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 rounded-md transition-all cursor-pointer"
                     title="Send a live test email"
@@ -858,6 +954,24 @@ export default function Templates() {
               </button>
             </div>
 
+            {validating && !validation && (
+              <div className="mt-4 flex items-center gap-2 text-xs text-[#8E9BA8]">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Running pre-send checks...
+              </div>
+            )}
+            {validation && (
+              <div className="mt-4">
+                <TemplateValidationPanel result={validation} compact />
+              </div>
+            )}
+
+            {testError && (
+              <div className="mt-3 text-[11px] text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">
+                {testError}
+              </div>
+            )}
+
             <form onSubmit={handleSendTest} className="mt-5 space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#8E9BA8] mb-1.5 font-mono">
@@ -903,9 +1017,19 @@ export default function Templates() {
                 >
                   Cancel
                 </button>
+                {validation && !validation.ok && (
+                  <button
+                    type="button"
+                    onClick={() => doSendTest(true)}
+                    disabled={sendingTest}
+                    className="px-4 py-2 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 rounded-lg text-xs font-bold border border-rose-500/30 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    Send anyway
+                  </button>
+                )}
                 <button
                   type="submit"
-                  disabled={sendingTest}
+                  disabled={sendingTest || (validation ? !validation.ok : false)}
                   className="px-5 py-2 bg-white hover:bg-[#CBD5E1] text-[#161B1F] rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 shadow-sm"
                 >
                   {sendingTest ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Wand2, User, Users, FileText, Settings, ArrowRight, ArrowLeft, Upload, CheckCircle, Loader2, X, Clock, AlertCircle, Shield, ShieldCheck, ShieldAlert, Globe, Calendar, Shuffle, Target, Sparkles, Eye } from "lucide-react";
 import { apiFetch, getApiUrl } from "../lib/api";
 import { useToast } from "../components/Toast";
+import TemplateValidationPanel, { ValidationResult } from "../components/TemplateValidationPanel";
 
 export default function Wizard() {
   const toast = useToast();
@@ -64,8 +65,22 @@ export default function Wizard() {
   const [checkGravatar, setCheckGravatar] = useState(false);
   const [scanData, setScanData] = useState<{
     results: { email: string; valid: boolean; flags: string[]; reason?: string; warning?: string; bounce_count?: number }[];
-    stats: { total: number; valid: number; disposable: number; bounced: number; invalid: number };
+    stats: {
+      total: number;
+      valid: number;
+      disposable: number;
+      bounced: number;
+      invalid: number;
+      gravatar?: number;
+      duplicates?: number;
+      cooldown?: number;
+      cooldown_days?: number;
+      suppressed?: number;
+      will_send?: number;
+    };
+    active_campaign?: { id: number; name: string; status: string } | null;
   } | null>(null);
+  const [allowRepeat, setAllowRepeat] = useState(false);
 
   // Progress modal state
   const [showProgress, setShowProgress] = useState(false);
@@ -73,6 +88,7 @@ export default function Wizard() {
   const [progress, setProgress] = useState<any>(null);
   const [countdown, setCountdown] = useState(0);
   const [progressLogs, setProgressLogs] = useState<any[]>([]);
+  const [templateValidation, setTemplateValidation] = useState<ValidationResult | null>(null);
   const progressInterval = useRef<any>(null);
   const countdownInterval = useRef<any>(null);
   const delayRef = useRef(45);
@@ -151,6 +167,7 @@ export default function Wizard() {
     setScanning(true);
     setScanData(null);
     setRemovedEmails([]);
+    setAllowRepeat(false);
     try {
       if (savedCsvId) {
         const res = await apiFetch("/api/campaigns/scan-csv/", {
@@ -204,10 +221,50 @@ export default function Wizard() {
     setRemovedEmails((prev) => [...new Set([...prev, ...toRemove])]);
   };
 
-  const handleSubmit = async () => {
+  const getWillSendCount = () => {
+    if (!scanData) return csvRows.length - removedEmails.length;
+    return scanData.results.filter(
+      (r) =>
+        r.valid &&
+        !r.flags.includes("duplicate") &&
+        !r.flags.includes("suppressed") &&
+        (!r.flags.includes("cooldown") || allowRepeat) &&
+        !removedEmails.includes(r.email)
+    ).length;
+  };
+
+  const handleSubmit = async (force = false) => {
     if ((!csvFile && !savedCsvId) || !templateId || (!identityId && !identityGroupId)) {
       toast.error("Please fill all required fields");
       return;
+    }
+
+    if (scanData && getWillSendCount() === 0) {
+      toast.error("No recipients will be sent after duplicate/cooldown checks. Adjust the CSV or cooldown override.");
+      return;
+    }
+
+    if (!force) {
+      try {
+        const vres = await apiFetch("/api/templates/validate/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ template_id: templateId }),
+        });
+        const vdata = await vres.json();
+        if (vres.ok) {
+          setTemplateValidation(vdata);
+          if (!vdata.ok) {
+            toast.error(`Template has ${vdata.summary.errors} blocking issue(s). Fix them before launching.`);
+            return;
+          }
+          if (vdata.summary?.warnings) {
+            toast.warning(`Template has ${vdata.summary.warnings} warning(s). Review before launching.`);
+          }
+        }
+      } catch (err) {
+        console.error("Template validation failed:", err);
+      }
     }
 
     setLoading(true);
@@ -221,6 +278,8 @@ export default function Wizard() {
     formData.append("scheduleDays", isScheduled ? JSON.stringify(scheduleDays) : "[]");
     formData.append("startTime", isScheduled ? startTime : "");
     formData.append("endTime", isScheduled ? endTime : "");
+    formData.append("force", force ? "true" : "false");
+    formData.append("allowRepeat", allowRepeat ? "true" : "false");
     if (isScheduled) {
       formData.append("timezone", timezone);
       formData.append("humanJitter", humanJitter ? "true" : "false");
@@ -242,6 +301,9 @@ export default function Wizard() {
     if (savedCsvId) {
       formData.append("savedCsvId", savedCsvId);
     }
+    // Applies removals from the scan UI even when using a saved CSV, where the
+    // client does not have the raw rows available.
+    formData.append("removedEmails", JSON.stringify(removedEmails));
 
     try {
       const res = await apiFetch("/api/campaigns/send/", {
@@ -250,6 +312,17 @@ export default function Wizard() {
       });
       const data = await res.json();
       if (res.ok) {
+        if (data.queued) {
+          toast.info(
+            `Campaign queued behind campaign #${data.queuedBehindCampaignId ?? data.runningCampaignId} (${data.queuedBehindStatus || "active"}). It will start after that campaign finishes.`
+          );
+        }
+        if (data.summary) {
+          const summary = data.summary;
+          toast.info(
+            `${summary.pending} will be sent · ${summary.cooldown_skipped} cooldown skips · ${summary.suppressed_skipped} suppressed · ${summary.duplicate_rows_skipped} duplicate rows removed`
+          );
+        }
         setCampaignId(data.campaignId);
         setShowProgress(true);
         setProgressLogs([]);
@@ -257,6 +330,7 @@ export default function Wizard() {
         if (progressInterval.current) clearInterval(progressInterval.current);
         progressInterval.current = setInterval(() => pollProgress(data.campaignId), 2000);
       } else {
+        if (data.validation) setTemplateValidation(data.validation);
         toast.error(data.error || "Failed to start campaign");
       }
     } catch (err) {
@@ -603,6 +677,21 @@ export default function Wizard() {
                       <span className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-950/40 border border-rose-500/30 text-rose-400 rounded-md">
                         <X className="w-3.5 h-3.5" /> {scanData.stats.invalid} Invalid
                       </span>
+                      {(scanData.stats.cooldown || 0) > 0 && (
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-950/40 border border-amber-500/30 text-amber-400 rounded-md">
+                          <Clock className="w-3.5 h-3.5" /> {scanData.stats.cooldown} Cooldown
+                        </span>
+                      )}
+                      {(scanData.stats.suppressed || 0) > 0 && (
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-950/40 border border-rose-500/30 text-rose-400 rounded-md">
+                          <ShieldAlert className="w-3.5 h-3.5" /> {scanData.stats.suppressed} Suppressed
+                        </span>
+                      )}
+                      {(scanData.stats.duplicates || 0) > 0 && (
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/60 border border-slate-500/30 text-slate-300 rounded-md">
+                          <X className="w-3.5 h-3.5" /> {scanData.stats.duplicates} Duplicates
+                        </span>
+                      )}
                       {removedEmails.length > 0 && (
                         <span className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1C2227] border border-[#2C353D] text-[#8E9BA8] rounded-md">
                           🗑️ {removedEmails.length} Removed
@@ -613,9 +702,93 @@ export default function Wizard() {
                     {/* Remaining count */}
                     <div className="bg-[#1C2227] border border-[#2C353D] rounded-lg p-3 text-center">
                       <span className="text-xs font-mono text-[#CBD5E1]">
-                        <strong className="text-white">{csvRows.length - removedEmails.length}</strong> of {csvRows.length} contacts will be sent
+                        <strong className="text-white">{getWillSendCount()}</strong> of {scanData.stats.total} contacts will be sent
+                        {(scanData.stats.duplicates || 0) > 0 && (
+                          <span className="text-[#8E9BA8]"> · {scanData.stats.duplicates} duplicate row(s) ignored</span>
+                        )}
                       </span>
                     </div>
+
+                    {/* Account-level queue warning */}
+                    {scanData.active_campaign && (
+                      <div className="bg-sky-950/30 border border-sky-500/30 rounded-lg p-3 text-[11px] font-mono text-sky-300">
+                        <strong>Queued:</strong> campaign #{scanData.active_campaign.id} “{scanData.active_campaign.name}” is already {scanData.active_campaign.status === "running" ? "running" : "scheduled"} for this account.
+                        This campaign will start after it completes.
+                      </div>
+                    )}
+
+                    {/* Cooldown warning + override */}
+                    {(scanData.stats.cooldown || 0) > 0 && (
+                      <div className="bg-amber-950/30 border border-amber-500/30 rounded-lg p-3 space-y-2">
+                        <p className="text-[11px] font-mono text-amber-300">
+                          <strong>{scanData.stats.cooldown}</strong> recipient(s) were already emailed by this account within the last {scanData.stats.cooldown_days ?? 30} day(s).
+                          Server will skip them unless you override below.
+                        </p>
+                        <label className="flex items-start gap-2 text-[11px] font-mono text-amber-200 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={allowRepeat}
+                            onChange={(e) => setAllowRepeat(e.target.checked)}
+                            className="mt-0.5 accent-amber-500"
+                          />
+                          <span>Send to already-contacted recipients anyway (override cooldown)</span>
+                        </label>
+                      </div>
+                    )}
+
+                    {/* Duplicate rows */}
+                    {(scanData.stats.duplicates || 0) > 0 && (
+                      <div className="bg-[#1C2227] border border-slate-700/50 rounded-lg p-4">
+                        <h4 className="font-mono text-xs font-bold text-slate-300 mb-2">
+                          Duplicate rows ({scanData.stats.duplicates})
+                        </h4>
+                        <p className="text-[10px] font-mono text-[#8E9BA8] mb-2">
+                          Only the first occurrence of each email will be sent. These rows are automatically ignored.
+                        </p>
+                        <div className="max-h-32 overflow-y-auto space-y-1">
+                          {scanData.results.filter((r) => r.flags.includes("duplicate")).map((r, i) => (
+                            <div key={i} className="text-[11px] font-mono text-slate-400 truncate">
+                              {r.email}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Suppressed list */}
+                    {(scanData.stats.suppressed || 0) > 0 && (
+                      <div className="bg-[#1C2227] border border-rose-950/50 rounded-lg p-4">
+                        <h4 className="font-mono text-xs font-bold text-rose-400 mb-2 flex items-center gap-1.5">
+                          <ShieldAlert className="w-3.5 h-3.5" /> Suppressed recipients ({scanData.stats.suppressed})
+                        </h4>
+                        <p className="text-[10px] font-mono text-[#8E9BA8] mb-2">
+                          These are on your unsubscribe/bounce suppression list. The server will always skip them.
+                        </p>
+                        <div className="max-h-40 overflow-y-auto space-y-1">
+                          {scanData.results.filter((r) => r.flags.includes("suppressed")).map((r, i) => (
+                            <div key={i} className="text-[11px] font-mono text-rose-300 truncate">
+                              {r.email}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Cooldown list */}
+                    {(scanData.stats.cooldown || 0) > 0 && (
+                      <div className="bg-[#1C2227] border border-amber-950/50 rounded-lg p-4">
+                        <h4 className="font-mono text-xs font-bold text-amber-400 mb-2">
+                          Already contacted ({scanData.stats.cooldown})
+                        </h4>
+                        <div className="max-h-40 overflow-y-auto space-y-1">
+                          {scanData.results.filter((r) => r.flags.includes("cooldown")).map((r, i) => (
+                            <div key={i} className="text-[11px] font-mono text-amber-300 truncate">
+                              {r.email} <span className="text-amber-500">— {r.warning}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Invalid emails - with delete */}
                     {scanData.results.filter((r) => !r.valid).length > 0 && (
@@ -1081,7 +1254,7 @@ export default function Wizard() {
           </button>
         ) : (
           <button
-            onClick={handleSubmit}
+            onClick={() => handleSubmit()}
             disabled={loading}
             className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold rounded-lg px-7 py-2.5 text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -1089,6 +1262,49 @@ export default function Wizard() {
           </button>
         )}
       </div>
+
+      {/* Pre-send validation modal */}
+      {templateValidation && !templateValidation.ok && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#181E24] border border-[#2C353D] rounded-2xl p-6 w-full max-w-2xl shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-rose-400" />
+                Template needs attention
+              </h3>
+              <button
+                type="button"
+                onClick={() => setTemplateValidation(null)}
+                className="p-1.5 text-[#8E9BA8] hover:text-white rounded-lg hover:bg-[#222930] transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <TemplateValidationPanel result={templateValidation} />
+
+            <div className="mt-5 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setTemplateValidation(null)}
+                className="px-4 py-2 bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white rounded-lg text-xs font-semibold border border-[#2C353D] transition-all cursor-pointer"
+              >
+                Fix template first
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTemplateValidation(null);
+                  void handleSubmit(true);
+                }}
+                className="px-5 py-2 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 rounded-lg text-xs font-bold border border-rose-500/30 transition-all cursor-pointer"
+              >
+                Launch anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Progress Modal */}
       {showProgress && (
@@ -1116,15 +1332,17 @@ export default function Wizard() {
             {progress && (
               <div className="mb-4">
                 <div className="flex justify-between text-xs font-mono mb-1.5">
-                  <span className="text-[#8E9BA8]">{progress.sent} of {progress.total} sent</span>
+                  <span className="text-[#8E9BA8]">
+                    {progress.sent + (progress.failed || 0) + (progress.skipped || 0)} of {progress.total} processed
+                  </span>
                   <span className="font-bold text-white">
-                    {progress.total > 0 ? Math.round(progress.sent / progress.total * 100) : 0}%
+                    {progress.total > 0 ? Math.round((progress.sent + (progress.failed || 0) + (progress.skipped || 0)) / progress.total * 100) : 0}%
                   </span>
                 </div>
                 <div className="w-full bg-[#1C2227] border border-[#2C353D] h-2 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-white rounded-full transition-all duration-700 ease-out"
-                    style={{ width: `${progress.total > 0 ? Math.min(progress.sent / progress.total * 100, 100) : 0}%` }}
+                    style={{ width: `${progress.total > 0 ? Math.min((progress.sent + (progress.failed || 0) + (progress.skipped || 0)) / progress.total * 100, 100) : 0}%` }}
                   />
                 </div>
               </div>
@@ -1148,6 +1366,13 @@ export default function Wizard() {
               </div>
             )}
 
+            {progress?.skipped > 0 && (
+              <div className="bg-amber-950/30 border border-amber-900/50 text-amber-400 p-3 mb-4 text-xs font-mono rounded-lg flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {progress.skipped} email{progress.skipped > 1 ? 's' : ''} skipped (duplicate/cooldown/suppressed)
+              </div>
+            )}
+
             {/* Live log */}
             <div className="bg-[#1C2227] border border-[#2C353D] rounded-lg overflow-hidden mb-4">
               <div className="p-2.5 border-b border-[#2C353D] flex items-center justify-between">
@@ -1158,10 +1383,12 @@ export default function Wizard() {
                   <div className="text-[#8E9BA8] text-center py-4">Waiting for first email to send...</div>
                 ) : (
                   [...progressLogs].reverse().map((log: any) => (
-                    <div key={log.id} className={`flex items-start gap-2 p-1.5 border border-[#2C353D] rounded ${log.status === 'success' ? 'text-emerald-400 bg-emerald-950/10' : 'text-rose-400 bg-rose-950/10'}`}>
+                    <div key={log.id} className={`flex items-start gap-2 p-1.5 border border-[#2C353D] rounded ${log.status === 'success' ? 'text-emerald-400 bg-emerald-950/10' : log.status === 'skipped' ? 'text-amber-400 bg-amber-950/10' : 'text-rose-400 bg-rose-950/10'}`}>
                       <span className="text-[#8E9BA8] shrink-0 text-[10px]">[{new Date(log.created_at).toLocaleTimeString()}]</span>
                       {log.status === 'success' ? (
                         <CheckCircle className="w-3 h-3 mt-0.5 shrink-0 text-emerald-400" />
+                      ) : log.status === 'skipped' ? (
+                        <Clock className="w-3 h-3 mt-0.5 shrink-0 text-amber-400" />
                       ) : (
                         <X className="w-3 h-3 mt-0.5 shrink-0 text-rose-400" />
                       )}

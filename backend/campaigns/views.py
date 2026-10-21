@@ -12,14 +12,16 @@ from django.conf import settings
 from django.http import HttpResponse
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.db import models, transaction
+from django.utils import timezone
 import json
 import csv
 import io
 import datetime
 import dns.resolver
-from django.core.mail import get_connection, EmailMessage
+from django.core.mail import get_connection, EmailMessage, EmailMultiAlternatives
 
 from .services.laya_service import LayaAIService
+from .services.template_validator import validate_template_content
 
 from .models import (
     Template,
@@ -30,6 +32,7 @@ from .models import (
     SavedCsv,
     Log,
     TrackedOpen,
+    RecipientSend,
     InboundConfiguration,
     ReceivedEmail,
     CustomForm,
@@ -119,6 +122,18 @@ class TemplateViewSet(viewsets.ModelViewSet):
         subject = template.subject or "Test Email Template Preview"
         body = template.body or ""
 
+        # Pre-send checks: block test sends when the template has hard errors.
+        validation = validate_template_content(template.subject or "", template.body or "")
+        force_send = str(request.data.get("force", "")).lower() in ("1", "true", "yes")
+        if validation["errors"] and not force_send:
+            return Response(
+                {
+                    "error": "Template has blocking issues. Fix them before sending, or send anyway.",
+                    "validation": validation,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # Dummy replace of common merge tags for realistic preview
         sample_tags = {
             "name": "Friend",
@@ -163,7 +178,11 @@ class TemplateViewSet(viewsets.ModelViewSet):
                 )
 
                 if resp.status_code in [200, 201, 202]:
-                    return Response({"success": True, "message": f"Test email sent successfully to {recipient_email} via Brevo!"})
+                    return Response({
+                        "success": True,
+                        "message": f"Test email sent successfully to {recipient_email} via Brevo!",
+                        "validation": validation,
+                    })
                 else:
                     err_msg = resp.text
                     try:
@@ -195,7 +214,11 @@ class TemplateViewSet(viewsets.ModelViewSet):
             email_msg.attach_alternative(body, "text/html")
             email_msg.send()
 
-            return Response({"success": True, "message": f"Test email sent successfully to {recipient_email}!"})
+            return Response({
+                "success": True,
+                "message": f"Test email sent successfully to {recipient_email}!",
+                "validation": validation,
+            })
 
         except Exception as e:
             return Response({"error": f"Failed to send test email: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
@@ -687,6 +710,8 @@ class CampaignViewSet(viewsets.ModelViewSet):
             "stats": {
                 "sent": total_sent,
                 "failed": campaign.contacts.filter(status="failed").count(),
+                "skipped": campaign.contacts.filter(status="skipped").count(),
+                "duplicate_rows_skipped": campaign.duplicate_rows_skipped,
                 "opens": total_opens,
                 "open_rate": round(total_opens / total_sent * 100, 1) if total_sent > 0 else 0,
             },
@@ -707,16 +732,43 @@ class CampaignViewSet(viewsets.ModelViewSet):
         schedule_days = request.data.get("scheduleDays")
         start_time = request.data.get("startTime")
         end_time = request.data.get("endTime")
+        allow_repeat = str(request.data.get("allowRepeat", "")).lower() in ("1", "true", "yes")
+        removed_emails = set()
+        raw_removed = request.data.get("removedEmails")
+        if raw_removed:
+            try:
+                removed_emails = {
+                    str(e).strip().lower()
+                    for e in json.loads(raw_removed)
+                    if str(e).strip()
+                }
+            except Exception:
+                removed_emails = set()
+
+        if not template_id:
+            return Response(
+                {"error": "Template is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Pre-send checks: do not launch a campaign with a broken template.
+        template = Template.objects.filter(id=template_id, user=request.user).first()
+        if not template:
+            return Response({"error": "Template not found"}, status=status.HTTP_404_NOT_FOUND)
+        template_validation = validate_template_content(template.subject or "", template.body or "")
+        force_launch = str(request.data.get("force", "")).lower() in ("1", "true", "yes")
+        if template_validation["errors"] and not force_launch:
+            return Response(
+                {
+                    "error": "Template has blocking issues. Fix them before launching, or launch anyway.",
+                    "validation": template_validation,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         csv_file = request.FILES.get("csv")
         if not csv_file and not saved_csv_id:
             return Response(
                 {"error": "CSV file or saved CSV is required"}, status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        if not template_id:
-            return Response(
-                {"error": "Template is required"}, status=status.HTTP_400_BAD_REQUEST
             )
 
         if campaign_type == "email" and not identity_id and not identity_group_id:
@@ -757,6 +809,7 @@ class CampaignViewSet(viewsets.ModelViewSet):
             schedule_days=schedule_days,
             schedule_start_time=parsed_start,
             schedule_end_time=parsed_end,
+            allow_repeat=allow_repeat,
         )
 
         if saved_csv_id:
@@ -777,12 +830,30 @@ class CampaignViewSet(viewsets.ModelViewSet):
             normalized.append(cleaned)
 
         # Load active suppressed emails for this user to ensure consent compliance
-        suppressed_emails = set(
-            Suppression.objects.filter(user=request.user, is_active=True).values_list("email", flat=True)
-        )
+        suppressed_emails = {
+            e.strip().lower()
+            for e in Suppression.objects.filter(user=request.user, is_active=True).values_list("email", flat=True)
+        }
+
+        # Per-account recipient cooldown. 0 disables it. allowRepeat is an explicit
+        # override for a deliberate resend (suppression is never overridden).
+        cooldown_days = getattr(request.user, "recipient_cooldown_days", 30) or 0
+        cooldown_emails = set()
+        if cooldown_days > 0 and not allow_repeat:
+            cutoff = timezone.now() - datetime.timedelta(days=cooldown_days)
+            cooldown_emails = set(
+                RecipientSend.objects.filter(
+                    user=request.user, sent_at__gte=cutoff
+                ).values_list("recipient", flat=True)
+            )
 
         contacts_to_create = []
+        seen_emails = set()
         skipped_suppressed_count = 0
+        skipped_cooldown_count = 0
+        duplicate_rows_skipped = 0
+        removed_rows_skipped = 0
+
         for row in normalized:
             email = None
             # Try common email column patterns
@@ -796,20 +867,99 @@ class CampaignViewSet(viewsets.ModelViewSet):
                     if "email" in col and row[col]:
                         email = str(row[col]).strip()
                         break
-            if email and "@" in email:
-                clean_email = email.lower()
-                if clean_email in suppressed_emails:
-                    skipped_suppressed_count += 1
-                    continue
+            if not email or "@" not in email:
+                continue
+
+            clean_email = email.strip().lower()
+
+            # Respect recipients the user explicitly removed in the scan UI.
+            if clean_email in removed_emails:
+                removed_rows_skipped += 1
+                continue
+
+            # Dedupe within the same CSV/campaign.
+            if clean_email in seen_emails:
+                duplicate_rows_skipped += 1
+                continue
+            seen_emails.add(clean_email)
+
+            if clean_email in suppressed_emails:
                 contacts_to_create.append(
                     CampaignContact(
-                        campaign=campaign, recipient=clean_email, data=json.dumps(row)
+                        campaign=campaign,
+                        recipient=clean_email,
+                        data=json.dumps(row),
+                        status="skipped",
+                        skip_reason="Suppressed recipient (unsubscribed/bounced)",
                     )
                 )
+                skipped_suppressed_count += 1
+                continue
+
+            if clean_email in cooldown_emails:
+                contacts_to_create.append(
+                    CampaignContact(
+                        campaign=campaign,
+                        recipient=clean_email,
+                        data=json.dumps(row),
+                        status="skipped",
+                        skip_reason=(
+                            f"Already emailed by this account within the last "
+                            f"{cooldown_days} day(s)"
+                        ),
+                    )
+                )
+                skipped_cooldown_count += 1
+                continue
+
+            contacts_to_create.append(
+                CampaignContact(
+                    campaign=campaign, recipient=clean_email, data=json.dumps(row)
+                )
+            )
 
         CampaignContact.objects.bulk_create(contacts_to_create, batch_size=500)
 
-        return Response({"message": "Campaign scheduled", "campaignId": campaign.id})
+        pending_count = sum(1 for c in contacts_to_create if c.status == "pending")
+        campaign.total_skipped = skipped_suppressed_count + skipped_cooldown_count
+        campaign.duplicate_rows_skipped = duplicate_rows_skipped
+        campaign.save(update_fields=["total_skipped", "duplicate_rows_skipped"])
+
+        # Account-level concurrency: only one campaign per account may run at a
+        # time. Any earlier scheduled/running campaign means this one is queued.
+        preceding_campaign = (
+            Campaign.objects.filter(
+                user=request.user, status__in=["scheduled", "running"]
+            )
+            .exclude(id=campaign.id)
+            .order_by("created_at", "id")
+            .first()
+        )
+        running_campaign = (
+            Campaign.objects.filter(user=request.user, status="running")
+            .exclude(id=campaign.id)
+            .order_by("created_at", "id")
+            .first()
+        )
+        queued = preceding_campaign is not None
+
+        return Response({
+            "message": "Campaign queued" if queued else "Campaign scheduled",
+            "campaignId": campaign.id,
+            "queued": queued,
+            "runningCampaignId": running_campaign.id if running_campaign else None,
+            "queuedBehindCampaignId": preceding_campaign.id if preceding_campaign else None,
+            "queuedBehindStatus": preceding_campaign.status if preceding_campaign else None,
+            "summary": {
+                "total_rows": len(normalized),
+                "unique_recipients": len(seen_emails),
+                "duplicate_rows_skipped": duplicate_rows_skipped,
+                "removed_rows_skipped": removed_rows_skipped,
+                "suppressed_skipped": skipped_suppressed_count,
+                "cooldown_skipped": skipped_cooldown_count,
+                "pending": pending_count,
+            },
+        })
 
     @action(detail=True, methods=["get"])
     def progress(self, request, pk=None):
@@ -818,6 +968,7 @@ class CampaignViewSet(viewsets.ModelViewSet):
         total = contacts.count()
         sent = contacts.filter(status="sent").count()
         failed = contacts.filter(status="failed").count()
+        skipped = contacts.filter(status="skipped").count()
         pending = contacts.filter(status="pending").count()
         recent_logs = Log.objects.filter(campaign=campaign).order_by("-created_at")[:20]
         from .serializers import LogSerializer as LogSer
@@ -826,7 +977,9 @@ class CampaignViewSet(viewsets.ModelViewSet):
             "total": total,
             "sent": sent,
             "failed": failed,
+            "skipped": skipped,
             "pending": pending,
+            "duplicate_rows_skipped": campaign.duplicate_rows_skipped,
             "status": campaign.status,
             "delay_ms": campaign.delay_ms,
             "logs": log_data,
@@ -892,15 +1045,29 @@ class CampaignViewSet(viewsets.ModelViewSet):
                 return Response({"error": "Expected a list of contacts"}, status=status.HTTP_400_BAD_REQUEST)
             CampaignContact.objects.filter(campaign=campaign).delete()
             contacts = []
+            seen = set()
+            duplicate_rows_skipped = 0
             for item in data:
-                recipient = item.get("recipient") or item.get("email") or ""
+                recipient = (item.get("recipient") or item.get("email") or "").strip().lower()
+                if not recipient or "@" not in recipient:
+                    continue
+                if recipient in seen:
+                    duplicate_rows_skipped += 1
+                    continue
+                seen.add(recipient)
                 contacts.append(
                     CampaignContact(campaign=campaign, recipient=recipient, data=json.dumps(item))
                 )
             CampaignContact.objects.bulk_create(contacts, batch_size=500)
+            campaign.duplicate_rows_skipped = duplicate_rows_skipped
+            campaign.total_skipped = 0
             campaign.status = "scheduled"
             campaign.save()
-            return Response({"message": f"{len(contacts)} contacts updated", "campaignId": campaign.id})
+            return Response({
+                "message": f"{len(contacts)} contacts updated",
+                "campaignId": campaign.id,
+                "duplicate_rows_skipped": duplicate_rows_skipped,
+            })
 
 
 class LogViewSet(viewsets.ModelViewSet):
@@ -1023,6 +1190,27 @@ def check_spam_score(request):
         return Response(
             {"error": str(e)}, status=status.HTTP_502_BAD_GATEWAY
         )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def validate_template_view(request):
+    """Run deterministic pre-send checks on a template.
+
+    Accepts either {"template_id": 123} or {"subject": "...", "body": "..."}.
+    """
+    template_id = request.data.get("template_id")
+    if template_id:
+        template = Template.objects.filter(id=template_id, user=request.user).first()
+        if not template:
+            return Response({"error": "Template not found"}, status=status.HTTP_404_NOT_FOUND)
+        subject = template.subject or ""
+        body = template.body or ""
+    else:
+        subject = request.data.get("subject", "") or ""
+        body = request.data.get("body", "") or ""
+
+    return Response(validate_template_content(subject, body))
 
 
 # Common disposable email domains
@@ -1249,13 +1437,54 @@ def _scan_csv(request):
     ).values_list("recipient", flat=True).distinct().order_by()
     all_failed = set(failed_logs)
     failed_lower = {e.lower().strip() for e in all_failed}
+    suppressed_emails = {
+        e.strip().lower()
+        for e in Suppression.objects.filter(
+            user=request.user, is_active=True
+        ).values_list("email", flat=True)
+    }
+
+    # Per-account cooldown preview
+    cooldown_days = getattr(request.user, "recipient_cooldown_days", 30) or 0
+    cooldown_emails = set()
+    if cooldown_days > 0:
+        cutoff = timezone.now() - datetime.timedelta(days=cooldown_days)
+        cooldown_emails = set(
+            RecipientSend.objects.filter(
+                user=request.user, sent_at__gte=cutoff
+            ).values_list("recipient", flat=True)
+        )
+
+    active_campaign = (
+        Campaign.objects.filter(
+            user=request.user, status__in=["scheduled", "running"]
+        )
+        .order_by("created_at", "id")
+        .first()
+    )
 
     # Scan each email
     email_regex = re.compile(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$')
     mx_cache = {}
     results = []
-    for email in csv_emails:
+    seen_emails = set()
+    duplicate_count = 0
+    cooldown_count = 0
+
+    for raw_email in csv_emails:
+        email = str(raw_email).strip()
+        email_lower = email.lower()
         entry = {"email": email, "valid": True, "flags": []}
+
+        # Dedupe preview: only the first occurrence will actually be sent.
+        if email_lower in seen_emails:
+            entry["flags"].append("duplicate")
+            entry["warning"] = "Duplicate in CSV — only the first row will be sent"
+            entry["reason"] = "Duplicate"
+            duplicate_count += 1
+            results.append(entry)
+            continue
+        seen_emails.add(email_lower)
 
         # Check syntax
         if not email_regex.match(email):
@@ -1267,8 +1496,12 @@ def _scan_csv(request):
 
         domain = email.split("@")[1].lower()
 
+        # Explicit suppression list (unsubscribed / hard bounced)
+        if email_lower in suppressed_emails:
+            entry["flags"].append("suppressed")
+            entry["warning"] = "Suppressed recipient (unsubscribed/bounced) — will be skipped"
+
         # Check bounce history
-        email_lower = email.lower().strip()
         if email_lower in failed_lower:
             bounce_count = Log.objects.filter(
                 campaign__in=user_campaigns,
@@ -1277,6 +1510,14 @@ def _scan_csv(request):
             ).count()
             entry["flags"].append("bounced")
             entry["bounce_count"] = bounce_count
+
+        # Check per-account cooldown
+        if cooldown_days > 0 and email_lower in cooldown_emails:
+            entry["flags"].append("cooldown")
+            entry["warning"] = (
+                f"Already emailed by this account within the last {cooldown_days} day(s)"
+            )
+            cooldown_count += 1
 
         # Check disposable
         if domain in DISPOSABLE_DOMAINS:
@@ -1326,9 +1567,28 @@ def _scan_csv(request):
         "bounced": sum(1 for r in results if "bounced" in r["flags"]),
         "invalid": sum(1 for r in results if not r["valid"]),
         "gravatar": sum(1 for r in results if "has_gravatar" in r["flags"]),
+        "duplicates": duplicate_count,
+        "cooldown": cooldown_count,
+        "cooldown_days": cooldown_days,
+        "suppressed": sum(1 for r in results if "suppressed" in r["flags"]),
+        "will_send": sum(
+            1 for r in results
+            if r["valid"]
+            and "duplicate" not in r["flags"]
+            and "cooldown" not in r["flags"]
+            and "suppressed" not in r["flags"]
+        ),
     }
 
-    return Response({"results": results, "stats": stats})
+    return Response({
+        "results": results,
+        "stats": stats,
+        "active_campaign": {
+            "id": active_campaign.id,
+            "name": active_campaign.name,
+            "status": active_campaign.status,
+        } if active_campaign else None,
+    })
 
 
 def _check_gravatar(email):

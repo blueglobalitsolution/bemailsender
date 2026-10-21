@@ -2,6 +2,7 @@ import base64
 import hashlib
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 from cryptography.fernet import Fernet
 
 
@@ -118,6 +119,11 @@ class Campaign(models.Model):
     schedule_end_time = models.TimeField(blank=True, null=True)
     total_sent = models.IntegerField(default=0)
     total_failed = models.IntegerField(default=0)
+    total_skipped = models.IntegerField(default=0)
+    duplicate_rows_skipped = models.IntegerField(default=0)
+    # Explicit user override: allow re-sending to recipients inside the
+    # per-account cooldown window. Suppression is still always enforced.
+    allow_repeat = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -131,6 +137,7 @@ class CampaignContact(models.Model):
         ("pending", "Pending"),
         ("sent", "Sent"),
         ("failed", "Failed"),
+        ("skipped", "Skipped"),
     ]
 
     campaign = models.ForeignKey(
@@ -139,6 +146,8 @@ class CampaignContact(models.Model):
     recipient = models.CharField(max_length=255)
     data = models.JSONField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    skip_reason = models.TextField(blank=True, null=True)
+    attempts = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -146,6 +155,13 @@ class CampaignContact(models.Model):
         db_table = "campaign_contacts"
         indexes = [
             models.Index(fields=["campaign", "status"]),
+            models.Index(fields=["recipient", "status"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["campaign", "recipient"],
+                name="unique_campaign_recipient",
+            )
         ]
 
 
@@ -162,6 +178,31 @@ class TrackedOpen(models.Model):
         db_table = "tracked_opens"
         indexes = [
             models.Index(fields=["campaign", "recipient"]),
+        ]
+
+
+class RecipientSend(models.Model):
+    """Durable ledger of successful campaign sends per account.
+
+    Used to enforce the per-account recipient cooldown. Kept independent of
+    Campaign/Log deletion so a recipient cannot be re-emailed just because an
+    old campaign was removed.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="recipient_sends"
+    )
+    recipient = models.CharField(max_length=255)
+    campaign = models.ForeignKey(
+        Campaign, on_delete=models.SET_NULL, null=True, blank=True, related_name="recipient_sends"
+    )
+    sent_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "recipient_sends"
+        ordering = ["-sent_at"]
+        indexes = [
+            models.Index(fields=["user", "recipient", "-sent_at"]),
         ]
 
 
@@ -185,6 +226,7 @@ class Log(models.Model):
     STATUS_CHOICES = [
         ("success", "Success"),
         ("error", "Error"),
+        ("skipped", "Skipped"),
     ]
 
     campaign = models.ForeignKey(

@@ -11,6 +11,7 @@ interface Campaign {
   type?: string;
   total_sent: number;
   total_failed: number;
+  total_skipped: number;
   created_at: string;
 }
 
@@ -152,6 +153,12 @@ export default function Campaigns() {
                       <p className="text-[10px] uppercase tracking-widest text-[#666666] mb-0.5">Failed</p>
                       <p className="font-mono text-rose-400 font-semibold text-sm">{campaign.total_failed}</p>
                     </div>
+                    {(campaign.total_skipped || 0) > 0 && (
+                      <div className="text-left sm:text-right">
+                        <p className="text-[10px] uppercase tracking-widest text-[#666666] mb-0.5">Skipped</p>
+                        <p className="font-mono text-amber-400 font-semibold text-sm">{campaign.total_skipped}</p>
+                      </div>
+                    )}
                     <div className="text-left sm:text-right">
                       <p className="text-[10px] uppercase tracking-widest text-[#666666] mb-0.5">Status</p>
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-[10px] font-medium border capitalize ${
