@@ -24,6 +24,7 @@ import {
   FileCode,
   Search,
   Calendar,
+  Send,
 } from "lucide-react";
 import EmailEditor, { EditorRef } from "react-email-editor";
 import { apiFetch } from "../lib/api";
@@ -82,7 +83,43 @@ export default function Templates() {
   const [spamCheckIdentity, setSpamCheckIdentity] = useState("");
   const [spamScore, setSpamScore] = useState<{ score: number; report: string } | null>(null);
   const [spamChecking, setSpamChecking] = useState(false);
-  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+  // Test Email Modal State
+  const [testModalTemplate, setTestModalTemplate] = useState<Template | null>(null);
+  const [testRecipientEmail, setTestRecipientEmail] = useState("");
+  const [testIdentityId, setTestIdentityId] = useState<string>("");
+  const [sendingTest, setSendingTest] = useState(false);
+
+  const handleSendTest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testModalTemplate) return;
+    if (!testRecipientEmail.trim()) {
+      toast.warning("Please enter a recipient email address");
+      return;
+    }
+    setSendingTest(true);
+    try {
+      const res = await apiFetch(`/api/templates/${testModalTemplate.id}/send_test/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipient_email: testRecipientEmail.trim(),
+          identity_id: testIdentityId ? Number(testIdentityId) : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.message || `Test email sent to ${testRecipientEmail}`);
+        setTestModalTemplate(null);
+        setTestRecipientEmail("");
+      } else {
+        toast.error(data.error || "Failed to send test email");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send test email");
+    } finally {
+      setSendingTest(false);
+    }
+  };
 
   const stripHtml = (html: string) => {
     if (!html) return "";
@@ -752,20 +789,33 @@ export default function Templates() {
                 </p>
               </div>
 
-              <div className="pt-3 border-t border-[#2C353D] flex items-center justify-between">
-                <span className="text-[10px] font-mono text-[#8E9BA8]">
+              <div className="pt-3 border-t border-[#2C353D] flex items-center justify-between gap-2">
+                <span className="text-[10px] font-mono text-[#8E9BA8] truncate">
                   {template.created_at ? new Date(template.created_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "Saved"}
                 </span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setPreviewTemplate(template);
-                  }}
-                  className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-md transition-all cursor-pointer"
-                >
-                  <Eye className="w-3.5 h-3.5" /> Preview
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTestModalTemplate(template);
+                    }}
+                    className="text-xs font-semibold text-sky-400 hover:text-sky-300 flex items-center gap-1 px-2 py-1 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 rounded-md transition-all cursor-pointer"
+                    title="Send a live test email"
+                  >
+                    <Send className="w-3 h-3" /> Test
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPreviewTemplate(template);
+                    }}
+                    className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-md transition-all cursor-pointer"
+                  >
+                    <Eye className="w-3 h-3" /> Preview
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -776,6 +826,96 @@ export default function Templates() {
           )}
         </div>
       </div>
+
+      {/* Send Test Email Modal */}
+      {testModalTemplate && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => !sendingTest && setTestModalTemplate(null)}
+          />
+          <div className="relative bg-[#181E24] border border-[#2C353D] rounded-2xl w-full max-w-md p-6 shadow-2xl z-10 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-4 border-b border-[#2C353D]">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-sky-500/10 border border-sky-500/20 rounded-lg text-sky-400">
+                  <Send className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Send Test Email</h3>
+                  <p className="text-[11px] text-[#8E9BA8] font-mono truncate max-w-[240px]">
+                    {testModalTemplate.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTestModalTemplate(null)}
+                disabled={sendingTest}
+                className="p-1.5 text-[#8E9BA8] hover:text-white rounded-lg hover:bg-[#222930] transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSendTest} className="mt-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#8E9BA8] mb-1.5 font-mono">
+                  Send To (Recipient Email)
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="your-email@example.com"
+                  value={testRecipientEmail}
+                  onChange={(e) => setTestRecipientEmail(e.target.value)}
+                  className="w-full bg-[#14181C] border border-[#2C353D] focus:border-white text-white text-xs px-3.5 py-2.5 rounded-lg outline-none font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#8E9BA8] mb-1.5 font-mono">
+                  Send Via Identity (Optional)
+                </label>
+                <select
+                  value={testIdentityId}
+                  onChange={(e) => setTestIdentityId(e.target.value)}
+                  className="w-full bg-[#14181C] border border-[#2C353D] focus:border-white text-white text-xs px-3 py-2.5 rounded-lg outline-none cursor-pointer"
+                >
+                  <option value="">Default Active Identity</option>
+                  {identities.map((id) => (
+                    <option key={id.id} value={id.id}>
+                      {id.name} ({id.smtp_user})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-[#8E9BA8] mt-1">
+                  Merge tags like &#123;&#123;name&#125;&#125; or &#123;&#123;company&#125;&#125; will be auto-filled with sample preview data.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-[#2C353D] flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setTestModalTemplate(null)}
+                  disabled={sendingTest}
+                  className="px-4 py-2 bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white rounded-lg text-xs font-semibold border border-[#2C353D] transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={sendingTest}
+                  className="px-5 py-2 bg-white hover:bg-[#CBD5E1] text-[#161B1F] rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 shadow-sm"
+                >
+                  {sendingTest ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                  {sendingTest ? "Sending..." : "Send Test Now"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Right-Side Template Live Preview Drawer with Flush Alignment & No Blur */}
       {previewTemplate && createPortal(

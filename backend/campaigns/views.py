@@ -82,6 +82,125 @@ class TemplateViewSet(viewsets.ModelViewSet):
             )
         instance.delete()
 
+    @action(detail=True, methods=["post"])
+    def send_test(self, request, pk=None):
+        template = self.get_object()
+        recipient_email = request.data.get("recipient_email")
+        identity_id = request.data.get("identity_id")
+
+        if not recipient_email:
+            return Response(
+                {"error": "recipient_email is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        identity = None
+        if identity_id:
+            try:
+                identity = Identity.objects.get(id=identity_id, user=request.user)
+            except Identity.DoesNotExist:
+                return Response(
+                    {"error": "Selected identity not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+        else:
+            identity = Identity.objects.filter(user=request.user).first()
+            if not identity:
+                return Response(
+                    {"error": "No sender identity found. Please configure an SMTP/Brevo identity first."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        from_email = identity.smtp_from_email or identity.smtp_user
+        from_name = identity.smtp_from_name
+        api_key = identity.get_decrypted_password()
+        is_brevo_api = (identity.host in ["api.brevo.com", "brevo", "brevo_api"]) or (api_key and api_key.startswith("xkeysib-"))
+
+        subject = template.subject or "Test Email Template Preview"
+        body = template.body or ""
+
+        # Dummy replace of common merge tags for realistic preview
+        sample_tags = {
+            "name": "Friend",
+            "first_name": "Friend",
+            "last_name": "User",
+            "email": recipient_email,
+            "company": "ReachEngine",
+            "website": "example.com",
+            "city": "Global",
+        }
+        for k, v in sample_tags.items():
+            body = body.replace(f"{{{{{k}}}}}", v)
+            subject = subject.replace(f"{{{{{k}}}}}", v)
+
+        plain_text = re.sub(r"<[^>]+>", "", body)
+        plain_text = html_module.unescape(plain_text).strip()
+
+        try:
+            if is_brevo_api:
+                sender_payload = {"email": from_email}
+                if from_name:
+                    sender_payload["name"] = from_name
+
+                payload = {
+                    "sender": sender_payload,
+                    "to": [{"email": recipient_email}],
+                    "subject": f"[TEST] {subject}",
+                    "htmlContent": body,
+                    "textContent": plain_text,
+                    "replyTo": {"email": from_email},
+                }
+
+                resp = http_requests.post(
+                    "https://api.brevo.com/v3/smtp/email",
+                    headers={
+                        "accept": "application/json",
+                        "api-key": api_key,
+                        "content-type": "application/json",
+                    },
+                    json=payload,
+                    timeout=30,
+                )
+
+                if resp.status_code in [200, 201, 202]:
+                    return Response({"success": True, "message": f"Test email sent successfully to {recipient_email} via Brevo!"})
+                else:
+                    err_msg = resp.text
+                    try:
+                        err_msg = resp.json().get("message", resp.text)
+                    except Exception:
+                        pass
+                    return Response({"error": f"Brevo API error: {err_msg}"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Standard SMTP send
+            connection = get_connection(
+                backend="django.core.mail.backends.smtp.EmailBackend",
+                host=identity.host,
+                port=identity.port,
+                username=identity.smtp_user,
+                password=api_key,
+                use_tls=identity.use_tls,
+                use_ssl=identity.use_ssl,
+                timeout=20,
+            )
+
+            sender = f"{from_name} <{from_email}>" if from_name else from_email
+            email_msg = EmailMultiAlternatives(
+                subject=f"[TEST] {subject}",
+                body=plain_text,
+                from_email=sender,
+                to=[recipient_email],
+                connection=connection,
+            )
+            email_msg.attach_alternative(body, "text/html")
+            email_msg.send()
+
+            return Response({"success": True, "message": f"Test email sent successfully to {recipient_email}!"})
+
+        except Exception as e:
+            return Response({"error": f"Failed to send test email: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+
 
 class IdentityViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
