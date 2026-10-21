@@ -817,14 +817,24 @@ POSTMARK_SPAMCHECK_URL = "https://spamcheck.postmarkapp.com/filter"
 def check_spam_score(request):
     template_id = request.data.get("template_id")
     identity_id = request.data.get("identity_id")
+    body_input = request.data.get("body")
+    subject_input = request.data.get("subject")
 
-    if not template_id:
-        return Response({"error": "template_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+    body = ""
+    subject = ""
 
-    try:
-        template = Template.objects.get(id=template_id, user=request.user)
-    except Template.DoesNotExist:
-        return Response({"error": "Template not found"}, status=status.HTTP_404_NOT_FOUND)
+    if template_id:
+        try:
+            template = Template.objects.get(id=template_id, user=request.user)
+            body = template.body or ""
+            subject = template.subject or ""
+        except Template.DoesNotExist:
+            return Response({"error": "Template not found"}, status=status.HTTP_404_NOT_FOUND)
+    elif body_input is not None:
+        body = body_input or ""
+        subject = subject_input or ""
+    else:
+        return Response({"error": "template_id or body is required"}, status=status.HTTP_400_BAD_REQUEST)
 
     identity = None
     sender = request.user.email
@@ -836,10 +846,6 @@ def check_spam_score(request):
                 sender = f"{identity.smtp_from_name} <{identity.smtp_user}>"
         except Identity.DoesNotExist:
             pass
-
-    # Build email body (same as process_campaigns does)
-    body = template.body or ""
-    subject = template.subject or ""
 
     # Generate plain text version
     plain_text = re.sub(r"<[^>]+>", "", body)

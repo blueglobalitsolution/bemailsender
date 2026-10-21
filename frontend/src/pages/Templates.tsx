@@ -286,21 +286,33 @@ export default function Templates() {
   };
 
   const checkSpamScore = async () => {
-    if (!editingId && !newTemplate.body) return;
     setSpamChecking(true);
     setSpamScore(null);
     try {
-      const templateId = editingId;
-      if (!templateId) {
-        toast.info("Save the template first before checking spam score");
+      let currentBody = newTemplate.body || "";
+      if (editorMode === "custom_html") {
+        currentBody = customHtml || "";
+      } else if (newTemplate.type === "email" && emailEditorRef.current?.editor) {
+        currentBody = await new Promise<string>((resolve) => {
+          emailEditorRef.current?.editor?.exportHtml((data) => {
+            resolve(data.html || "");
+          });
+        });
+      }
+
+      if (!currentBody.trim() && !editingId) {
+        toast.info("Please enter or upload email content before checking spam score.");
         setSpamChecking(false);
         return;
       }
+
       const res = await apiFetch("/api/templates/check-spam/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          template_id: templateId,
+          template_id: editingId || undefined,
+          body: currentBody,
+          subject: newTemplate.subject || "No Subject",
           identity_id: spamCheckIdentity || undefined,
         }),
       });
@@ -342,49 +354,82 @@ export default function Templates() {
   if (loading) return <div className="text-center py-12 text-[#8E9BA8]">Loading templates...</div>;
 
   return (
-    <div className="space-y-8 font-sans">
-
-      {/* CREATE / EDIT TEMPLATE CARD */}
+    <div className="flex flex-col h-full w-full font-sans bg-[#161B1F]">
+      {/* CREATE / EDIT TEMPLATE PANEL */}
       {isCreating && (
-        <div className="skeuo-card p-6">
-          <h3 className="text-lg font-bold mb-4 skeuo-text">{editingId ? "Edit Template" : "Create New Template"}</h3>
-          <form onSubmit={handleSave} className="space-y-6">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Template Name</label>
-              <input
-                type="text"
-                value={newTemplate.name}
-                onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
-                className="w-full skeuo-input py-2 px-4"
-                required
-              />
+        <div className="border-b border-[#2C353D] bg-[#181E24] p-6 lg:p-8">
+          <div className="max-w-6xl mx-auto space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b border-[#2C353D]">
+              <div>
+                <h3 className="text-xl font-bold text-white tracking-tight">
+                  {editingId ? "Edit Template" : "Create New Template"}
+                </h3>
+                <p className="text-xs text-[#8E9BA8] mt-1 font-medium">
+                  Compose high-converting email templates with Drag & Drop or Custom HTML.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCreating(false);
+                  setEditingId(null);
+                  setSpamScore(null);
+                  setNewTemplate({ name: "", subject: "", body: "", type: "email", design: undefined });
+                }}
+                className="p-2 text-[#8E9BA8] hover:text-white bg-[#222930] hover:bg-[#2C353D] border border-[#2C353D] rounded-lg transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <div className="space-y-6">
+            <form onSubmit={handleSave} className="space-y-6">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#8E9BA8] mb-2 font-mono">
+                  Template Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Cold Outreach Sequence 1"
+                  value={newTemplate.name}
+                  onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
+                  className="w-full bg-[#14181C] border border-[#2C353D] focus:border-white text-white text-sm px-4 py-2.5 rounded-lg outline-none transition-all placeholder:text-[#55606D]"
+                  required
+                />
+              </div>
+
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 skeuo-text">Email Subject</label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#8E9BA8] font-mono">
+                    Email Subject
+                  </label>
                   <button
                     type="button"
                     onClick={() => setIsAIModalOpen(true)}
-                    className="text-[#00ffff] hover:text-white text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="text-white hover:text-white/80 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer bg-[#222930] border border-[#2C353D] px-2.5 py-1 rounded-md"
                   >
-                    <Sparkles className="w-3.5 h-3.5" /> Draft with AI Writer
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Draft with AI Writer
                   </button>
                 </div>
                 <input
                   type="text"
+                  placeholder="e.g. Quick question regarding {{company}}'s outbound growth"
                   value={newTemplate.subject}
                   onChange={(e) => setNewTemplate({ ...newTemplate, subject: e.target.value })}
-                  className="w-full skeuo-input py-2 px-4"
+                  className="w-full bg-[#14181C] border border-[#2C353D] focus:border-white text-white text-sm px-4 py-2.5 rounded-lg outline-none transition-all placeholder:text-[#55606D]"
                   required
                 />
               </div>
+
               <div>
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 skeuo-text">Email Design</label>
-                    <p className="text-xs text-gray-500 font-medium">Use {'{{variable_name}}'} for dynamic content (e.g., {'{{first_name}}'}, {'{{unsubscribe_url}}'})</p>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-[#8E9BA8] font-mono">
+                      Email Design
+                    </label>
+                    <p className="text-xs text-[#8E9BA8] mt-0.5">
+                      Use <span className="text-white font-mono font-medium">{'{{variable_name}}'}</span> for dynamic variables (e.g. <span className="font-mono">{'{{first_name}}'}</span>, <span className="font-mono">{'{{unsubscribe_url}}'}</span>)
+                    </p>
                   </div>
 
                   {/* Mode Selector Tabs & Upload Button */}
@@ -400,20 +445,20 @@ export default function Templates() {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="px-3.5 py-1.5 bg-[#00ffff]/10 hover:bg-[#00ffff]/20 border border-[#00ffff]/40 hover:border-[#00ffff] text-[#00ffff] hover:text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+                      className="px-3.5 py-1.5 bg-[#222930] hover:bg-[#2C353D] border border-[#2C353D] text-[#CBD5E1] hover:text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
                       title="Upload an existing HTML template"
                     >
-                      <Upload className="w-3.5 h-3.5" />
+                      <Upload className="w-3.5 h-3.5 text-emerald-400" />
                       <span>Upload .HTML</span>
                     </button>
 
-                    <div className="flex items-center bg-[#11161B] p-1 rounded-lg border border-[#222B35]">
+                    <div className="flex items-center bg-[#14181C] p-1 rounded-lg border border-[#2C353D]">
                       <button
                         type="button"
                         onClick={() => setEditorMode("drag_drop")}
                         className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
                           editorMode === "drag_drop"
-                            ? "bg-[#1E2730] text-white shadow-sm font-semibold border border-[#2C3845]"
+                            ? "bg-white text-[#161B1F] shadow-sm font-bold"
                             : "text-[#8E9BA8] hover:text-white"
                         }`}
                       >
@@ -426,7 +471,7 @@ export default function Templates() {
                         onClick={() => setEditorMode("custom_html")}
                         className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
                           editorMode === "custom_html"
-                            ? "bg-[#1E2730] text-white shadow-sm font-semibold border border-[#2C3845]"
+                            ? "bg-white text-[#161B1F] shadow-sm font-bold"
                             : "text-[#8E9BA8] hover:text-white"
                         }`}
                       >
@@ -439,7 +484,7 @@ export default function Templates() {
 
                 {/* Drag and Drop Mode View */}
                 {editorMode === "drag_drop" && (
-                  <div className="w-full h-[600px] border border-gray-300 rounded-lg overflow-hidden shadow-inner">
+                  <div className="w-full h-[600px] border border-[#2C353D] rounded-xl overflow-hidden bg-white">
                     <EmailEditor
                       key={editingId || "new"}
                       ref={emailEditorRef}
@@ -451,26 +496,26 @@ export default function Templates() {
 
                 {/* Uploaded HTML & Live Preview Mode View */}
                 {editorMode === "custom_html" && (
-                  <div className="border border-[#222B35] bg-[#0E1318] rounded-xl overflow-hidden shadow-2xl">
+                  <div className="border border-[#2C353D] bg-[#14181C] rounded-xl overflow-hidden shadow-2xl">
                     {/* Top Status Bar with Device Toggle & Unsubscribe Verification Badge */}
-                    <div className="px-4 py-2.5 bg-[#141B22] border-b border-[#222B35] flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div className="px-4 py-2.5 bg-[#1C2227] border-b border-[#2C353D] flex flex-wrap items-center justify-between gap-3 text-xs">
                       <div className="flex items-center gap-2.5">
                         <span className="text-[#8E9BA8] font-mono text-[11px] flex items-center gap-1.5">
-                          <FileCode className="w-4 h-4 text-[#00ffff]" />
+                          <FileCode className="w-4 h-4 text-emerald-400" />
                           {uploadedFileName || "Custom HTML Template"}
                         </span>
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                           <CheckCircle2 className="w-3 h-3" /> Auto-Unsubscribe Ready
                         </span>
                       </div>
 
                       {/* Device View Toggles */}
-                      <div className="flex items-center gap-1 bg-[#0E1318] p-1 rounded-lg border border-[#222B35]">
+                      <div className="flex items-center gap-1 bg-[#14181C] p-1 rounded-lg border border-[#2C353D]">
                         <button
                           type="button"
                           onClick={() => setPreviewDevice("desktop")}
                           className={`px-2.5 py-1 rounded text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
-                            previewDevice === "desktop" ? "bg-[#1E2730] text-white" : "text-[#8E9BA8] hover:text-white"
+                            previewDevice === "desktop" ? "bg-white text-[#161B1F] font-bold" : "text-[#8E9BA8] hover:text-white"
                           }`}
                         >
                           <Monitor className="w-3.5 h-3.5" /> Desktop
@@ -479,7 +524,7 @@ export default function Templates() {
                           type="button"
                           onClick={() => setPreviewDevice("mobile")}
                           className={`px-2.5 py-1 rounded text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
-                            previewDevice === "mobile" ? "bg-[#1E2730] text-white" : "text-[#8E9BA8] hover:text-white"
+                            previewDevice === "mobile" ? "bg-white text-[#161B1F] font-bold" : "text-[#8E9BA8] hover:text-white"
                           }`}
                         >
                           <Smartphone className="w-3.5 h-3.5" /> Mobile
@@ -488,25 +533,25 @@ export default function Templates() {
                     </div>
 
                     {/* Side-by-side or stacked Editor & Preview Canvas */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 h-[600px] divide-y lg:divide-y-0 lg:divide-x divide-[#222B35]">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 h-[600px] divide-y lg:divide-y-0 lg:divide-x divide-[#2C353D]">
                       {/* Left: Code Editor Textarea */}
-                      <div className="flex flex-col h-full bg-[#0B0F13]">
-                        <div className="px-3 py-1.5 bg-[#12181F] border-b border-[#222B35] flex items-center justify-between">
+                      <div className="flex flex-col h-full bg-[#14181C]">
+                        <div className="px-3 py-1.5 bg-[#181E24] border-b border-[#2C353D] flex items-center justify-between">
                           <span className="text-[10px] font-mono uppercase text-[#8E9BA8] tracking-wider">HTML Source Code</span>
-                          <span className="text-[10px] text-[#666666]">Live Editable</span>
+                          <span className="text-[10px] text-[#8E9BA8] font-mono">Live Editable</span>
                         </div>
                         <textarea
                           value={customHtml}
                           onChange={(e) => setCustomHtml(e.target.value)}
                           placeholder="Upload an HTML file above or paste your raw HTML template here..."
-                          className="flex-1 w-full p-4 bg-[#0B0F13] text-[#E2E8F0] font-mono text-xs leading-relaxed resize-none focus:outline-none border-0"
+                          className="flex-1 w-full p-4 bg-[#14181C] text-[#E2E8F0] font-mono text-xs leading-relaxed resize-none focus:outline-none border-0"
                           spellCheck={false}
                         />
                       </div>
 
                       {/* Right: Live Interactive Render Preview */}
                       <div className="flex flex-col h-full bg-[#182028] overflow-hidden">
-                        <div className="px-3 py-1.5 bg-[#12181F] border-b border-[#222B35] flex items-center justify-between">
+                        <div className="px-3 py-1.5 bg-[#181E24] border-b border-[#2C353D] flex items-center justify-between">
                           <span className="text-[10px] font-mono uppercase text-[#8E9BA8] tracking-wider">Rendered Live Preview</span>
                           <span className="text-[10px] text-emerald-400 font-mono">Live DOM</span>
                         </div>
@@ -529,169 +574,175 @@ export default function Templates() {
                   </div>
                 )}
               </div>
-            </div>
 
-            <div className="border-t border-gray-100 pt-4">
-              <div className="flex items-end gap-4">
-                <div className="flex-1">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 skeuo-text">Test Sender Identity</label>
-                  <select
-                    value={spamCheckIdentity}
-                    onChange={(e) => { setSpamCheckIdentity(e.target.value); setSpamScore(null); }}
-                    className="w-full skeuo-input py-2 px-4"
+              {/* Spam Score Checker */}
+              <div className="border-t border-[#2C353D] pt-4">
+                <div className="flex items-end gap-4">
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-[#8E9BA8] mb-2 font-mono">
+                      Test Sender Identity
+                    </label>
+                    <select
+                      value={spamCheckIdentity}
+                      onChange={(e) => { setSpamCheckIdentity(e.target.value); setSpamScore(null); }}
+                      className="w-full bg-[#14181C] border border-[#2C353D] focus:border-white text-white text-xs px-4 py-2.5 rounded-lg outline-none cursor-pointer"
+                    >
+                      <option value="">No identity (plain email)</option>
+                      {identities.map((id) => (
+                        <option key={id.id} value={id.id}>
+                          {id.name} ({id.smtp_user})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={checkSpamScore}
+                    disabled={spamChecking}
+                    className="bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white px-5 py-2.5 rounded-lg text-xs font-semibold border border-[#2C353D] transition-all flex items-center gap-2 disabled:opacity-40 cursor-pointer shrink-0"
                   >
-                    <option value="">No identity (plain email)</option>
-                    {identities.map((id) => (
-                      <option key={id.id} value={id.id}>
-                        {id.name} ({id.smtp_user})
-                      </option>
-                    ))}
-                  </select>
+                    {spamChecking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Shield className="w-3.5 h-3.5 text-emerald-400" />}
+                    {spamChecking ? "Checking..." : "Check Spam Score"}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={checkSpamScore}
-                  disabled={spamChecking || !editingId}
-                  className="bg-[#111111] hover:bg-[#1a1a1a] text-[#cccccc] hover:text-white px-5 py-2.5 rounded-full text-xs font-semibold border border-[#222222] transition-all flex items-center gap-2 disabled:opacity-40 cursor-pointer"
-                >
-                  {spamChecking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Shield className="w-3.5 h-3.5 text-[#00ffff]" />}
-                  {spamChecking ? "Checking..." : "Check Spam Score"}
-                </button>
-              </div>
 
-              {spamScore !== null && (
-                <div className="mt-4 skeuo-inset-box p-4">
-                  <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0">
-                      {spamScore.score <= 3 ? (
-                        <ShieldCheck className="w-10 h-10 text-green-500" />
-                      ) : spamScore.score <= 6 ? (
-                        <AlertTriangle className="w-10 h-10 text-orange-500" />
-                      ) : (
-                        <ShieldAlert className="w-10 h-10 text-red-400" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-base font-semibold text-white tracking-wide">
-                          Spam Score: <span className={spamScore.score <= 3 ? "text-emerald-400 font-bold" : spamScore.score <= 6 ? "text-amber-400 font-bold" : "text-rose-400 font-bold"}>{spamScore.score.toFixed(1)} / 10</span>
-                        </span>
-                        <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 border ${spamScore.score <= 3 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : spamScore.score <= 6 ? "bg-amber-500/10 text-amber-400 border-amber-500/30" : "bg-rose-500/10 text-rose-400 border-rose-500/30"}`}>
-                          {spamScore.score <= 3 ? "Good" : spamScore.score <= 6 ? "Fair" : "Poor"}
-                        </span>
+                {spamScore !== null && (
+                  <div className="mt-4 bg-[#14181C] border border-[#2C353D] rounded-xl p-4">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0">
+                        {spamScore.score <= 3 ? (
+                          <ShieldCheck className="w-10 h-10 text-emerald-400" />
+                        ) : spamScore.score <= 6 ? (
+                          <AlertTriangle className="w-10 h-10 text-amber-400" />
+                        ) : (
+                          <ShieldAlert className="w-10 h-10 text-rose-400" />
+                        )}
                       </div>
-                      <div className="w-full bg-[#1e1e1e] h-1.5 mb-3 overflow-hidden">
-                        <div
-                          className={`h-full transition-all duration-500 ${spamScore.score <= 3 ? "bg-emerald-400" : spamScore.score <= 6 ? "bg-amber-400" : "bg-rose-500"}`}
-                          style={{ width: `${Math.min(spamScore.score * 10, 100)}%` }}
-                        />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="text-base font-semibold text-white tracking-wide">
+                            Spam Score: <span className={spamScore.score <= 3 ? "text-emerald-400 font-bold" : spamScore.score <= 6 ? "text-amber-400 font-bold" : "text-rose-400 font-bold"}>{spamScore.score.toFixed(1)} / 10</span>
+                          </span>
+                          <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 border rounded ${spamScore.score <= 3 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : spamScore.score <= 6 ? "bg-amber-500/10 text-amber-400 border-amber-500/30" : "bg-rose-500/10 text-rose-400 border-rose-500/30"}`}>
+                            {spamScore.score <= 3 ? "Good" : spamScore.score <= 6 ? "Fair" : "Poor"}
+                          </span>
+                        </div>
+                        <div className="w-full bg-[#222930] h-1.5 mb-3 overflow-hidden rounded-full">
+                          <div
+                            className={`h-full transition-all duration-500 ${spamScore.score <= 3 ? "bg-emerald-400" : spamScore.score <= 6 ? "bg-amber-400" : "bg-rose-500"}`}
+                            style={{ width: `${Math.min(spamScore.score * 10, 100)}%` }}
+                          />
+                        </div>
+                        {spamScore.report && (
+                          <details className="group">
+                            <summary className="text-[11px] font-mono text-[#8E9BA8] cursor-pointer hover:text-white select-none transition-colors">▾ View SpamAssassin breakdown</summary>
+                            <pre className="mt-2 text-[11px] text-[#CBD5E1] whitespace-pre-wrap font-mono bg-[#0B0F13] border border-[#2C353D] p-3 max-h-56 overflow-y-auto leading-relaxed rounded-lg">{spamScore.report}</pre>
+                          </details>
+                        )}
                       </div>
-                      {spamScore.report && (
-                        <details className="group">
-                          <summary className="text-[11px] font-mono text-[#888888] cursor-pointer hover:text-[#cccccc] select-none transition-colors">▾ View SpamAssassin breakdown</summary>
-                          <pre className="mt-2 text-[11px] text-[#aaaaaa] whitespace-pre-wrap font-mono bg-[#09090b] border border-[#1f1f23] p-3 max-h-56 overflow-y-auto leading-relaxed scrollbar-thin">{spamScore.report}</pre>
-                        </details>
-                      )}
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
 
-            <div className="flex justify-end gap-4 pt-6 border-t border-[#1a1a1a]">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsCreating(false);
-                  setEditingId(null);
-                  setSpamScore(null);
-                  setNewTemplate({ name: "", subject: "", body: "", type: "email", design: undefined });
-                }}
-                className="bg-[#111111] hover:bg-[#1a1a1a] text-[#888888] hover:text-white px-6 py-2.5 rounded-none text-xs font-semibold border border-[#222222] transition-all cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="bg-[#19b3d2] hover:bg-[#20c4e6] text-black font-semibold rounded-none px-8 py-2.5 text-xs flex items-center gap-2 transition-all cursor-pointer border border-[#1499b4]"
-              >
-                <Save className="w-4 h-4" /> Save Template
-              </button>
-            </div>
-          </form>
+              {/* Form Action Buttons */}
+              <div className="flex justify-end gap-3 pt-6 border-t border-[#2C353D]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreating(false);
+                    setEditingId(null);
+                    setSpamScore(null);
+                    setNewTemplate({ name: "", subject: "", body: "", type: "email", design: undefined });
+                  }}
+                  className="bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white px-5 py-2.5 rounded-lg text-xs font-semibold border border-[#2C353D] transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold rounded-lg px-6 py-2.5 text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+                >
+                  <Save className="w-4 h-4" /> Save Template
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
       {/* TEMPLATES GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {templates.map((template) => (
-          <div
-            key={template.id}
-            onClick={() => setPreviewTemplate(template)}
-            className="bg-[#000000] border border-[#1a1a1a] hover:border-[#333333] transition-all p-5 flex flex-col justify-between group cursor-pointer shadow-lg relative"
-          >
-            <div>
-              <div className="flex items-start justify-between gap-2 mb-3">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Mail className="w-4 h-4 text-[#00ffff] shrink-0" />
-                  <h3 className="font-serif font-medium text-lg text-white line-clamp-1" title={template.name}>
-                    {template.name}
-                  </h3>
+      <div className="flex-1 overflow-auto p-6 lg:p-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {templates.map((template) => (
+            <div
+              key={template.id}
+              onClick={() => setPreviewTemplate(template)}
+              className="bg-[#1C2227] border border-[#2C353D] hover:border-[#CBD5E1] rounded-xl transition-all p-5 flex flex-col justify-between group cursor-pointer shadow-md relative"
+            >
+              <div>
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Mail className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <h3 className="font-sans font-bold text-base text-white line-clamp-1" title={template.name}>
+                      {template.name}
+                    </h3>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => handleEdit(template)}
+                      className="p-1.5 bg-[#222930] hover:bg-[#2C353D] text-[#8E9BA8] hover:text-white rounded-lg border border-[#2C353D] transition-colors cursor-pointer"
+                      title="Edit Template"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(template.id)}
+                      className="p-1.5 bg-[#222930] hover:bg-rose-950/40 text-[#8E9BA8] hover:text-rose-400 rounded-lg border border-[#2C353D] transition-colors cursor-pointer"
+                      title="Delete Template"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    onClick={() => handleEdit(template)}
-                    className="p-1.5 bg-[#111111] hover:bg-[#1f1f1f] text-[#888888] hover:text-[#00ffff] border border-[#222222] transition-colors cursor-pointer"
-                    title="Edit Template"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(template.id)}
-                    className="p-1.5 bg-[#111111] hover:bg-rose-950/40 text-[#888888] hover:text-rose-400 border border-[#222222] transition-colors cursor-pointer"
-                    title="Delete Template"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+
+                {template.subject && (
+                  <div className="mb-3">
+                    <p className="text-[10px] uppercase font-mono tracking-wider text-[#8E9BA8] mb-0.5">Subject</p>
+                    <p className="text-xs text-[#CBD5E1] font-medium line-clamp-1" title={template.subject}>
+                      {template.subject}
+                    </p>
+                  </div>
+                )}
+
+                <p className="text-xs text-[#8E9BA8] line-clamp-4 leading-relaxed mb-4">
+                  {stripHtml(template.body) || "No plain text excerpt available."}
+                </p>
               </div>
 
-              {template.subject && (
-                <div className="mb-3">
-                  <p className="text-[10px] uppercase font-mono tracking-wider text-[#666666] mb-0.5">Subject</p>
-                  <p className="text-xs text-[#cccccc] font-medium line-clamp-1" title={template.subject}>
-                    {template.subject}
-                  </p>
-                </div>
-              )}
-
-              <p className="text-xs text-[#777777] line-clamp-4 leading-relaxed mb-4">
-                {stripHtml(template.body) || "No plain text excerpt available."}
-              </p>
+              <div className="pt-3 border-t border-[#2C353D] flex items-center justify-between">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#8E9BA8] group-hover:text-white transition-colors">
+                  Click to view preview
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPreviewTemplate(template);
+                  }}
+                  className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-md transition-all cursor-pointer"
+                >
+                  <Eye className="w-3.5 h-3.5" /> Preview
+                </button>
+              </div>
             </div>
-
-            <div className="pt-3 border-t border-[#141414] flex items-center justify-between">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-[#555555] group-hover:text-[#888888] transition-colors">
-                Click to view preview
-              </span>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setPreviewTemplate(template);
-                }}
-                className="text-xs font-medium text-[#00ffff] hover:text-white flex items-center gap-1.5 px-2.5 py-1 bg-[#00ffff]/10 hover:bg-[#00ffff]/20 border border-[#00ffff]/30 transition-all cursor-pointer"
-              >
-                <Eye className="w-3.5 h-3.5" /> Preview
-              </button>
+          ))}
+          {templates.length === 0 && !isCreating && (
+            <div className="col-span-full text-center py-20 text-[#8E9BA8] bg-[#1C2227] border border-[#2C353D] rounded-xl font-mono text-xs">
+              No templates found. Click "New Template" above to get started!
             </div>
-          </div>
-        ))}
-        {templates.length === 0 && !isCreating && (
-          <div className="col-span-full text-center py-16 text-[#666666] bg-[#000000] border border-[#1a1a1a]">
-            No templates found. Create one to get started!
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Right-Side Template Live Preview Drawer with Flush Alignment & No Blur */}
