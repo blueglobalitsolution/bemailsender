@@ -83,6 +83,7 @@ export default function Templates() {
   const [spamCheckIdentity, setSpamCheckIdentity] = useState("");
   const [spamScore, setSpamScore] = useState<{ score: number; report: string } | null>(null);
   const [spamChecking, setSpamChecking] = useState(false);
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   // Test Email Modal State
   const [testModalTemplate, setTestModalTemplate] = useState<Template | null>(null);
   const [testRecipientEmail, setTestRecipientEmail] = useState("");
