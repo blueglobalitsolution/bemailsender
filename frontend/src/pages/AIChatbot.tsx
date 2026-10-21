@@ -525,9 +525,9 @@ export default function AIChatbot() {
   }
 
   return (
-    <div className="space-y-6 font-sans pb-16 max-w-7xl mx-auto">
+    <div className="space-y-5 font-sans pb-16 w-full">
       {/* Target Landing Page Switcher Bar */}
-      <div className="bg-[#191F26] border border-[#2C353D] rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-[#191F26] border border-[#2C353D] rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-md">
         <div className="flex items-center gap-3">
           <Globe className="w-5 h-5 text-[#8E9BA8] shrink-0" />
           <div className="flex items-center gap-2 flex-wrap">
@@ -590,11 +590,11 @@ export default function AIChatbot() {
       </div>
 
       {/* Main 2-Column Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left Column: Configuration Settings (7 cols) */}
-        <div className="lg:col-span-7 space-y-6">
+        <div className="lg:col-span-7 xl:col-span-7 space-y-5">
           {/* Persona & Greeting Card */}
-          <div className="bg-[#1E252D] border border-[#2C353D] rounded-2xl p-6 shadow-xl space-y-5">
+          <div className="bg-[#191F26] border border-[#2C353D] rounded-2xl p-5 shadow-lg space-y-4">
             <div className="flex items-center gap-2.5 pb-3 border-b border-[#2C353D]">
               <Sliders className="w-4 h-4 text-emerald-400" />
               <h3 className="text-sm font-bold text-white uppercase tracking-wider">
@@ -638,7 +638,7 @@ export default function AIChatbot() {
           </div>
 
           {/* Product Script & Knowledge Base Card */}
-          <div className="bg-[#1E252D] border border-[#2C353D] rounded-2xl p-6 shadow-xl space-y-4">
+          <div className="bg-[#191F26] border border-[#2C353D] rounded-2xl p-5 shadow-lg space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-[#2C353D] flex-wrap gap-2">
               <div className="flex items-center gap-2.5">
                 <FileText className="w-4 h-4 text-purple-400" />
@@ -774,9 +774,9 @@ export default function AIChatbot() {
         </div>
 
         {/* Right Column: Live Simulator & Leads (5 cols) */}
-        <div className="lg:col-span-5 space-y-4">
+        <div className="lg:col-span-5 xl:col-span-5 space-y-4">
           {/* Subtab Switcher */}
-          <div className="bg-[#1E252D] border border-[#2C353D] p-1.5 rounded-xl flex items-center gap-1 shadow-md">
+          <div className="bg-[#191F26] border border-[#2C353D] p-1.5 rounded-xl flex items-center gap-1 shadow-md">
             <button
               onClick={() => setActiveTab("simulator")}
               className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${
