@@ -359,30 +359,6 @@ export default function Templates() {
       {isCreating && (
         <div className="border-b border-[#2C353D] bg-[#181E24] p-6 lg:p-8">
           <div className="max-w-6xl mx-auto space-y-6">
-            <div className="flex items-center justify-between pb-4 border-b border-[#2C353D]">
-              <div>
-                <h3 className="text-xl font-bold text-white tracking-tight">
-                  {editingId ? "Edit Template" : "Create New Template"}
-                </h3>
-                <p className="text-xs text-[#8E9BA8] mt-1 font-medium">
-                  Compose high-converting email templates with Drag & Drop or Custom HTML.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsCreating(false);
-                  setEditingId(null);
-                  setSpamScore(null);
-                  setNewTemplate({ name: "", subject: "", body: "", type: "email", design: undefined });
-                }}
-                className="p-2 text-[#8E9BA8] hover:text-white bg-[#222930] hover:bg-[#2C353D] border border-[#2C353D] rounded-lg transition-colors cursor-pointer"
-                title="Close"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
             <form onSubmit={handleSave} className="space-y-6">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#8E9BA8] mb-2 font-mono">
