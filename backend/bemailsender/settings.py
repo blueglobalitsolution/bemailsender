@@ -177,6 +177,7 @@ SIMPLE_JWT = {
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://mailer.blueglobaltechnology.com")
+TRACKING_BASE_URL = os.environ.get("TRACKING_BASE_URL", "https://mailer.blueglobaltechnology.com")
 
 
 # Laya & Llama AI Service

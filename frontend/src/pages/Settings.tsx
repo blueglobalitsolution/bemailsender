@@ -236,29 +236,26 @@ export default function Settings() {
     }
   };
 
-  // Logout All Devices
-  const handleLogoutAll = () => {
+  // Logout Current Session
+  const handleLogout = () => {
     toast.confirm(
-      "Are you sure you want to log out from all devices? You will need to log in again on this device as well.",
+      "Are you sure you want to log out of your account?",
       async () => {
         try {
-          const res = await apiFetch("/api/auth/logout-all/", {
+          await apiFetch("/api/auth/logout/", {
             method: "POST",
           });
-          if (res.ok) {
-            localStorage.removeItem("access_token");
-            toast.success("All sessions terminated. Redirecting to login...");
-            setTimeout(() => {
-              window.location.href = "/login";
-            }, 1000);
-          } else {
-            toast.error("Failed to terminate sessions.");
-          }
         } catch (err) {
-          console.error(err);
-          toast.error("Network error logging out across devices.");
+          console.error("Error during logout:", err);
+        } finally {
+          localStorage.removeItem("access_token");
+          toast.success("Logged out successfully.");
+          setTimeout(() => {
+            window.location.href = "/login";
+          }, 300);
         }
-      }
+      },
+      { confirmLabel: "Log Out" }
     );
   };
 
@@ -509,19 +506,19 @@ export default function Settings() {
               </form>
             </div>
 
-            {/* Logout All Devices */}
+            {/* Logout Card */}
             <div className="bg-[#1C2227] border border-rose-900/30 rounded-xl p-6 space-y-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400">
-                    <Shield className="w-5 h-5" />
+                    <LogOut className="w-5 h-5" />
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-white">
-                      Session Logout Across All Devices
+                      Log Out
                     </h3>
                     <p className="text-xs text-[#8E9BA8] mt-0.5">
-                      Instantly revoke access tokens and force logout across all other computers, browsers, and mobile devices.
+                      Safely end your current session and sign out of your ReachEngine account.
                     </p>
                   </div>
                 </div>
@@ -530,11 +527,11 @@ export default function Settings() {
               <div className="pt-2 flex justify-end">
                 <button
                   type="button"
-                  onClick={handleLogoutAll}
+                  onClick={handleLogout}
                   className="bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-semibold text-xs px-4 py-2.5 rounded-lg flex items-center gap-2 transition-all cursor-pointer"
                 >
                   <LogOut className="w-3.5 h-3.5" />
-                  Log Out Everywhere
+                  Log Out
                 </button>
               </div>
             </div>
@@ -562,66 +559,91 @@ export default function Settings() {
                 </div>
               </div>
 
-              <div className="text-right">
-                <span className="text-2xl font-mono font-bold text-emerald-400">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-mono font-bold text-emerald-400">
                   {cooldownDays === 0 ? "Disabled" : `${cooldownDays} Days`}
                 </span>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={cooldownDays > 0}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setCooldownDays(cooldownDays === 0 ? 3 : cooldownDays);
+                      } else {
+                        setCooldownDays(0);
+                      }
+                    }}
+                  />
+                  <div className="w-11 h-6 bg-[#2C353D] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                </label>
               </div>
             </div>
 
             <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <input
-                  type="range"
-                  min="0"
-                  max="90"
-                  step="1"
-                  value={cooldownDays}
-                  onChange={(e) => setCooldownDays(Number(e.target.value))}
-                  className="flex-1 accent-emerald-400 cursor-pointer h-2 bg-[#161B1F] rounded-lg"
-                />
-                <div className="w-24">
-                  <input
-                    type="number"
-                    min="0"
-                    max="365"
-                    value={cooldownDays}
-                    onChange={(e) => setCooldownDays(Math.max(0, Number(e.target.value)))}
-                    className="w-full bg-[#161B1F] border border-[#2C353D] rounded-lg px-3 py-1.5 text-center font-mono font-bold text-sm text-white focus:outline-none focus:border-white"
-                  />
-                </div>
-              </div>
+              {cooldownDays > 0 ? (
+                <>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="range"
+                      min="1"
+                      max="90"
+                      step="1"
+                      value={cooldownDays}
+                      onChange={(e) => setCooldownDays(Number(e.target.value))}
+                      className="flex-1 accent-emerald-400 cursor-pointer h-2 bg-[#161B1F] rounded-lg"
+                    />
+                    <div className="w-24">
+                      <input
+                        type="number"
+                        min="1"
+                        max="365"
+                        value={cooldownDays}
+                        onChange={(e) => setCooldownDays(Math.max(1, Number(e.target.value)))}
+                        className="w-full bg-[#161B1F] border border-[#2C353D] rounded-lg px-3 py-1.5 text-center font-mono font-bold text-sm text-white focus:outline-none focus:border-white"
+                      />
+                    </div>
+                  </div>
 
-              {/* Quick Preset Buttons */}
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <span className="text-xs text-[#8E9BA8] mr-1">Presets:</span>
-                {[
-                  { label: "14 Days", val: 14 },
-                  { label: "30 Days (Recommended)", val: 30 },
-                  { label: "45 Days", val: 45 },
-                  { label: "60 Days", val: 60 },
-                  { label: "Disabled (0)", val: 0 },
-                ].map((preset) => (
-                  <button
-                    key={preset.val}
-                    type="button"
-                    onClick={() => setCooldownDays(preset.val)}
-                    className={cn(
-                      "text-xs px-3 py-1 rounded-md border transition-all cursor-pointer",
-                      cooldownDays === preset.val
-                        ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300 font-semibold"
-                        : "bg-[#161B1F] border-[#2C353D] text-[#8E9BA8] hover:text-white"
-                    )}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
+                  {/* Quick Preset Buttons */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <span className="text-xs text-[#8E9BA8] mr-1">Presets:</span>
+                    {[
+                      { label: "3 Days (Fast Outreach)", val: 3 },
+                      { label: "7 Days (Recommended)", val: 7 },
+                      { label: "14 Days", val: 14 },
+                      { label: "30 Days", val: 30 },
+                    ].map((preset) => (
+                      <button
+                        key={preset.val}
+                        type="button"
+                        onClick={() => setCooldownDays(preset.val)}
+                        className={cn(
+                          "text-xs px-3 py-1 rounded-md border transition-all cursor-pointer",
+                          cooldownDays === preset.val
+                            ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300 font-semibold"
+                            : "bg-[#161B1F] border-[#2C353D] text-[#8E9BA8] hover:text-white"
+                        )}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs text-amber-300 flex items-center gap-2">
+                  <Info className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>
+                    <strong>Cooldown is currently OFF:</strong> Emails will be delivered to any recipient immediately, even if they received a campaign today. Best for testing.
+                  </span>
+                </div>
+              )}
 
               <div className="p-3.5 bg-[#161B1F] border border-[#2C353D] rounded-lg flex items-start gap-3 text-xs text-[#8E9BA8]">
                 <Info className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <span>
-                  <strong>How it works:</strong> If set to <strong>{cooldownDays} days</strong>, ReachEngine checks your historical sending ledger before sending. If a recipient was emailed in any campaign less than {cooldownDays} days ago, they are automatically safely skipped to protect you from spam complaints. (0 disables cooldown).
+                  <strong>How it works:</strong> When enabled, ReachEngine checks your historical sending ledger before sending. If a recipient was emailed in any campaign less than {cooldownDays} days ago, they are automatically safely skipped to protect you from spam complaints.
                 </span>
               </div>
 

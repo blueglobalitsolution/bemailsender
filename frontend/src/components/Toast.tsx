@@ -55,7 +55,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           type: "confirm",
           message,
           onConfirm,
-          confirmLabel: options?.confirmLabel || "Delete",
+          confirmLabel: options?.confirmLabel || "Confirm",
           cancelLabel: options?.cancelLabel || "Cancel",
         },
       ]);
@@ -107,7 +107,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                     }}
                     className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold border border-rose-500/60 text-xs transition-all cursor-pointer shadow-sm"
                   >
-                    {toast.confirmLabel || "Delete"}
+                    {toast.confirmLabel || "Confirm"}
                   </button>
                 </div>
               </div>

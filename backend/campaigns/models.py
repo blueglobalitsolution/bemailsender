@@ -125,6 +125,31 @@ class Campaign(models.Model):
     # Explicit user override: allow re-sending to recipients inside the
     # per-account cooldown window. Suppression is still always enforced.
     allow_repeat = models.BooleanField(default=False)
+
+    # High-Intent Auto Retargeting (Fast Follow-Up on interest / click)
+    enable_intent_followup = models.BooleanField(default=False)
+    intent_followup_trigger = models.CharField(
+        max_length=50,
+        choices=[
+            ("click", "Link Clicked"),
+            ("multiple_opens", "Multiple Opens (2+)"),
+            ("both", "Click or Multiple Opens"),
+        ],
+        default="click",
+    )
+    intent_followup_delay_minutes = models.IntegerField(default=30)
+    intent_followup_subject = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        default="Quick update regarding your interest (Special Discount Inside)",
+    )
+    intent_followup_body = models.TextField(
+        blank=True,
+        null=True,
+        default="Hi {{first_name}},\n\nI noticed you were checking out our offer earlier. Decision-making is easier with an extra boost, so here is an exclusive 15% discount for you today:\n\nCode: SAVE15\n\nLet me know if you have any questions!",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -149,6 +174,20 @@ class CampaignContact(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
     skip_reason = models.TextField(blank=True, null=True)
     attempts = models.IntegerField(default=0)
+    opens_count = models.IntegerField(default=0)
+    clicks_count = models.IntegerField(default=0)
+    intent_followup_status = models.CharField(
+        max_length=30,
+        choices=[
+            ("none", "None"),
+            ("scheduled", "Scheduled"),
+            ("sent", "Sent"),
+            ("cancelled", "Cancelled"),
+        ],
+        default="none",
+    )
+    intent_followup_scheduled_at = models.DateTimeField(blank=True, null=True)
+    intent_followup_sent_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -157,6 +196,7 @@ class CampaignContact(models.Model):
         indexes = [
             models.Index(fields=["campaign", "status"]),
             models.Index(fields=["recipient", "status"]),
+            models.Index(fields=["intent_followup_status", "intent_followup_scheduled_at"]),
         ]
         constraints = [
             models.UniqueConstraint(
@@ -177,6 +217,23 @@ class TrackedOpen(models.Model):
 
     class Meta:
         db_table = "tracked_opens"
+        indexes = [
+            models.Index(fields=["campaign", "recipient"]),
+        ]
+
+
+class TrackedClick(models.Model):
+    campaign = models.ForeignKey(
+        Campaign, on_delete=models.CASCADE, related_name="clicks"
+    )
+    recipient = models.CharField(max_length=255)
+    url = models.TextField(blank=True, null=True)
+    clicked_at = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    user_agent = models.TextField(blank=True, null=True)
+
+    class Meta:
+        db_table = "tracked_clicks"
         indexes = [
             models.Index(fields=["campaign", "recipient"]),
         ]

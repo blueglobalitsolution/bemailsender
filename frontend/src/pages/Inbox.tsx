@@ -215,13 +215,13 @@ export default function Inbox() {
   };
 
   return (
-    <div className="flex flex-col h-full w-full font-sans">
+    <div className="flex-1 flex flex-col h-full w-full min-h-0 font-sans">
       {/* Main Mail Container */}
-      <div className="flex-1 flex flex-col md:flex-row bg-[#222930] border-t border-[#2C353D] overflow-hidden min-h-0 w-full h-full">
+      <div className="flex-1 flex flex-col md:flex-row bg-[#222930] overflow-hidden min-h-0 w-full h-full">
         {/* Left Column: Email List + Filter Controls */}
-        <div className="w-full md:w-96 lg:w-[420px] border-r border-[#2C353D] flex flex-col shrink-0 bg-[#1C2227]">
+        <div className="w-full md:w-96 lg:w-[420px] border-r border-[#2C353D] flex flex-col shrink-0 bg-[#1C2227] h-full min-h-0">
           {/* Filter Tabs */}
-          <div className="p-3 border-b border-[#2C353D] bg-[#161B1F] flex items-center justify-between gap-1">
+          <div className="p-3 border-b border-[#2C353D] bg-[#161B1F] flex items-center justify-between gap-1 shrink-0">
             <div className="flex gap-1 overflow-x-auto">
               {(["all", "unread", "replies", "starred"] as const).map((mode) => (
                 <button
@@ -255,7 +255,7 @@ export default function Inbox() {
           </div>
 
           {/* Search Box */}
-          <div className="p-3 border-b border-[#2C353D] relative bg-[#1C2227]">
+          <div className="p-3 border-b border-[#2C353D] relative bg-[#1C2227] shrink-0">
             <Search className="w-4 h-4 text-[#8E9BA8] absolute left-6 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
@@ -268,19 +268,28 @@ export default function Inbox() {
           </div>
 
           {/* Emails Scroll List */}
-          <div className="flex-1 overflow-y-auto divide-y divide-[#2C353D]">
+          <div className="flex-1 overflow-y-auto divide-y divide-[#2C353D] min-h-0 flex flex-col">
             {loading ? (
-              <div className="p-12 text-center text-xs text-[#8E9BA8]">
+              <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-xs text-[#8E9BA8]">
                 <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 opacity-50" />
                 Checking for incoming emails...
               </div>
             ) : emails.length === 0 ? (
-              <div className="p-12 text-center text-xs text-[#8E9BA8]">
-                <Mail className="w-8 h-8 mx-auto mb-3 opacity-30 text-[#CBD5E1]" />
-                <p className="font-semibold text-white">No messages found</p>
-                <p className="mt-1 text-[11px]">
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-xs text-[#8E9BA8]">
+                <div className="w-12 h-12 rounded-xl bg-[#161B1F] border border-[#2C353D] flex items-center justify-center mb-3">
+                  <Mail className="w-6 h-6 opacity-40 text-[#CBD5E1]" />
+                </div>
+                <p className="font-semibold text-white text-sm">No messages found</p>
+                <p className="mt-1 text-xs max-w-xs text-[#8E9BA8] leading-relaxed">
                   Configure your inbound webhook URL in SendGrid, Mailgun, or Amazon SES to begin receiving.
                 </p>
+                <button
+                  onClick={() => setShowConfigModal(true)}
+                  className="mt-4 px-3.5 py-1.5 bg-[#222930] hover:bg-[#2C353D] border border-[#2C353D] text-[#CBD5E1] hover:text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Configure Webhook
+                </button>
               </div>
             ) : (
               emails.map((email) => {
@@ -437,11 +446,13 @@ export default function Inbox() {
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-[#8E9BA8]">
-              <MailOpen className="w-12 h-12 mb-3 opacity-30 text-[#CBD5E1]" />
+            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-[#8E9BA8] h-full">
+              <div className="w-16 h-16 rounded-2xl bg-[#161B1F] border border-[#2C353D] flex items-center justify-center mb-4 shadow-inner">
+                <MailOpen className="w-8 h-8 opacity-40 text-[#CBD5E1]" />
+              </div>
               <h3 className="text-base font-bold text-white">Select an email to read</h3>
-              <p className="text-xs max-w-md mt-1 text-[#8E9BA8]">
-                Incoming messages from SendGrid, Mailgun, Amazon SES or Postmark will display here.
+              <p className="text-xs max-w-md mt-1.5 text-[#8E9BA8] leading-relaxed">
+                Incoming messages and replies from SendGrid, Mailgun, Amazon SES or Postmark will display here.
               </p>
             </div>
           )}

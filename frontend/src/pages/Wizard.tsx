@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { Wand2, User, Users, FileText, Settings, ArrowRight, ArrowLeft, Upload, CheckCircle, Loader2, X, Clock, AlertCircle, Shield, ShieldCheck, ShieldAlert, Globe, Calendar, Shuffle, Target, Sparkles, Eye } from "lucide-react";
+import { Wand2, User, Users, FileText, Settings, ArrowRight, ArrowLeft, Upload, CheckCircle, Loader2, X, Clock, AlertCircle, Shield, ShieldCheck, ShieldAlert, Globe, Calendar, Shuffle, Target, Sparkles, Eye, Zap, Tag } from "lucide-react";
 import { apiFetch, getApiUrl } from "../lib/api";
 import { useToast } from "../components/Toast";
 import TemplateValidationPanel, { ValidationResult } from "../components/TemplateValidationPanel";
@@ -55,6 +55,15 @@ export default function Wizard() {
   const [enableDailyLimit, setEnableDailyLimit] = useState(false);
   const [launchDate, setLaunchDate] = useState("");
 
+  // High-Intent Retargeting (Fast Follow-Up on interest / click)
+  const [enableIntentFollowup, setEnableIntentFollowup] = useState(false);
+  const [intentFollowupTrigger, setIntentFollowupTrigger] = useState<"click" | "multiple_opens" | "both">("click");
+  const [intentFollowupDelayMinutes, setIntentFollowupDelayMinutes] = useState(30);
+  const [intentFollowupSubject, setIntentFollowupSubject] = useState("Quick update regarding your interest (Special Discount Inside)");
+  const [intentFollowupBody, setIntentFollowupBody] = useState(
+    "Hi {{first_name}},\n\nI noticed you were checking out our offer earlier. Decision-making is easier with an extra boost, so here is an exclusive 15% discount for you today:\n\nCoupon Code: SAVE15\n\nFeel free to reply if you have any questions!"
+  );
+
   // CSV rows state (parsed client-side)
   const [csvRows, setCsvRows] = useState<Record<string, string>[]>([]);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
@@ -92,6 +101,7 @@ export default function Wizard() {
   const progressInterval = useRef<any>(null);
   const countdownInterval = useRef<any>(null);
   const delayRef = useRef(45);
+  const lastSentCountRef = useRef(-1);
 
   useEffect(() => {
     apiFetch('/api/templates/?type=email')
@@ -147,7 +157,14 @@ export default function Wizard() {
       if (data.delay_ms) {
         delayRef.current = Math.floor(data.delay_ms / 1000);
       }
-      // Initialize countdown when running with pending emails
+      // If a new email was sent, reset the countdown timer back to the full delay
+      const currentProcessed = (data.sent || 0) + (data.failed || 0);
+      if (lastSentCountRef.current !== -1 && currentProcessed > lastSentCountRef.current && data.pending > 0) {
+        setCountdown(delayRef.current);
+      }
+      lastSentCountRef.current = currentProcessed;
+
+      // Initialize countdown when running with pending emails if not already running
       if (data.status === "running" && data.pending > 0) {
         setCountdown((prev) => (prev <= 0 ? delayRef.current : prev));
       }
@@ -280,6 +297,11 @@ export default function Wizard() {
     formData.append("endTime", isScheduled ? endTime : "");
     formData.append("force", force ? "true" : "false");
     formData.append("allowRepeat", allowRepeat ? "true" : "false");
+    formData.append("enableIntentFollowup", enableIntentFollowup ? "true" : "false");
+    formData.append("intentFollowupTrigger", intentFollowupTrigger);
+    formData.append("intentFollowupDelayMinutes", intentFollowupDelayMinutes.toString());
+    formData.append("intentFollowupSubject", intentFollowupSubject);
+    formData.append("intentFollowupBody", intentFollowupBody);
     if (isScheduled) {
       formData.append("timezone", timezone);
       formData.append("humanJitter", humanJitter ? "true" : "false");
@@ -323,12 +345,8 @@ export default function Wizard() {
             `${summary.pending} will be sent · ${summary.cooldown_skipped} cooldown skips · ${summary.suppressed_skipped} suppressed · ${summary.duplicate_rows_skipped} duplicate rows removed`
           );
         }
-        setCampaignId(data.campaignId);
-        setShowProgress(true);
-        setProgressLogs([]);
-        // Start polling
-        if (progressInterval.current) clearInterval(progressInterval.current);
-        progressInterval.current = setInterval(() => pollProgress(data.campaignId), 2000);
+        toast.success(`Campaign "${campaignName || "Campaign"}" launched! Tracking live progress in sidebar.`);
+        navigate("/campaigns");
       } else {
         if (data.validation) setTemplateValidation(data.validation);
         toast.error(data.error || "Failed to start campaign");
@@ -1222,6 +1240,188 @@ export default function Wizard() {
                       ) : (
                         <p className="text-[11px] text-[#8E9BA8]">Automatically pauses once limit is reached and resumes next day.</p>
                       )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Recipient Cooldown Guardrail (ON / OFF Switch) */}
+            <div className="bg-[#1C2227] border border-[#2C353D] rounded-xl p-6 transition-all hover:border-[#38444D]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                    <Shield className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-semibold text-white text-sm">Recipient Cooldown Guardrail</h4>
+                      <span className={`px-2 py-0.5 text-[10px] font-semibold tracking-wide rounded-full border ${
+                        !allowRepeat
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                          : "bg-amber-500/10 text-amber-300 border-amber-500/30"
+                      }`}>
+                        {!allowRepeat ? "Cooldown Active (Anti-Spam ON)" : "Cooldown Disabled (Test Mode)"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#8E9BA8] mt-0.5">
+                      {!allowRepeat
+                        ? "Automatically skips leads that were already emailed recently to protect deliverability."
+                        : "Cooldown disabled: Emails will be sent even if this recipient was already contacted recently."}
+                    </p>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={!allowRepeat}
+                    onChange={(e) => setAllowRepeat(!e.target.checked)}
+                  />
+                  <div className="w-11 h-6 bg-[#2C353D] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                </label>
+              </div>
+
+              {allowRepeat && (
+                <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center gap-2.5 text-xs text-amber-300 animate-in fade-in duration-200">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+                  <span>
+                    <strong>Test Mode Enabled:</strong> Cooldown checking is turned OFF for this campaign. All contacts will be sent emails regardless of when they were last contacted.
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* High-Intent Auto Retargeting (Fast Follow-Up) */}
+            <div className="bg-[#1C2227] border border-[#2C353D] rounded-xl p-6 transition-all hover:border-[#38444D]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-semibold text-white text-sm">High-Intent Fast Retargeting</h4>
+                      <span className="px-2 py-0.5 text-[10px] font-semibold tracking-wide bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border border-amber-500/30 rounded-full flex items-center gap-1">
+                        <Tag className="w-2.5 h-2.5" /> High Conversion
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#8E9BA8] mt-0.5">
+                      Automatically follow up with hot leads (link clicks or frequent opens) while your offer is fresh.
+                    </p>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={enableIntentFollowup}
+                    onChange={(e) => setEnableIntentFollowup(e.target.checked)}
+                  />
+                  <div className="w-11 h-6 bg-[#2C353D] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                </label>
+              </div>
+
+              {enableIntentFollowup && (
+                <div className="mt-6 pt-5 border-t border-[#2C353D] space-y-5 animate-in fade-in duration-200">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Trigger selection */}
+                    <div className="bg-[#15191C] border border-[#2C353D] rounded-lg p-3.5">
+                      <label className="block text-xs font-semibold text-white mb-2">
+                        Retarget Trigger
+                      </label>
+                      <select
+                        value={intentFollowupTrigger}
+                        onChange={(e) => setIntentFollowupTrigger(e.target.value)}
+                        className="w-full bg-[#1C2227] border border-[#2C353D] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                      >
+                        <option value="click">Lead Clicks Any Link (Highest Intent)</option>
+                        <option value="multiple_opens">Lead Opens Email 2+ Times</option>
+                        <option value="both">Both (Either Link Click or 2+ Opens)</option>
+                      </select>
+                      <p className="text-[11px] text-[#8E9BA8] mt-1.5">
+                        Fires when recipient demonstrates immediate interest in your email.
+                      </p>
+                    </div>
+
+                    {/* Delay selection */}
+                    <div className="bg-[#15191C] border border-[#2C353D] rounded-lg p-3.5">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-xs font-semibold text-white">
+                          Dispatch Delay
+                        </label>
+                        <div className="flex gap-1">
+                          {[15, 30, 45, 60].map((mins) => (
+                            <button
+                              key={mins}
+                              type="button"
+                              onClick={() => setIntentFollowupDelayMinutes(mins)}
+                              className={`px-2 py-0.5 text-[10px] rounded border transition-all ${
+                                intentFollowupDelayMinutes === mins
+                                  ? 'bg-amber-500/20 border-amber-500/40 text-amber-300 font-semibold'
+                                  : 'bg-[#1C2227] border-[#2C353D] text-[#8E9BA8] hover:text-white'
+                              }`}
+                            >
+                              {mins}m
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="5"
+                          max="1440"
+                          value={intentFollowupDelayMinutes}
+                          onChange={(e) => setIntentFollowupDelayMinutes(Math.max(1, Number(e.target.value)))}
+                          className="w-24 bg-[#1C2227] border border-[#2C353D] px-3 py-2 text-xs text-white font-mono rounded-lg focus:outline-none focus:border-amber-400"
+                        />
+                        <span className="text-xs text-[#8E9BA8]">minutes after lead engages</span>
+                      </div>
+                      <p className="text-[11px] text-[#8E9BA8] mt-1.5">
+                        Industry standard is 30 mins to capitalize on warm engagement.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Follow-up Subject */}
+                  <div>
+                    <label className="block text-xs font-semibold text-white mb-1.5">
+                      Retarget Email Subject
+                    </label>
+                    <input
+                      type="text"
+                      value={intentFollowupSubject}
+                      onChange={(e) => setIntentFollowupSubject(e.target.value)}
+                      placeholder="Quick question about the link you checked / Special 15% discount for you"
+                      className="w-full bg-[#15191C] border border-[#2C353D] rounded-lg px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400 placeholder-[#8E9BA8]/40"
+                    />
+                  </div>
+
+                  {/* Follow-up Body */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-white">
+                        Retarget Email Body
+                      </label>
+                      <span className="text-[11px] text-[#8E9BA8]">
+                        Supports variables like <code className="text-amber-300 bg-amber-500/10 px-1 py-0.5 rounded">{'{{first_name}}'}</code>
+                      </span>
+                    </div>
+                    <textarea
+                      rows={5}
+                      value={intentFollowupBody}
+                      onChange={(e) => setIntentFollowupBody(e.target.value)}
+                      placeholder="Hey {{first_name}},&#10;&#10;I noticed you checked out our solution earlier. Thought I'd reach out directly to see if you have any questions!&#10;&#10;If you'd like to test it out this week, here is an exclusive 15% discount link: https://yourbrand.com/special-offer&#10;&#10;Best,&#10;Your Team"
+                      className="w-full bg-[#15191C] border border-[#2C353D] rounded-lg p-3.5 text-xs text-white focus:outline-none focus:border-amber-400 font-sans placeholder-[#8E9BA8]/40 resize-y"
+                    />
+                  </div>
+
+                  {/* Safety Guardrail Banner */}
+                  <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-lg flex items-start gap-2.5">
+                    <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div className="text-[11px] text-[#8E9BA8] leading-relaxed">
+                      <strong className="text-amber-300">Intelligent Safety Guardrail:</strong> If the lead replies to your email, unsubscribes, or books a meeting before the delay window expires, this follow-up is <span className="text-white font-medium">instantly cancelled</span> to protect sender reputation.
                     </div>
                   </div>
                 </div>

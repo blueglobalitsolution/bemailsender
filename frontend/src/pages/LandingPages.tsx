@@ -186,28 +186,15 @@ export default function LandingPages() {
   return (
     <div className="space-y-6 font-sans">
           {isCreatingLanding && (
-            <div className="bg-[#1E252D] border border-[#2C353D] rounded-2xl p-6 shadow-xl">
-              <div className="flex items-center justify-between mb-5 border-b border-[#2C353D] pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
-                    <Globe className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-white tracking-tight">
-                      {editingLandingId ? "Edit Custom Landing Page" : "Create New Custom Landing Page"}
-                    </h3>
-                    <p className="text-xs text-[#8E9BA8]">
-                      Design your custom HTML landing page. Leads are captured interactively via the integrated AI Sales Chatbot!
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setIsCreatingLanding(false)}
-                  className="text-[#8E9BA8] hover:text-white p-1 rounded-lg cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+            <div className="bg-[#1E252D] border border-[#2C353D] rounded-2xl p-6 shadow-xl relative">
+              <button
+                type="button"
+                onClick={() => setIsCreatingLanding(false)}
+                className="absolute top-4 right-4 text-[#8E9BA8] hover:text-white p-1 rounded-lg cursor-pointer transition-colors"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
 
               <form onSubmit={handleSaveLanding} className="space-y-5">
                 <div>

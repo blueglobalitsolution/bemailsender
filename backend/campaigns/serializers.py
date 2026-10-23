@@ -201,6 +201,11 @@ class CampaignSerializer(serializers.ModelSerializer):
             "total_skipped",
             "duplicate_rows_skipped",
             "allow_repeat",
+            "enable_intent_followup",
+            "intent_followup_trigger",
+            "intent_followup_delay_minutes",
+            "intent_followup_subject",
+            "intent_followup_body",
             "created_at",
         ]
         read_only_fields = [
@@ -229,6 +234,7 @@ class CampaignListSerializer(serializers.ModelSerializer):
             "total_sent",
             "total_failed",
             "total_skipped",
+            "enable_intent_followup",
             "created_at",
         ]
 

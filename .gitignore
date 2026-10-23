@@ -46,6 +46,8 @@ backend/media/
 backend/staticfiles/
 staticfiles/
 media/
+backend/tmp/
+tmp/
 frontend/uploads/
 uploads/
 *.csv

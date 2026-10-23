@@ -14,7 +14,9 @@ import {
   ArrowRight,
   Clock,
   Trash2,
-  Plus
+  Plus,
+  MousePointerClick,
+  Zap
 } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { useToast } from "../components/Toast";
@@ -39,14 +41,19 @@ interface AnalyticsData {
     total_sent: number;
     total_failed: number;
     total_opened: number;
+    total_clicks?: number;
     delivery_rate: number;
     open_rate: number;
+    click_rate?: number;
+    intent_followups_sent?: number;
+    intent_followups_scheduled?: number;
   };
   daily_stats: {
     date: string;
     sent: number;
     failed: number;
     opened: number;
+    clicked?: number;
   }[];
   top_templates: {
     id: number;
@@ -54,6 +61,7 @@ interface AnalyticsData {
     subject: string;
     sent: number;
     opened: number;
+    clicks?: number;
     open_rate: number;
   }[];
   identities: {
@@ -139,40 +147,44 @@ export default function Analytics() {
     total_sent: campaigns.reduce((acc, c) => acc + (c.total_sent || 0), 0),
     total_failed: campaigns.reduce((acc, c) => acc + (c.total_failed || 0), 0),
     total_opened: 0,
+    total_clicks: 0,
     delivery_rate: 0,
     open_rate: 0,
+    click_rate: 0,
+    intent_followups_sent: 0,
+    intent_followups_scheduled: 0,
   };
 
   const daily_stats = data?.daily_stats || [];
   const top_templates = data?.top_templates || [];
   const identities = data?.identities || [];
-  const maxDailyVolume = Math.max(...daily_stats.map(d => Math.max(d.sent, d.opened)), 1);
+  const maxDailyVolume = Math.max(...daily_stats.map(d => Math.max(d.sent, d.opened, d.clicked || 0)), 1);
 
   return (
     <div className="space-y-8 pb-16 font-sans">
       {/* Core KPI Metrics Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         {/* Total Sent */}
-        <AnimatedCard delay={0.05} className="bg-[#222930] border border-[#2C353D] rounded-lg p-5 hover:border-[#CBD5E1] transition-all">
+        <AnimatedCard delay={0.05} className="bg-[#222930] border border-[#2C353D] rounded-lg p-4 hover:border-[#CBD5E1] transition-all">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs uppercase text-[#8E9BA8] font-medium tracking-wider">Total Sent</span>
+            <span className="text-[11px] uppercase text-[#8E9BA8] font-medium tracking-wider">Total Sent</span>
             <Mail className="w-4 h-4 text-[#CBD5E1]" />
           </div>
-          <div className="text-3xl font-bold text-white tracking-tight">
+          <div className="text-2xl font-bold text-white tracking-tight">
             <CountingNumber value={summary.total_sent} />
           </div>
           <p className="text-[10px] text-[#8E9BA8] mt-1 font-mono">
-            Across {summary.total_campaigns} campaigns
+            {summary.total_campaigns} campaigns
           </p>
         </AnimatedCard>
 
         {/* Delivery Rate */}
-        <AnimatedCard delay={0.1} className="bg-[#222930] border border-[#2C353D] rounded-lg p-5 hover:border-[#CBD5E1] transition-all">
+        <AnimatedCard delay={0.1} className="bg-[#222930] border border-[#2C353D] rounded-lg p-4 hover:border-[#CBD5E1] transition-all">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs uppercase text-[#8E9BA8] font-medium tracking-wider">Delivery Rate</span>
+            <span className="text-[11px] uppercase text-[#8E9BA8] font-medium tracking-wider">Delivery Rate</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           </div>
-          <div className="text-3xl font-bold text-emerald-400 tracking-tight">
+          <div className="text-2xl font-bold text-emerald-400 tracking-tight">
             <CountingNumber value={summary.delivery_rate} suffix="%" />
           </div>
           <p className="text-[10px] text-[#8E9BA8] mt-1 font-mono">
@@ -181,12 +193,12 @@ export default function Analytics() {
         </AnimatedCard>
 
         {/* Unique Opens */}
-        <AnimatedCard delay={0.15} className="bg-[#222930] border border-[#2C353D] rounded-lg p-5 hover:border-[#CBD5E1] transition-all">
+        <AnimatedCard delay={0.15} className="bg-[#222930] border border-[#2C353D] rounded-lg p-4 hover:border-[#CBD5E1] transition-all">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs uppercase text-[#8E9BA8] font-medium tracking-wider">Unique Opens</span>
+            <span className="text-[11px] uppercase text-[#8E9BA8] font-medium tracking-wider">Unique Opens</span>
             <Eye className="w-4 h-4 text-sky-400" />
           </div>
-          <div className="text-3xl font-bold text-sky-400 tracking-tight">
+          <div className="text-2xl font-bold text-sky-400 tracking-tight">
             <CountingNumber value={summary.total_opened} />
           </div>
           <p className="text-[10px] text-[#8E9BA8] mt-1 font-mono">
@@ -194,13 +206,41 @@ export default function Analytics() {
           </p>
         </AnimatedCard>
 
-        {/* Active Running Campaigns */}
-        <AnimatedCard delay={0.2} className="bg-[#222930] border border-[#2C353D] rounded-lg p-5 hover:border-[#CBD5E1] transition-all">
+        {/* Link Clicks (High Intent) */}
+        <AnimatedCard delay={0.18} className="bg-[#222930] border border-[#2C353D] rounded-lg p-4 hover:border-[#CBD5E1] transition-all">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs uppercase text-[#8E9BA8] font-medium tracking-wider">Active Campaigns</span>
+            <span className="text-[11px] uppercase text-[#8E9BA8] font-medium tracking-wider">Link Clicks</span>
+            <MousePointerClick className="w-4 h-4 text-amber-400" />
+          </div>
+          <div className="text-2xl font-bold text-amber-400 tracking-tight">
+            <CountingNumber value={summary.total_clicks || 0} />
+          </div>
+          <p className="text-[10px] text-[#8E9BA8] mt-1 font-mono">
+            <CountingNumber value={summary.click_rate || 0} suffix="%" /> CTR
+          </p>
+        </AnimatedCard>
+
+        {/* High-Intent Retargeting Dispatched */}
+        <AnimatedCard delay={0.2} className="bg-[#222930] border border-[#2C353D] rounded-lg p-4 hover:border-[#CBD5E1] transition-all">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] uppercase text-[#8E9BA8] font-medium tracking-wider">Retargeted</span>
+            <Zap className="w-4 h-4 text-orange-400" />
+          </div>
+          <div className="text-2xl font-bold text-orange-400 tracking-tight">
+            <CountingNumber value={summary.intent_followups_sent || 0} />
+          </div>
+          <p className="text-[10px] text-[#8E9BA8] mt-1 font-mono">
+            {summary.intent_followups_scheduled || 0} in queue
+          </p>
+        </AnimatedCard>
+
+        {/* Active Running Campaigns */}
+        <AnimatedCard delay={0.22} className="bg-[#222930] border border-[#2C353D] rounded-lg p-4 hover:border-[#CBD5E1] transition-all">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] uppercase text-[#8E9BA8] font-medium tracking-wider">Active Status</span>
             <Activity className="w-4 h-4 text-[#CBD5E1]" />
           </div>
-          <div className="text-3xl font-bold text-white tracking-tight">
+          <div className="text-2xl font-bold text-white tracking-tight">
             <CountingNumber value={summary.running_campaigns} />
           </div>
           <p className="text-[10px] text-[#8E9BA8] mt-1 font-mono">
@@ -229,6 +269,9 @@ export default function Analytics() {
                   <span className="flex items-center gap-1.5 text-emerald-400">
                     <span className="w-2.5 h-2.5 bg-emerald-400 inline-block rounded-xs"></span> Opened
                   </span>
+                  <span className="flex items-center gap-1.5 text-amber-400">
+                    <span className="w-2.5 h-2.5 bg-amber-400 inline-block rounded-xs"></span> Clicked
+                  </span>
                 </div>
               </div>
 
@@ -236,16 +279,17 @@ export default function Analytics() {
                 {daily_stats.map((day, idx) => {
                   const sentHeight = (day.sent / maxDailyVolume) * 100;
                   const openHeight = (day.opened / maxDailyVolume) * 100;
+                  const clickHeight = ((day.clicked || 0) / maxDailyVolume) * 100;
 
                   return (
                     <div key={idx} className="flex flex-col items-center h-full justify-end group">
-                      <div className="w-full flex items-end justify-center gap-1.5 h-52 pb-2 border-b border-[#2C353D]">
+                      <div className="w-full flex items-end justify-center gap-1 h-52 pb-2 border-b border-[#2C353D]">
                         {/* Sent Bar */}
                         <motion.div
                           initial={{ height: 0 }}
                           animate={{ height: `${Math.max(sentHeight, 4)}%` }}
                           transition={{ duration: 0.65, delay: 0.1 + idx * 0.05, ease: "easeOut" }}
-                          className="w-1/2 max-w-[28px] bg-white group-hover:bg-[#CBD5E1] rounded-t-xs transition-colors relative"
+                          className="w-1/3 max-w-[20px] bg-white group-hover:bg-[#CBD5E1] rounded-t-xs transition-colors relative"
                           title={`${day.date}: ${day.sent} Sent`}
                         >
                           {day.sent > 0 && (
@@ -260,12 +304,27 @@ export default function Analytics() {
                           initial={{ height: 0 }}
                           animate={{ height: `${Math.max(openHeight, day.opened > 0 ? 4 : 0)}%` }}
                           transition={{ duration: 0.65, delay: 0.15 + idx * 0.05, ease: "easeOut" }}
-                          className="w-1/2 max-w-[28px] bg-emerald-400 group-hover:bg-emerald-300 rounded-t-xs transition-colors relative"
+                          className="w-1/3 max-w-[20px] bg-emerald-400 group-hover:bg-emerald-300 rounded-t-xs transition-colors relative"
                           title={`${day.date}: ${day.opened} Opened`}
                         >
                           {day.opened > 0 && (
                             <span className="opacity-0 group-hover:opacity-100 absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] bg-[#161B1F] text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/30 whitespace-nowrap transition-opacity">
                               {day.opened}
+                            </span>
+                          )}
+                        </motion.div>
+
+                        {/* Clicked Bar */}
+                        <motion.div
+                          initial={{ height: 0 }}
+                          animate={{ height: `${Math.max(clickHeight, (day.clicked || 0) > 0 ? 4 : 0)}%` }}
+                          transition={{ duration: 0.65, delay: 0.2 + idx * 0.05, ease: "easeOut" }}
+                          className="w-1/3 max-w-[20px] bg-amber-400 group-hover:bg-amber-300 rounded-t-xs transition-colors relative"
+                          title={`${day.date}: ${day.clicked || 0} Clicked`}
+                        >
+                          {(day.clicked || 0) > 0 && (
+                            <span className="opacity-0 group-hover:opacity-100 absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] bg-[#161B1F] text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/30 whitespace-nowrap transition-opacity">
+                              {day.clicked}
                             </span>
                           )}
                         </motion.div>

@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, Menu, X, BarChart3, PanelLeftClose, PanelLeftOpen, Plus, Inbox as InboxIcon, Sparkles, UserPlus, Upload, Globe, Compass, Server, Bot, Save, ExternalLink, Download, Settings as SettingsIcon } from "lucide-react";
+import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, Menu, X, BarChart3, PanelLeftClose, PanelLeftOpen, Plus, Inbox as InboxIcon, Sparkles, UserPlus, Upload, Globe, Compass, Server, Bot, Save, ExternalLink, Download, Settings as SettingsIcon, Loader2, CheckCircle2, Clock } from "lucide-react";
 import { cn } from "../lib/utils";
 import Beams from "./Beams";
+import { apiFetch } from "../lib/api";
 
 import { ReachEngineLogo, ReachEngineLogoMark } from "./ReachEngineLogo";
 
@@ -13,6 +14,34 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem("sidebar_collapsed") === "true";
   });
+  const [activeCampaign, setActiveCampaign] = useState<any>(null);
+
+  // Poll active campaign status for the sidebar widget
+  useEffect(() => {
+    let isMounted = true;
+    const fetchActive = async () => {
+      try {
+        const res = await apiFetch("/api/campaigns/active-status/");
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          if (data.active) {
+            setActiveCampaign(data);
+          } else {
+            setActiveCampaign(null);
+          }
+        }
+      } catch (e) {
+        // silently ignore poll errors
+      }
+    };
+
+    fetchActive();
+    const interval = setInterval(fetchActive, 3000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   // Persist collapsed state
   const toggleCollapsed = () => {
@@ -124,6 +153,67 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
             );
           })}
         </nav>
+
+        {/* Live Active Campaign Box in Sidebar */}
+        {activeCampaign && (
+          <div className="p-2.5 border-t border-[#2C353D]">
+            {collapsed ? (
+              <Link
+                to={`/campaigns/${activeCampaign.id}/logs`}
+                className="flex items-center justify-center p-2 rounded-lg bg-sky-950/40 border border-sky-500/30 text-sky-400 hover:border-sky-400 transition-all relative group"
+                title={`${activeCampaign.name}: ${activeCampaign.sent}/${activeCampaign.total}`}
+              >
+                <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
+                <div className="hidden md:group-hover:flex absolute left-full ml-3 px-3 py-2 bg-[#1C2227] border border-[#2C353D] text-white text-xs rounded-lg shadow-xl whitespace-nowrap z-50 pointer-events-none flex-col gap-1">
+                  <div className="font-semibold text-white truncate max-w-[150px]">{activeCampaign.name}</div>
+                  <div className="text-[10px] text-sky-400 font-mono">
+                    {activeCampaign.sent} / {activeCampaign.total} ({activeCampaign.total > 0 ? Math.round((activeCampaign.sent / activeCampaign.total) * 100) : 0}%)
+                  </div>
+                </div>
+              </Link>
+            ) : (
+              <div className="bg-[#1C2227] border border-[#2C353D] hover:border-sky-500/40 rounded-xl p-3 space-y-2 transition-all">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Loader2 className="w-3.5 h-3.5 text-sky-400 animate-spin shrink-0" />
+                    <span className="text-xs font-semibold text-white truncate" title={activeCampaign.name}>
+                      {activeCampaign.name}
+                    </span>
+                  </div>
+                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/30 shrink-0">
+                    {activeCampaign.status === "running" ? "Running" : "Scheduled"}
+                  </span>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] font-mono text-[#8E9BA8]">
+                    <span>{activeCampaign.sent} of {activeCampaign.total} sent</span>
+                    <span className="font-bold text-white">
+                      {activeCampaign.total > 0 ? Math.round((activeCampaign.sent / activeCampaign.total) * 100) : 0}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-[#15191C] border border-[#2C353D] h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-sky-400 to-emerald-400 rounded-full transition-all duration-500"
+                      style={{
+                        width: `${activeCampaign.total > 0 ? Math.min((activeCampaign.sent / activeCampaign.total) * 100, 100) : 0}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Last sent email ticker */}
+                {activeCampaign.last_log && (
+                  <div className="text-[10px] font-mono text-[#8E9BA8] truncate flex items-center gap-1 pt-0.5 border-t border-[#2C353D]/50">
+                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+                    <span className="truncate">{activeCampaign.last_log.recipient}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Footer / Settings */}
         <div className="p-3 border-t border-[#2C353D]">
@@ -311,10 +401,13 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
           </div>
         </header>
         <div className={cn(
-          "flex-1 relative z-10",
+          "flex-1 relative z-10 flex flex-col min-h-0",
           location.pathname === "/inbox" ? "p-0 overflow-hidden" : location.pathname === "/templates" ? "p-0 overflow-y-auto" : "p-4 sm:p-6 md:p-8 overflow-auto"
         )}>
-          <div key={location.pathname} className="page-transition-container w-full min-h-full">
+          <div key={location.pathname} className={cn(
+            "page-transition-container w-full",
+            location.pathname === "/inbox" ? "flex-1 flex flex-col min-h-0 h-full" : "min-h-full"
+          )}>
             <Outlet />
           </div>
         </div>

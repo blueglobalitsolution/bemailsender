@@ -32,6 +32,7 @@ from .models import (
     SavedCsv,
     Log,
     TrackedOpen,
+    TrackedClick,
     RecipientSend,
     InboundConfiguration,
     ReceivedEmail,
@@ -705,6 +706,9 @@ class CampaignViewSet(viewsets.ModelViewSet):
         serializer = LogSerializer(logs, many=True)
         total_sent = campaign.logs.filter(status="success").count()
         total_opens = campaign.opens.count()
+        total_clicks = campaign.clicks.count()
+        intent_sent = campaign.contacts.filter(intent_followup_status="sent").count()
+        intent_scheduled = campaign.contacts.filter(intent_followup_status="scheduled").count()
         return Response({
             "logs": serializer.data,
             "stats": {
@@ -714,6 +718,11 @@ class CampaignViewSet(viewsets.ModelViewSet):
                 "duplicate_rows_skipped": campaign.duplicate_rows_skipped,
                 "opens": total_opens,
                 "open_rate": round(total_opens / total_sent * 100, 1) if total_sent > 0 else 0,
+                "clicks": total_clicks,
+                "click_rate": round(total_clicks / total_sent * 100, 1) if total_sent > 0 else 0,
+                "intent_followups_sent": intent_sent,
+                "intent_followups_scheduled": intent_scheduled,
+                "enable_intent_followup": campaign.enable_intent_followup,
             },
         })
 
@@ -796,6 +805,15 @@ class CampaignViewSet(viewsets.ModelViewSet):
             except:
                 pass
 
+        enable_intent_followup = str(request.data.get("enableIntentFollowup", "")).lower() in ("1", "true", "yes")
+        intent_followup_trigger = request.data.get("intentFollowupTrigger") or "click"
+        try:
+            intent_followup_delay_minutes = int(request.data.get("intentFollowupDelayMinutes", 30) or 30)
+        except (ValueError, TypeError):
+            intent_followup_delay_minutes = 30
+        intent_followup_subject = request.data.get("intentFollowupSubject") or "Quick update regarding your interest (Special Discount Inside)"
+        intent_followup_body = request.data.get("intentFollowupBody") or ""
+
         campaign = Campaign.objects.create(
             user=request.user,
             name=name,
@@ -810,6 +828,11 @@ class CampaignViewSet(viewsets.ModelViewSet):
             schedule_start_time=parsed_start,
             schedule_end_time=parsed_end,
             allow_repeat=allow_repeat,
+            enable_intent_followup=enable_intent_followup,
+            intent_followup_trigger=intent_followup_trigger,
+            intent_followup_delay_minutes=intent_followup_delay_minutes,
+            intent_followup_subject=intent_followup_subject,
+            intent_followup_body=intent_followup_body,
         )
 
         if saved_csv_id:
@@ -983,6 +1006,42 @@ class CampaignViewSet(viewsets.ModelViewSet):
             "status": campaign.status,
             "delay_ms": campaign.delay_ms,
             "logs": log_data,
+        })
+
+    @action(detail=False, methods=["get"], url_path="active-status")
+    def active_status(self, request):
+        campaign = (
+            Campaign.objects.filter(user=request.user, status__in=["running", "scheduled"])
+            .order_by("created_at", "id")
+            .first()
+        )
+        if not campaign:
+            return Response({"active": False})
+
+        contacts = CampaignContact.objects.filter(campaign=campaign)
+        total = contacts.count()
+        sent = contacts.filter(status="sent").count()
+        failed = contacts.filter(status="failed").count()
+        skipped = contacts.filter(status="skipped").count()
+        pending = contacts.filter(status="pending").count()
+        recent_log = Log.objects.filter(campaign=campaign).order_by("-created_at").first()
+
+        return Response({
+            "active": True,
+            "id": campaign.id,
+            "name": campaign.name,
+            "status": campaign.status,
+            "total": total,
+            "sent": sent,
+            "failed": failed,
+            "skipped": skipped,
+            "pending": pending,
+            "delay_ms": campaign.delay_ms,
+            "last_log": {
+                "recipient": recent_log.recipient,
+                "status": recent_log.status,
+                "created_at": recent_log.created_at,
+            } if recent_log else None,
         })
 
     @action(detail=True, methods=["post"])
@@ -1613,18 +1672,70 @@ TRANSPARENT_GIF = (
 @permission_classes([AllowAny])
 def track_open(request, campaign_id, recipient):
     try:
-        recipient = recipient.replace("%40", "@")
-        campaign = Campaign.objects.get(id=campaign_id)
+        clean_recipient = recipient.replace("%40", "@").strip().lower()
+        campaign = Campaign.objects.select_related("user").get(id=campaign_id)
         TrackedOpen.objects.create(
             campaign=campaign,
-            recipient=recipient,
+            recipient=clean_recipient,
             ip_address=request.META.get("REMOTE_ADDR"),
             user_agent=request.META.get("HTTP_USER_AGENT", ""),
         )
+
+        contact = CampaignContact.objects.filter(campaign=campaign, recipient=clean_recipient).first()
+        if contact:
+            contact.opens_count = (contact.opens_count or 0) + 1
+            if campaign.enable_intent_followup and campaign.intent_followup_trigger in ("multiple_opens", "both"):
+                if contact.opens_count >= 2 and contact.intent_followup_status == "none":
+                    has_replied = ReceivedEmail.objects.filter(campaign=campaign, sender=clean_recipient).exists()
+                    is_suppressed = Suppression.objects.filter(user=campaign.user, email=clean_recipient, is_active=True).exists()
+                    if not has_replied and not is_suppressed:
+                        delay_mins = campaign.intent_followup_delay_minutes or 30
+                        contact.intent_followup_status = "scheduled"
+                        contact.intent_followup_scheduled_at = timezone.now() + datetime.timedelta(minutes=delay_mins)
+            contact.save(update_fields=["opens_count", "intent_followup_status", "intent_followup_scheduled_at", "updated_at"])
     except Exception:
         pass
 
-    return HttpResponse(TRANSPARENT_GIF, content_type="image/gif")
+    resp = HttpResponse(TRANSPARENT_GIF, content_type="image/gif")
+    resp["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+    resp["Pragma"] = "no-cache"
+    resp["Expires"] = "0"
+    return resp
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def track_click(request, campaign_id, recipient):
+    from django.http import HttpResponseRedirect
+    clean_recipient = recipient.replace("%40", "@").strip().lower()
+    target_url = request.GET.get("url") or "/"
+
+    try:
+        campaign = Campaign.objects.select_related("user").get(id=campaign_id)
+        TrackedClick.objects.create(
+            campaign=campaign,
+            recipient=clean_recipient,
+            url=target_url,
+            ip_address=request.META.get("REMOTE_ADDR"),
+            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+        )
+
+        contact = CampaignContact.objects.filter(campaign=campaign, recipient=clean_recipient).first()
+        if contact:
+            contact.clicks_count = (contact.clicks_count or 0) + 1
+            if campaign.enable_intent_followup and campaign.intent_followup_trigger in ("click", "both"):
+                if contact.intent_followup_status == "none":
+                    has_replied = ReceivedEmail.objects.filter(campaign=campaign, sender=clean_recipient).exists()
+                    is_suppressed = Suppression.objects.filter(user=campaign.user, email=clean_recipient, is_active=True).exists()
+                    if not has_replied and not is_suppressed:
+                        delay_mins = campaign.intent_followup_delay_minutes or 30
+                        contact.intent_followup_status = "scheduled"
+                        contact.intent_followup_scheduled_at = timezone.now() + datetime.timedelta(minutes=delay_mins)
+            contact.save(update_fields=["clicks_count", "intent_followup_status", "intent_followup_scheduled_at", "updated_at"])
+    except Exception:
+        pass
+
+    return HttpResponseRedirect(target_url)
 
 
 @api_view(["GET", "POST"])
@@ -1985,10 +2096,14 @@ def get_analytics(request):
     total_sent = Log.objects.filter(campaign__in=user_campaigns, status="success").count()
     total_failed = Log.objects.filter(campaign__in=user_campaigns, status="error").count()
     total_opened = TrackedOpen.objects.filter(campaign__in=user_campaigns).count()
+    total_clicks = TrackedClick.objects.filter(campaign__in=user_campaigns).count()
+    intent_followups_sent = CampaignContact.objects.filter(campaign__in=user_campaigns, intent_followup_status="sent").count()
+    intent_followups_scheduled = CampaignContact.objects.filter(campaign__in=user_campaigns, intent_followup_status="scheduled").count()
 
     total_attempts = total_sent + total_failed
     delivery_rate = round((total_sent / total_attempts * 100), 1) if total_attempts > 0 else 100.0
     open_rate = round((total_opened / total_sent * 100), 1) if total_sent > 0 else 0.0
+    click_rate = round((total_clicks / total_sent * 100), 1) if total_sent > 0 else 0.0
 
     # Recent 7 Days Send History
     from django.utils import timezone
@@ -2014,12 +2129,17 @@ def get_analytics(request):
             campaign__in=user_campaigns,
             opened_at__range=(day_start, day_end)
         ).count()
+        clicked_count = TrackedClick.objects.filter(
+            campaign__in=user_campaigns,
+            clicked_at__range=(day_start, day_end)
+        ).count()
 
         daily_stats.append({
             "date": day_date.strftime("%b %d"),
             "sent": sent_count,
             "failed": failed_count,
             "opened": opened_count,
+            "clicked": clicked_count,
         })
 
     # Top Performing Templates
@@ -2030,6 +2150,7 @@ def get_analytics(request):
         if t_campaigns.exists():
             t_sent = Log.objects.filter(campaign__in=t_campaigns, status="success").count()
             t_opened = TrackedOpen.objects.filter(campaign__in=t_campaigns).count()
+            t_clicks = TrackedClick.objects.filter(campaign__in=t_campaigns).count()
             t_rate = round((t_opened / t_sent * 100), 1) if t_sent > 0 else 0.0
             top_templates.append({
                 "id": tmpl.id,
@@ -2037,6 +2158,7 @@ def get_analytics(request):
                 "subject": tmpl.subject,
                 "sent": t_sent,
                 "opened": t_opened,
+                "clicks": t_clicks,
                 "open_rate": t_rate,
             })
     top_templates.sort(key=lambda x: x["open_rate"], reverse=True)
@@ -2064,8 +2186,12 @@ def get_analytics(request):
             "total_sent": total_sent,
             "total_failed": total_failed,
             "total_opened": total_opened,
+            "total_clicks": total_clicks,
             "delivery_rate": delivery_rate,
             "open_rate": open_rate,
+            "click_rate": click_rate,
+            "intent_followups_sent": intent_followups_sent,
+            "intent_followups_scheduled": intent_followups_scheduled,
         },
         "daily_stats": daily_stats,
         "top_templates": top_templates[:5],

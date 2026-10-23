@@ -1,10 +1,20 @@
 import datetime
-import fcntl
 import html as html_module
 import json
 import os
 import re
+import sys
 import time
+
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
+
+try:
+    import msvcrt
+except ImportError:
+    msvcrt = None
 
 import requests
 from django.conf import settings
@@ -28,15 +38,25 @@ class Command(BaseCommand):
     help = "Processes scheduled and running campaigns"
 
     def handle(self, *args, **options):
-        # Only one worker may run at a time. Without this, two workers can pick
-        # the same pending contact and send the same email twice.
-        lock_path = os.environ.get("BEMAIL_WORKER_LOCK", "/tmp/bemail_worker.lock")
-        self._lock_handle = open(lock_path, "w")
-        try:
-            fcntl.flock(self._lock_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            self.stderr.write("Another campaign worker is already running. Exiting.")
-            return
+        # Only one worker may run at a time. Cross-platform locking for Windows & Unix.
+        lock_dir = os.path.join(settings.BASE_DIR, "tmp") if hasattr(settings, "BASE_DIR") else os.getcwd()
+        os.makedirs(lock_dir, exist_ok=True)
+        lock_path = os.environ.get("BEMAIL_WORKER_LOCK", os.path.join(lock_dir, "bemail_worker.lock"))
+        self._lock_handle = open(lock_path, "a+")
+
+        if fcntl:
+            try:
+                fcntl.flock(self._lock_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except (BlockingIOError, OSError):
+                self.stderr.write("Another campaign worker is already running. Exiting.")
+                return
+        elif msvcrt:
+            try:
+                self._lock_handle.seek(0)
+                msvcrt.locking(self._lock_handle.fileno(), msvcrt.LK_NBLCK, 1)
+            except (BlockingIOError, OSError):
+                self.stderr.write("Another campaign worker is already running. Exiting.")
+                return
 
         self.stdout.write(self.style.SUCCESS("BEmailSender Campaign Processor Started..."))
 
@@ -174,11 +194,84 @@ class Command(BaseCommand):
                             campaign.status = "scheduled"
                             campaign.save()
 
+                # Process high-intent retargeting follow-ups due right now
+                if self.process_scheduled_intent_followups():
+                    any_work_done = True
+
             except Exception as e:
                 self.stderr.write(f"Cycle error: {str(e)}")
 
             # If we did work, don't wait long. If idle, sleep longer.
             time.sleep(1 if any_work_done else 5)
+
+    def process_scheduled_intent_followups(self):
+        due_followups = (
+            CampaignContact.objects.filter(
+                intent_followup_status="scheduled",
+                intent_followup_scheduled_at__lte=timezone.now(),
+            )
+            .select_related("campaign", "campaign__user", "campaign__identity", "campaign__identity_group")
+            .order_by("intent_followup_scheduled_at")[:10]
+        )
+
+        work_done = False
+        for contact in due_followups:
+            campaign = contact.campaign
+            recipient = contact.recipient
+
+            # Guardrail 1: Check if lead already replied in the meantime
+            from campaigns.models import ReceivedEmail
+            if ReceivedEmail.objects.filter(campaign=campaign, sender=recipient).exists():
+                contact.intent_followup_status = "cancelled"
+                contact.save(update_fields=["intent_followup_status", "updated_at"])
+                Log.objects.create(
+                    campaign=campaign,
+                    recipient=recipient,
+                    status="skipped",
+                    message="⚡ Intent follow-up cancelled: Recipient already replied to campaign",
+                )
+                continue
+
+            # Guardrail 2: Check if recipient unsubscribed
+            if Suppression.objects.filter(user=campaign.user, email=recipient, is_active=True).exists():
+                contact.intent_followup_status = "cancelled"
+                contact.save(update_fields=["intent_followup_status", "updated_at"])
+                continue
+
+            subject = campaign.intent_followup_subject or "Quick update regarding your interest (Special Discount Inside)"
+            body = campaign.intent_followup_body or ""
+            data = (
+                json.loads(contact.data)
+                if isinstance(contact.data, str)
+                else (contact.data or {})
+            )
+            for k, v in data.items():
+                body = body.replace(f"{{{{{k}}}}}", str(v))
+                subject = subject.replace(f"{{{{{k}}}}}", str(v))
+
+            try:
+                outcome = self.send_email(campaign, contact, subject, body, is_intent_followup=True)
+                if outcome == "skipped":
+                    contact.intent_followup_status = "cancelled"
+                    contact.save(update_fields=["intent_followup_status", "updated_at"])
+                elif outcome:
+                    contact.intent_followup_status = "sent"
+                    contact.intent_followup_sent_at = timezone.now()
+                    contact.save(update_fields=["intent_followup_status", "intent_followup_sent_at", "updated_at"])
+                    Log.objects.create(
+                        campaign=campaign,
+                        recipient=recipient,
+                        status="success",
+                        message=f"⚡ High-Intent Retargeting email sent ({campaign.intent_followup_delay_minutes}m delay after lead interest)",
+                    )
+                    work_done = True
+                else:
+                    contact.intent_followup_status = "failed"
+                    contact.save(update_fields=["intent_followup_status", "updated_at"])
+            except Exception as e:
+                self.stderr.write(f"Intent followup error for {recipient}: {e}")
+
+        return work_done
 
     def reset_daily_counters(self):
         today = timezone.localdate()
@@ -375,7 +468,7 @@ class Command(BaseCommand):
         )
         return "skipped"
 
-    def send_email(self, campaign, contact, subject, body):
+    def send_email(self, campaign, contact, subject, body, is_intent_followup=False):
         recipient_clean = contact.recipient.strip().lower()
 
         # 1. Suppression check: abort if recipient unsubscribed or suppressed
@@ -388,11 +481,9 @@ class Command(BaseCommand):
                 "Skipped: recipient is on suppression list (unsubscribed/bounced)",
             )
 
-        # 2. Per-account recipient cooldown. This check runs at actual send
-        # time, so queued/scheduled campaigns are evaluated against the latest
-        # successful sends — not against the state when the campaign was created.
+        # 2. Per-account recipient cooldown. Bypass for deliberate intent follow-ups
         cooldown_days = getattr(campaign.user, "recipient_cooldown_days", 30) or 0
-        if cooldown_days > 0 and not campaign.allow_repeat:
+        if cooldown_days > 0 and not campaign.allow_repeat and not is_intent_followup:
             cutoff = timezone.now() - datetime.timedelta(days=cooldown_days)
             previous = (
                 RecipientSend.objects.filter(
@@ -443,11 +534,20 @@ class Command(BaseCommand):
         plain_text = plain_text.replace("&nbsp;", " ").replace("&amp;", "&")
 
         # Append unsubscribe link, company physical address, and tracking pixel
-        base_url = settings.FRONTEND_URL
+        # Must be a public live URL so external email providers (Gmail, Outlook, Brevo) can fetch the pixel
+        tracking_base = getattr(settings, "TRACKING_BASE_URL", None) or os.environ.get("TRACKING_BASE_URL")
+        frontend_base = getattr(settings, "FRONTEND_URL", "https://mailer.blueglobaltechnology.com")
+        if tracking_base and not tracking_base.startswith("http://localhost") and not tracking_base.startswith("http://127.0.0.1"):
+            base_url = tracking_base
+        elif frontend_base and not frontend_base.startswith("http://localhost") and not frontend_base.startswith("http://127.0.0.1"):
+            base_url = frontend_base
+        else:
+            base_url = "https://mailer.blueglobaltechnology.com"
+
         pixel_url = f"{base_url}/api/track/open/{campaign.id}/{contact.recipient}/"
         unsub_url = f"{base_url}/api/unsubscribe/{campaign.id}/{contact.recipient}/"
         pixel_tag = (
-            f'<img src="{pixel_url}" width="1" height="1" alt="" style="display:none"/>'
+            f'<img src="{pixel_url}" width="1" height="1" alt="" style="display:none;width:1px;height:1px;border:0;"/>'
         )
 
         user = campaign.user
@@ -483,6 +583,18 @@ class Command(BaseCommand):
             final_body = final_body.replace("</body>", footer_html + "\n</body>")
         else:
             final_body = final_body + footer_html
+
+        # Wrap HTML links with click-tracking redirects so interest is tracked
+        import urllib.parse
+        def _replace_href(match):
+            href = match.group(1)
+            if href.startswith("mailto:") or "unsubscribe" in href.lower() or "/api/unsubscribe" in href or "/api/track" in href:
+                return match.group(0)
+            encoded_url = urllib.parse.quote(href, safe="")
+            track_url = f"{base_url}/api/track/click/{campaign.id}/{contact.recipient}/?url={encoded_url}"
+            return f'href="{track_url}"'
+
+        final_body = re.sub(r'href=["\'](https?://[^"\']+)["\']', _replace_href, final_body)
 
         enforce_one_click = getattr(user, "enforce_one_click_unsub", True)
 
