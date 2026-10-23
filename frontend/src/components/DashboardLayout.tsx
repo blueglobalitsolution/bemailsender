@@ -1,15 +1,13 @@
 import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, Menu, X, BarChart3, PanelLeftClose, PanelLeftOpen, Plus, Inbox as InboxIcon, Sparkles, UserPlus, Upload, Globe, Compass, Server, Bot, Save, ExternalLink, Download, Settings as SettingsIcon, Loader2, CheckCircle2, Clock, Languages } from "lucide-react";
+import { LayoutDashboard, Wand2, FileText, LogOut, UserCircle, Database, Menu, X, BarChart3, PanelLeftClose, PanelLeftOpen, Plus, Inbox as InboxIcon, Sparkles, UserPlus, Upload, Globe, Compass, Server, Bot, Save, ExternalLink, Download, Settings as SettingsIcon, Loader2, CheckCircle2, Clock } from "lucide-react";
 import { cn } from "../lib/utils";
 import Beams from "./Beams";
 import { apiFetch } from "../lib/api";
-import { useTooltipLanguage } from "../context/TooltipLanguageContext";
 
 import { ReachEngineLogo, ReachEngineLogoMark } from "./ReachEngineLogo";
 
 export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) => void }) {
-  const { lang, setLang } = useTooltipLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -391,36 +389,6 @@ export default function DashboardLayout({ setAuth }: { setAuth: (auth: boolean) 
                 <Save className="w-3.5 h-3.5" /> Save Changes
               </button>
             )}
-
-            {/* Global Tooltip & UI Guide Language Toggle */}
-            <div className="flex items-center bg-[#1C2227] border border-[#2C353D] rounded-lg p-0.5" title="Language Guide: English / Hinglish">
-              <span className="text-[10px] text-[#8E9BA8] pl-2 pr-1.5 hidden sm:flex items-center gap-1">
-                <Languages className="w-3 h-3 text-sky-400" />
-                <span>Guide:</span>
-              </span>
-              <button
-                type="button"
-                onClick={() => setLang("en")}
-                className={`text-[10px] font-mono px-2 py-1 rounded transition-all cursor-pointer font-bold ${
-                  lang === "en"
-                    ? "bg-white text-[#161B1F] shadow-xs"
-                    : "text-[#8E9BA8] hover:text-white"
-                }`}
-              >
-                EN
-              </button>
-              <button
-                type="button"
-                onClick={() => setLang("hi")}
-                className={`text-[10px] font-mono px-2 py-1 rounded transition-all cursor-pointer font-bold ${
-                  lang === "hi"
-                    ? "bg-amber-400 text-[#161B1F] shadow-xs"
-                    : "text-[#8E9BA8] hover:text-white"
-                }`}
-              >
-                HINGLISH
-              </button>
-            </div>
 
             {(location.pathname === "/analytics" || location.pathname === "/campaigns" || location.pathname === "/") && (
               <Link 

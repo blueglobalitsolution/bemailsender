@@ -20,11 +20,13 @@ import {
   Info,
   Save,
   Check,
+  Languages,
 } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { useToast } from "../components/Toast";
 import { cn } from "../lib/utils";
 import InfoTooltip from "../components/InfoTooltip";
+import { useTooltipLanguage } from "../context/TooltipLanguageContext";
 
 const DAYS_OF_WEEK = [
   { id: 1, label: "Mon", full: "Monday" },
@@ -38,6 +40,7 @@ const DAYS_OF_WEEK = [
 
 export default function Settings() {
   const toast = useToast();
+  const { lang, setLang } = useTooltipLanguage();
   const [activeTab, setActiveTab] = useState<
     "profile" | "safeguards" | "compliance" | "alerts"
   >("profile");
@@ -422,6 +425,80 @@ export default function Settings() {
                   <Save className="w-3.5 h-3.5" />
                   Save Profile
                 </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Language Preference Card */}
+          <div className="bg-[#1C2227] border border-[#2C353D] rounded-xl p-6 space-y-5">
+            <div className="flex items-center gap-3 border-b border-[#2C353D] pb-4">
+              <div className="p-2.5 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400">
+                <Languages className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Tooltips & Feature Guide Language</h3>
+                <p className="text-xs text-[#8E9BA8]">
+                  Choose your preferred explanation language for feature tooltips across the platform.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-xs text-[#CBD5E1] leading-relaxed">
+                Select whether feature guides, explainers, and safety tooltips show in standard English or conversational Hinglish.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLang("en");
+                    toast.success("Tooltip language set to English");
+                  }}
+                  className={cn(
+                    "p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between space-y-2",
+                    lang === "en"
+                      ? "bg-white/5 border-white text-white shadow-md ring-1 ring-white/20"
+                      : "bg-[#161B1F] border-[#2C353D] text-[#8E9BA8] hover:text-white hover:border-[#38444D]"
+                  )}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <span className="font-bold text-sm text-white">English</span>
+                    {lang === "en" && <Check className="w-4 h-4 text-emerald-400" />}
+                  </div>
+                  <p className="text-[11px] text-[#8E9BA8] leading-normal">
+                    Clear, professional English explanations of features and deliverability safeguards.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLang("hi");
+                    toast.success("Tooltip bhasha Hinglish set ho gayi hai");
+                  }}
+                  className={cn(
+                    "p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between space-y-2",
+                    lang === "hi"
+                      ? "bg-amber-500/10 border-amber-400 text-white shadow-md ring-1 ring-amber-400/20"
+                      : "bg-[#161B1F] border-[#2C353D] text-[#8E9BA8] hover:text-white hover:border-[#38444D]"
+                  )}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <span className="font-bold text-sm text-amber-300">Hinglish</span>
+                    {lang === "hi" && <Check className="w-4 h-4 text-amber-400" />}
+                  </div>
+                  <p className="text-[11px] text-[#8E9BA8] leading-normal">
+                    Aasan conversational Hinglish mein explain kiya hua ki feature kya karta hai aur kyun zaroori hai.
+                  </p>
+                </button>
+              </div>
+
+              <div className="p-3 bg-[#161B1F] border border-[#2C353D] rounded-lg text-xs text-[#8E9BA8] flex items-center gap-2">
+                <Info className="w-4 h-4 text-sky-400 shrink-0" />
+                <span>
+                  Current Active Setting: <strong className="text-white">{lang === "hi" ? "Hinglish" : "English"}</strong>. All tooltips in Wizard and Settings update instantly.
+                </span>
               </div>
             </div>
           </div>
