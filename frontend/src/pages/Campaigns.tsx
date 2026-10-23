@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Activity, CheckCircle, XCircle, Clock, BarChart3, ArrowRight, Trash2 } from "lucide-react";
+import { Activity, CheckCircle, XCircle, Clock, BarChart3, ArrowRight, Trash2, Eye } from "lucide-react";
 import { apiFetch, getApiUrl } from "../lib/api";
 import { useToast } from "../components/Toast";
 
@@ -12,6 +12,8 @@ interface Campaign {
   total_sent: number;
   total_failed: number;
   total_skipped: number;
+  total_opened?: number;
+  total_clicked?: number;
   created_at: string;
 }
 
@@ -144,10 +146,23 @@ export default function Campaigns() {
                     </div>
                   </div>
                   
-                  <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-8 pt-3 sm:pt-0 border-t sm:border-t-0 border-[#141414]">
+                  <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-7 pt-3 sm:pt-0 border-t sm:border-t-0 border-[#141414]">
                     <div className="text-left sm:text-right">
                       <p className="text-[10px] uppercase tracking-widest text-[#666666] mb-0.5">Sent</p>
                       <p className="font-mono text-emerald-400 font-semibold text-sm">{campaign.total_sent}</p>
+                    </div>
+                    <div className="text-left sm:text-right">
+                      <p className="text-[10px] uppercase tracking-widest text-[#666666] mb-0.5 flex items-center gap-1 sm:justify-end">
+                        <Eye className="w-2.5 h-2.5 text-sky-400 inline" /> Opens
+                      </p>
+                      <p className="font-mono text-sky-400 font-semibold text-sm">
+                        {campaign.total_opened ?? 0}
+                        {campaign.total_sent > 0 && (
+                          <span className="text-[10px] text-[#8E9BA8] font-normal ml-1">
+                            ({Math.round(((campaign.total_opened ?? 0) / campaign.total_sent) * 100)}%)
+                          </span>
+                        )}
+                      </p>
                     </div>
                     <div className="text-left sm:text-right">
                       <p className="text-[10px] uppercase tracking-widest text-[#666666] mb-0.5">Failed</p>

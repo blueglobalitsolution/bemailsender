@@ -686,7 +686,13 @@ class CampaignViewSet(viewsets.ModelViewSet):
     serializer_class = CampaignSerializer
 
     def get_queryset(self):
-        return Campaign.objects.filter(user=self.request.user)
+        qs = Campaign.objects.filter(user=self.request.user)
+        if self.action == "list":
+            qs = qs.annotate(
+                total_opened_annotated=models.Count("opens", distinct=True),
+                total_clicked_annotated=models.Count("clicks", distinct=True),
+            )
+        return qs
 
     def get_serializer_class(self):
         if self.action == "list":

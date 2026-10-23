@@ -5,6 +5,7 @@ import { Wand2, User, Users, FileText, Settings, ArrowRight, ArrowLeft, Upload, 
 import { apiFetch, getApiUrl } from "../lib/api";
 import { useToast } from "../components/Toast";
 import TemplateValidationPanel, { ValidationResult } from "../components/TemplateValidationPanel";
+import InfoTooltip from "../components/InfoTooltip";
 
 export default function Wizard() {
   const toast = useToast();
@@ -655,20 +656,36 @@ export default function Wizard() {
                       className="w-4 h-4 bg-[#14181C] border-[#2C353D] rounded text-white focus:ring-0 cursor-pointer"
                     />
                     <div>
-                      <span className="text-xs font-semibold text-white block">Check Gravatar profile</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-semibold text-white block">Check Gravatar profile</span>
+                        <InfoTooltip
+                          id="gravatar"
+                          title="Gravatar Profile Verification"
+                          description="Checks the public Gravatar hash database for each contact email to detect registered profile avatars and active web identities."
+                          whyItMatters="Emails associated with active profiles are significantly more likely to belong to real, engaged humans rather than abandoned inboxes or spam traps."
+                        />
+                      </div>
                       <span className="text-[11px] text-[#8E9BA8]">Verify profile existence and avatar presence during scan</span>
                     </div>
                   </label>
                 </div>
 
-                <button
-                  onClick={handleScan}
-                  disabled={scanning}
-                  className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold rounded-lg px-5 py-2.5 text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm disabled:opacity-50"
-                >
-                  {scanning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Shield className="w-3.5 h-3.5" />}
-                  {scanning ? "Scanning..." : "Scan CSV"}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleScan}
+                    disabled={scanning}
+                    className="bg-white hover:bg-[#CBD5E1] text-[#161B1F] font-bold rounded-lg px-5 py-2.5 text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                  >
+                    {scanning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Shield className="w-3.5 h-3.5" />}
+                    {scanning ? "Scanning..." : "Scan CSV"}
+                  </button>
+                  <InfoTooltip
+                    id="csvScan"
+                    title="Pre-Send Safety & Hygiene Scan"
+                    description="Scans your list against syntax errors, disposable email domains, active cooldown records, duplicate entries, and unsubscribe lists."
+                    whyItMatters="Prevents severe sender reputation damage by filtering out toxic addresses and spam traps before any email is dispatched."
+                  />
+                </div>
 
                 {scanData && (
                   <div className="space-y-4">
@@ -977,11 +994,19 @@ export default function Wizard() {
               <h3 className="text-xl font-bold text-white mb-1">Governance & Control</h3>
               <p className="text-[#8E9BA8] text-xs mb-6">Set delivery pacing, sending schedules, and throttling limits.</p>
             </div>
-            
+
             <div className="bg-[#1C2227] border border-[#2C353D] rounded-lg p-5">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h4 className="font-bold text-sm text-white">Traffic Control</h4>
+                  <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
+                    Traffic Control (Delivery Delay)
+                    <InfoTooltip
+                      id="trafficControl"
+                      title="Email Delivery Delay"
+                      description="Adds a mandatory gap between consecutive email dispatches instead of blasting all emails at once."
+                      whyItMatters="Prevents spam filters (Google & Outlook) from detecting automated bulk bursts, ensuring emails land in the primary inbox."
+                    />
+                  </h4>
                   <p className="text-xs text-[#8E9BA8]">Set custom delay between consecutive emails to control delivery speed & protect sender reputation.</p>
                 </div>
                 <div className="flex items-center gap-1.5 bg-[#222930] border border-[#2C353D] px-3 py-1.5 rounded-md">
@@ -1042,7 +1067,14 @@ export default function Wizard() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h4 className="font-bold text-sm text-white flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-sky-400" /> Campaign Schedule
+                    <Clock className="w-4 h-4 text-sky-400" />
+                    <span>Campaign Schedule</span>
+                    <InfoTooltip
+                      id="schedule"
+                      title="Sending Windows & Schedule"
+                      description="Restricts email delivery to specific days of the week and designated business hours (e.g. 9 AM to 5 PM)."
+                      whyItMatters="B2B prospects are 3x more likely to read and reply when emails arrive during their active work day."
+                    />
                   </h4>
                   <p className="text-xs text-[#8E9BA8] mt-1">Automate delivery windows, timezones, and daily throttling limits.</p>
                 </div>
@@ -1165,7 +1197,7 @@ export default function Wizard() {
                     </div>
                   </div>
 
-                  {/* Start and End Time */}
+                  {/* Time Window */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs uppercase tracking-wider text-[#8E9BA8] mb-2 font-semibold">Start Time</label>
@@ -1194,6 +1226,12 @@ export default function Wizard() {
                         <div className="flex items-center gap-1.5">
                           <Shuffle className="w-3.5 h-3.5 text-sky-400" />
                           <span className="text-xs font-semibold text-white">Humanized Variance</span>
+                          <InfoTooltip
+                            id="jitter"
+                            title="Humanized Variance (Jitter)"
+                            description="Randomly adds ±5 to 15 seconds to your base delay between outgoing emails."
+                            whyItMatters="Fixed robotic delays (e.g. exactly 15.00s every time) trigger spam bot alarms. Random delays mimic authentic human behavior."
+                          />
                         </div>
                         <p className="text-[11px] text-[#8E9BA8] mt-0.5">Adds ±5 to 15s natural variance between sends.</p>
                       </div>
@@ -1213,6 +1251,12 @@ export default function Wizard() {
                         <div className="flex items-center gap-1.5">
                           <Target className="w-3.5 h-3.5 text-sky-400" />
                           <span className="text-xs font-semibold text-white">Daily Cap</span>
+                          <InfoTooltip
+                            id="dailyCap"
+                            title="Daily Send Quota (Cap)"
+                            description="Caps the number of emails this campaign can send in a single 24-hour window."
+                            whyItMatters="Prevents account burning and keeps sending volumes within mailbox provider warm-up limits. Automatically resumes next morning."
+                          />
                         </div>
                         <label className="relative inline-flex items-center cursor-pointer">
                           <input
@@ -1255,7 +1299,15 @@ export default function Wizard() {
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h4 className="font-semibold text-white text-sm">Recipient Cooldown Guardrail</h4>
+                      <h4 className="font-semibold text-white text-sm flex items-center gap-1.5">
+                        <span>Recipient Cooldown Guardrail</span>
+                        <InfoTooltip
+                          id="cooldownWizard"
+                          title="Recipient Cooldown Guardrail"
+                          description="Checks your past sending ledger and automatically skips recipients who were already emailed within your configured cooldown window."
+                          whyItMatters="Prevents awkward double-messaging, protects your sender domain from spam complaints, and keeps brand trust intact."
+                        />
+                      </h4>
                       <span className={`px-2 py-0.5 text-[10px] font-semibold tracking-wide rounded-full border ${
                         !allowRepeat
                           ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
@@ -1301,7 +1353,15 @@ export default function Wizard() {
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h4 className="font-semibold text-white text-sm">High-Intent Fast Retargeting</h4>
+                      <h4 className="font-semibold text-white text-sm flex items-center gap-1.5">
+                        <span>High-Intent Fast Retargeting</span>
+                        <InfoTooltip
+                          id="intentFollowup"
+                          title="High-Intent Fast Retargeting"
+                          description="Automates immediate discount or follow-up outreach when a lead signals high interest (clicks a product link or opens the email 2+ times)."
+                          whyItMatters="Capitalizes on warm lead momentum within 30 minutes, dramatically improving conversion rates (abandoned-cart style)."
+                        />
+                      </h4>
                       <span className="px-2 py-0.5 text-[10px] font-semibold tracking-wide bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border border-amber-500/30 rounded-full flex items-center gap-1">
                         <Tag className="w-2.5 h-2.5" /> High Conversion
                       </span>

@@ -18,6 +18,7 @@ import LeadScraper from "./pages/LeadScraper";
 import AIChatbot from "./pages/AIChatbot";
 import Settings from "./pages/Settings";
 import { ToastProvider } from "./components/Toast";
+import { TooltipLanguageProvider } from "./context/TooltipLanguageContext";
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -33,7 +34,8 @@ export default function App() {
 
   return (
     <ToastProvider>
-      <Routes>
+      <TooltipLanguageProvider>
+        <Routes>
         <Route path="/p/:slug" element={<PublicLandingPage />} />
         <Route path="/login" element={<Login setAuth={setIsAuthenticated} />} />
         <Route path="/register" element={<Navigate to="/login" replace />} />
@@ -59,6 +61,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/login" replace />} />
         )}
       </Routes>
+      </TooltipLanguageProvider>
     </ToastProvider>
   );
 }

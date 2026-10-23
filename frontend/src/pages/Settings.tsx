@@ -24,6 +24,7 @@ import {
 import { apiFetch } from "../lib/api";
 import { useToast } from "../components/Toast";
 import { cn } from "../lib/utils";
+import InfoTooltip from "../components/InfoTooltip";
 
 const DAYS_OF_WEEK = [
   { id: 1, label: "Mon", full: "Monday" },
@@ -550,9 +551,17 @@ export default function Settings() {
                   <Shield className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">
-                    Recipient Cooldown Guardrail
-                  </h3>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-base font-bold text-white">
+                      Recipient Cooldown Guardrail
+                    </h3>
+                    <InfoTooltip
+                      id="settingsCooldown"
+                      title="Recipient Cooldown Guardrail"
+                      description="Skips any contact who received an email from any of your campaigns within the specified number of days."
+                      whyItMatters="Protects you from spam complaints and unsubscribes by preventing lead over-saturation and fatigue across multiple outreach lists."
+                    />
+                  </div>
                   <p className="text-xs text-[#8E9BA8]">
                     Global safeguard: Automatically skip leads that were already contacted within a set timeframe.
                   </p>
@@ -669,9 +678,17 @@ export default function Settings() {
                   <Clock className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">
-                    Sending Windows & Business Hours
-                  </h3>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-base font-bold text-white">
+                      Sending Windows & Business Hours
+                    </h3>
+                    <InfoTooltip
+                      id="settingsSchedule"
+                      title="Sending Windows & Business Hours"
+                      description="Restricts email broadcasting to specific days of the week and local working hours."
+                      whyItMatters="Cold emails delivered during business hours (9 AM - 6 PM) get up to 3x higher open rates and avoid waking recipients with midnight pings."
+                    />
+                  </div>
                   <p className="text-xs text-[#8E9BA8]">
                     Control which days and hours campaigns are permitted to broadcast emails.
                   </p>
@@ -855,6 +872,12 @@ export default function Settings() {
                       <span className="text-sm font-semibold text-white">
                         One-Click Unsubscribe Enforcement (RFC 8058)
                       </span>
+                      <InfoTooltip
+                        id="settingsRfc8058"
+                        title="RFC 8058 One-Click Unsubscribe"
+                        description="Injects List-Unsubscribe and List-Unsubscribe-Post email headers required by Google and Yahoo."
+                        whyItMatters="Mandatory since Feb 2024 for sending bulk cold emails; without this, Gmail and Yahoo throttle deliverability or flag emails as spam."
+                      />
                       <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded font-mono font-bold">
                         Yahoo & Gmail Req
                       </span>
@@ -1023,8 +1046,14 @@ export default function Settings() {
                 {/* Auto Pause Toggle */}
                 <div className="p-4 bg-[#161B1F] border border-[#2C353D] rounded-lg flex items-start justify-between gap-4">
                   <div className="space-y-1">
-                    <div className="text-sm font-semibold text-white">
-                      Auto-Pause Active Campaigns
+                    <div className="flex items-center gap-1.5 text-sm font-semibold text-white">
+                      <span>Auto-Pause Active Campaigns</span>
+                      <InfoTooltip
+                        id="settingsBounceAutoPause"
+                        title="Automated High-Bounce Auto-Pause"
+                        description="Automatically freezes active campaigns if the hard bounce rate exceeds your configured threshold."
+                        whyItMatters="High bounce rates (>5%) burn sender reputation fast. Auto-pausing immediately stops damage to your SMTP/domain health."
+                      />
                     </div>
                     <p className="text-xs text-[#8E9BA8]">
                       When enabled, if a campaign's bounce rate surpasses <strong>{bounceThreshold}%</strong> (after 10+ attempts), ReachEngine instantly sets the campaign status to <code>paused</code> and issues a critical deliverability alert.

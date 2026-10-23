@@ -30,6 +30,8 @@ interface Campaign {
   type?: string;
   total_sent: number;
   total_failed: number;
+  total_opened?: number;
+  total_clicked?: number;
   created_at: string;
 }
 
@@ -476,10 +478,23 @@ export default function Analytics() {
                     </div>
                   </div>
                   
-                  <div className="flex items-center justify-between sm:justify-end gap-5 sm:gap-8 pt-3 sm:pt-0 border-t sm:border-t-0 border-[#2C353D]">
+                  <div className="flex items-center justify-between sm:justify-end gap-5 sm:gap-7 pt-3 sm:pt-0 border-t sm:border-t-0 border-[#2C353D]">
                     <div className="text-left sm:text-right">
                       <p className="text-[9px] uppercase tracking-widest text-[#8E9BA8]">Sent</p>
                       <p className="font-mono text-emerald-400 font-semibold text-xs">{campaign.total_sent}</p>
+                    </div>
+                    <div className="text-left sm:text-right">
+                      <p className="text-[9px] uppercase tracking-widest text-[#8E9BA8] flex items-center gap-1 sm:justify-end">
+                        <Eye className="w-2.5 h-2.5 text-sky-400 inline" /> Opens
+                      </p>
+                      <p className="font-mono text-sky-400 font-semibold text-xs">
+                        {campaign.total_opened ?? 0}
+                        {campaign.total_sent > 0 && (
+                          <span className="text-[10px] text-[#8E9BA8] font-normal ml-1">
+                            ({Math.round(((campaign.total_opened ?? 0) / campaign.total_sent) * 100)}%)
+                          </span>
+                        )}
+                      </p>
                     </div>
                     <div className="text-left sm:text-right">
                       <p className="text-[9px] uppercase tracking-widest text-[#8E9BA8]">Failed</p>

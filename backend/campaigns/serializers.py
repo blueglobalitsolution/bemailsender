@@ -224,6 +224,9 @@ class CampaignSerializer(serializers.ModelSerializer):
 
 
 class CampaignListSerializer(serializers.ModelSerializer):
+    total_opened = serializers.SerializerMethodField()
+    total_clicked = serializers.SerializerMethodField()
+
     class Meta:
         model = Campaign
         fields = [
@@ -234,9 +237,21 @@ class CampaignListSerializer(serializers.ModelSerializer):
             "total_sent",
             "total_failed",
             "total_skipped",
+            "total_opened",
+            "total_clicked",
             "enable_intent_followup",
             "created_at",
         ]
+
+    def get_total_opened(self, obj):
+        if hasattr(obj, "total_opened_annotated"):
+            return obj.total_opened_annotated
+        return obj.opens.count()
+
+    def get_total_clicked(self, obj):
+        if hasattr(obj, "total_clicked_annotated"):
+            return obj.total_clicked_annotated
+        return obj.clicks.count()
 
 
 class InboundConfigurationSerializer(serializers.ModelSerializer):
