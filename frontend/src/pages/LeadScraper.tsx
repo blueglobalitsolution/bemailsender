@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   Search,
   MapPin,
+  Navigation,
   Globe,
   Mail,
   CheckCircle,
@@ -86,6 +87,12 @@ export default function LeadScraper() {
   const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [location, setLocation] = useState("");
   const [searching, setSearching] = useState(false);
+  const [scraperMode, setScraperMode] = useState<"gmaps" | "bing">("gmaps");
+  const [targetCount, setTargetCount] = useState<number>(100);
+  const [gmapsSessionId, setGmapsSessionId] = useState<string | null>(null);
+  const [gmapsProgress, setGmapsProgress] = useState<{ count: number; target: number } | null>(null);
+  const gmapsPopupRef = React.useRef<Window | null>(null);
+  const pollIntervalRef = React.useRef<any>(null);
   const [loadingMore, setLoadingMore] = useState(false);
 
   // Results & Qualification (Step 2: AI Qualification)
@@ -114,6 +121,112 @@ export default function LeadScraper() {
     return found?.query || query.trim();
   };
 
+  const stopGmapsScrape = async (sid?: string) => {
+    const id = sid || gmapsSessionId;
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    if (gmapsPopupRef.current && !gmapsPopupRef.current.closed) {
+      try { gmapsPopupRef.current.close(); } catch(e) {}
+    }
+    if (id) {
+      try {
+        await apiFetch(`/api/gmaps/stop/${id}/`, { method: "POST" });
+      } catch (e) {}
+    }
+    setSearching(false);
+    setGmapsProgress(null);
+    setGmapsSessionId(null);
+  };
+
+  const handleGmapsSearch = async (effectiveQuery: string) => {
+    setSearching(true);
+    setSearchedOnce(true);
+    setQualificationDone(false);
+    setActiveTab("all");
+    setSelectedLeads(new Set());
+    setGmapsProgress({ count: 0, target: targetCount });
+
+    try {
+      const startRes = await apiFetch("/api/gmaps/start/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: `${effectiveQuery} ${location}`.trim(),
+          targetCount: targetCount,
+        }),
+      });
+
+      if (!startRes.ok) {
+        throw new Error("Failed to start Google Maps scraper session.");
+      }
+
+      const startData = await startRes.json();
+      const sid = startData.sessionId;
+      setGmapsSessionId(sid);
+
+      // Open companion popup window
+      const gmapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(effectiveQuery + " " + location)}?bemailsender_session=${sid}`;
+      const popup = window.open(
+        gmapsUrl,
+        "gmaps_companion_popup",
+        "width=650,height=750,left=150,top=100"
+      );
+      gmapsPopupRef.current = popup;
+
+      toast.success("Google Maps companion popup opened! Scraping live...");
+
+      pollIntervalRef.current = setInterval(async () => {
+        try {
+          const streamRes = await apiFetch(`/api/gmaps/stream/${sid}/`);
+          if (!streamRes.ok) return;
+
+          const streamData = await streamRes.json();
+          const rawLeads: any[] = streamData.leads || [];
+
+          setGmapsProgress({ count: streamData.count, target: streamData.targetCount });
+
+          const mappedLeads: ScrapedLead[] = rawLeads.map((l: any) => ({
+            name: l.name,
+            website: l.website,
+            domain: l.domain,
+            email: l.email || "",
+            all_emails: l.all_emails || (l.email ? [l.email] : []),
+            description: `${l.fullAddress || ""} | Phone: ${l.phone || "N/A"} | Rating: ⭐ ${l.averageRating || "N/A"} (${l.reviewCount || 0} reviews)`,
+            about_text: l.fullAddress,
+            is_enriched: l.is_enriched || !!l.email,
+            technologies: l.categories || [],
+            linkedin_url: l.linkedin,
+            twitter_url: l.twitter,
+            summary: l.fullAddress,
+          }));
+
+          setLeads(mappedLeads);
+
+          const initialSelected = new Set<number>();
+          mappedLeads.forEach((l, idx) => {
+            if (l.email) initialSelected.add(idx);
+          });
+          setSelectedLeads(initialSelected);
+
+          if (!streamData.isActive || streamData.count >= streamData.targetCount) {
+            toast.success(`Google Maps scraping complete! Found ${streamData.count} leads.`);
+            stopGmapsScrape(sid);
+          }
+        } catch (err) {
+          console.error("Polling error:", err);
+        }
+      }, 1500);
+
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to start Google Maps scraping.");
+      setSearching(false);
+      setGmapsProgress(null);
+    }
+  };
+
   // Step 1: Initial Search - Always fetches 50 leads first
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -121,6 +234,10 @@ export default function LeadScraper() {
     if (!effectiveQuery) {
       toast.error("Please enter a business keyword (e.g. Dentists, Real Estate)");
       return;
+    }
+
+    if (scraperMode === "gmaps") {
+      return handleGmapsSearch(effectiveQuery);
     }
 
     setSearching(true);
@@ -445,6 +562,77 @@ export default function LeadScraper() {
     <div className="space-y-6 font-sans">
       {/* Top Search Card (Step 1: Scraper) */}
       <div className="bg-[#1C2227] border border-[#2C353D] rounded-2xl p-6 shadow-xl relative overflow-hidden">
+        
+        {/* Source Mode Switcher */}
+        <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#2C353D]">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setScraperMode("gmaps")}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                scraperMode === "gmaps"
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm"
+                  : "bg-[#161B1F] text-[#8E9BA8] border border-[#2C353D] hover:text-white"
+              }`}
+            >
+              <Navigation className="w-3.5 h-3.5" />
+              Google Maps Live (High Accuracy)
+            </button>
+            <button
+              type="button"
+              onClick={() => setScraperMode("bing")}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                scraperMode === "bing"
+                  ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 shadow-sm"
+                  : "bg-[#161B1F] text-[#8E9BA8] border border-[#2C353D] hover:text-white"
+              }`}
+            >
+              <Globe className="w-3.5 h-3.5" />
+              Web / Bing Search
+            </button>
+          </div>
+
+          {scraperMode === "gmaps" && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-[#8E9BA8]">Target Leads:</span>
+              <select
+                value={targetCount}
+                onChange={(e) => setTargetCount(Number(e.target.value))}
+                className="bg-[#161B1F] border border-[#2C353D] text-xs text-white rounded-lg px-2 py-1 focus:outline-none"
+              >
+                <option value={20}>20 Leads</option>
+                <option value={50}>50 Leads</option>
+                <option value={100}>100 Leads</option>
+                <option value={200}>200 Leads</option>
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Live Scraping Progress Banner */}
+        {gmapsProgress && (
+          <div className="mb-4 p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-between animate-pulse">
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
+              <div>
+                <p className="text-sm font-semibold text-emerald-300">
+                  Google Maps Live Scraping in Progress...
+                </p>
+                <p className="text-xs text-emerald-400/80">
+                  Collected {gmapsProgress.count} / {gmapsProgress.target} verified leads from Google Maps
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => stopGmapsScrape()}
+              className="px-3 py-1.5 bg-red-600/80 hover:bg-red-600 text-white text-xs font-medium rounded-lg transition-all"
+            >
+              Stop & Keep Leads
+            </button>
+          </div>
+        )}
+
         <form onSubmit={handleSearch} className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
             <div className={isCustomCategory ? "md:col-span-4" : "md:col-span-6"}>
@@ -681,7 +869,7 @@ export default function LeadScraper() {
       )}
 
       {/* Loading State for Initial Scraper */}
-      {searching && (
+      {searching && leads.length === 0 && (
         <div className="bg-[#1C2227] border border-[#2C353D] rounded-2xl p-12 text-center space-y-2">
           <Loader2 className="w-8 h-8 text-emerald-400 animate-spin mx-auto" />
           <h3 className="text-sm font-semibold text-white">Finding Leads...</h3>
@@ -698,7 +886,7 @@ export default function LeadScraper() {
       )}
 
       {/* Leads Table */}
-      {!searching && leads.length > 0 && (
+      {leads.length > 0 && (
         <div className="bg-[#1C2227] border border-[#2C353D] rounded-2xl overflow-hidden shadow-xl">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">

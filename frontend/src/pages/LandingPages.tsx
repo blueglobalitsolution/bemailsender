@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
   Globe,
@@ -14,11 +14,34 @@ import {
   Bot,
   MessageSquare,
   Sparkles,
-  Sliders
+  Sliders,
+  CheckCircle2,
+  AlertCircle,
+  FileSpreadsheet,
+  ListFilter,
+  Eye
 } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { useToast } from "../components/Toast";
 import SubmissionsViewerModal from "../components/SubmissionsViewerModal";
+
+interface FormFieldInfo {
+  name: string;
+  label: string;
+  type: string;
+  required: boolean;
+  placeholder?: string;
+}
+
+interface DetectedFormInfo {
+  form_index: number;
+  action: string;
+  method: string;
+  fields_count: number;
+  fields: FormFieldInfo[];
+  submit_button: string;
+  is_shortcode?: boolean;
+}
 
 interface LandingPageItem {
   id: number;
@@ -51,6 +74,10 @@ export default function LandingPages() {
   const [chatbotScript, setChatbotScript] = useState("");
   const [savingLanding, setSavingLanding] = useState(false);
   const landingTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Form detection state
+  const [detectedForms, setDetectedForms] = useState<DetectedFormInfo[]>([]);
+  const [showDetectedForms, setShowDetectedForms] = useState(false);
 
   // Submissions Modal State
   const [viewingSubmissionsPage, setViewingSubmissionsPage] = useState<{ id: number; title: string; slug: string } | null>(null);
@@ -111,6 +138,133 @@ export default function LandingPages() {
       setLoading(false);
     }
   };
+
+  // Real-time HTML Form Inspector
+  useEffect(() => {
+    if (!landingHtml || !landingHtml.trim()) {
+      setDetectedForms([]);
+      return;
+    }
+
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(landingHtml, "text/html");
+      const formEls = doc.querySelectorAll("form");
+      const results: DetectedFormInfo[] = [];
+
+      // If form tags found, parse them
+      formEls.forEach((formEl, idx) => {
+        const action = formEl.getAttribute("action") || "Local Page Submission";
+        const method = (formEl.getAttribute("method") || "POST").toUpperCase();
+
+        const inputElements = formEl.querySelectorAll("input, textarea, select");
+        const fields: FormFieldInfo[] = [];
+
+        inputElements.forEach((el) => {
+          const tag = el.tagName.toLowerCase();
+          const type = (el.getAttribute("type") || "text").toLowerCase();
+          if (["hidden", "submit", "button", "reset", "image"].includes(type)) return;
+
+          const name = el.getAttribute("name") || "";
+          const placeholder = el.getAttribute("placeholder") || "";
+          const required = el.hasAttribute("required");
+
+          // Try finding associated label
+          let labelText = "";
+          const id = el.getAttribute("id");
+          if (id) {
+            const labelEl = doc.querySelector(`label[for="${id}"]`);
+            if (labelEl) labelText = labelEl.textContent?.trim() || "";
+          }
+          if (!labelText) {
+            const parentLabel = el.closest("label");
+            if (parentLabel) {
+              const clone = parentLabel.cloneNode(true) as HTMLElement;
+              clone.querySelectorAll("input, textarea, select").forEach((n) => n.remove());
+              labelText = clone.textContent?.trim() || "";
+            }
+          }
+          if (!labelText) labelText = placeholder || name || `Field (${tag})`;
+
+          fields.push({
+            name: name || "(missing name)",
+            label: labelText,
+            type: tag === "textarea" ? "textarea" : tag === "select" ? "select" : type,
+            required,
+            placeholder,
+          });
+        });
+
+        // Submit button
+        const submitBtn = formEl.querySelector("button[type='submit'], input[type='submit'], button:not([type])");
+        const submitText = submitBtn
+          ? (submitBtn.getAttribute("value") || submitBtn.textContent?.trim() || "Submit")
+          : "Submit";
+
+        results.push({
+          form_index: idx + 1,
+          action,
+          method,
+          fields_count: fields.length,
+          fields,
+          submit_button: submitText,
+        });
+      });
+
+      // Fallback: If no <form> tag was found, check if there are standalone input/textarea elements in HTML
+      if (formEls.length === 0) {
+        const standaloneInputs = doc.querySelectorAll("input, textarea, select");
+        const looseFields: FormFieldInfo[] = [];
+        standaloneInputs.forEach((el) => {
+          const tag = el.tagName.toLowerCase();
+          const type = (el.getAttribute("type") || "text").toLowerCase();
+          if (["hidden", "submit", "button", "reset", "image"].includes(type)) return;
+          const name = el.getAttribute("name") || "";
+          const placeholder = el.getAttribute("placeholder") || "";
+          const required = el.hasAttribute("required");
+          looseFields.push({
+            name: name || "(missing name)",
+            label: placeholder || name || `Field (${tag})`,
+            type: tag === "textarea" ? "textarea" : tag === "select" ? "select" : type,
+            required,
+            placeholder,
+          });
+        });
+
+        if (looseFields.length > 0) {
+          results.push({
+            form_index: 1,
+            action: "Unenclosed Form (Standalone Inputs)",
+            method: "POST",
+            fields_count: looseFields.length,
+            fields: looseFields,
+            submit_button: "Auto-Detected Button",
+          });
+        }
+      }
+
+      // Also detect shortcode forms {{form_xxx}}
+      const shortcodes = landingHtml.match(/\{\{(form_[a-zA-Z0-9_-]+)\}\}/g);
+      if (shortcodes) {
+        shortcodes.forEach((sc) => {
+          const cleanCode = sc.replace(/[{}]/g, "");
+          results.push({
+            form_index: results.length + 1,
+            action: `Shortcode (${cleanCode})`,
+            method: "POST",
+            fields_count: 0,
+            fields: [],
+            submit_button: "Submit",
+            is_shortcode: true,
+          });
+        });
+      }
+
+      setDetectedForms(results);
+    } catch (e) {
+      console.error("Error parsing HTML for forms:", e);
+    }
+  }, [landingHtml]);
 
 
   const handleSaveLanding = async (e: React.FormEvent) => {
@@ -216,9 +370,25 @@ export default function LandingPages() {
                   {/* Left Column: HTML Code Input */}
                   <div className="flex flex-col space-y-2 relative rounded-xl transition-all">
                     <div className="flex items-center justify-between">
-                      <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1]">
-                        Landing Page HTML Content *
-                      </label>
+                      <div className="flex items-center gap-2">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-[#CBD5E1]">
+                          Landing Page HTML Content *
+                        </label>
+                        {detectedForms.length > 0 ? (
+                          <span
+                            onClick={() => setShowDetectedForms(true)}
+                            className="inline-flex items-center gap-1 text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full font-semibold cursor-pointer hover:bg-emerald-500/30 transition-all shadow-sm animate-pulse"
+                            title="Click to view detected form fields"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            {detectedForms.length} Form{detectedForms.length > 1 ? "s" : ""} ({detectedForms.reduce((acc, f) => acc + f.fields_count, 0)} Fields)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-[#8E9BA8] bg-[#161B1F] border border-[#2C353D] px-2 py-0.5 rounded-full">
+                            No &lt;form&gt; tag yet
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[11px] text-[#8E9BA8]">
                         Standard HTML5 & Inline CSS
                       </span>
@@ -307,6 +477,131 @@ export default function LandingPages() {
                   </div>
                 </div>
 
+                {/* Form Auto-Detection Banner & Fields Inspector */}
+                <div className="bg-[#161B1F] border border-[#2C353D] rounded-xl p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg border ${
+                        detectedForms.length > 0
+                          ? "bg-emerald-950/40 border-emerald-500/40 text-emerald-400"
+                          : "bg-[#222930] border-[#2C353D] text-[#8E9BA8]"
+                      }`}>
+                        <FileSpreadsheet className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-white">
+                            Form Auto-Detection
+                          </h4>
+                          {detectedForms.length > 0 ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-semibold">
+                              <CheckCircle2 className="w-3 h-3" />
+                              {detectedForms.length} Form{detectedForms.length > 1 ? "s" : ""} Found ({detectedForms.reduce((acc, f) => acc + f.fields_count, 0)} Total Fields)
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-[#8E9BA8] bg-[#222930] px-2 py-0.5 rounded-full">
+                              No &lt;form&gt; tag detected
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-[#8E9BA8] mt-0.5">
+                          {detectedForms.length > 0
+                            ? "System parsed your HTML and discovered the form fields below. Submissions will be automatically captured into Lead Qualification."
+                            : "Add a <form>...</form> block with inputs to automatically capture submissions and qualify leads."}
+                        </p>
+                      </div>
+                    </div>
+
+                    {detectedForms.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowDetectedForms(!showDetectedForms)}
+                        className="px-3 py-1.5 bg-[#222930] hover:bg-[#2C353D] text-[#CBD5E1] hover:text-white border border-[#2C353D] rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto"
+                      >
+                        <ListFilter className="w-3.5 h-3.5" />
+                        {showDetectedForms ? "Hide Detected Fields" : "View Field Breakdown"}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Detected Forms Detail Table */}
+                  {showDetectedForms && detectedForms.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-[#2C353D] space-y-4">
+                      {detectedForms.map((form, fIdx) => (
+                        <div key={fIdx} className="bg-[#1C2227] border border-[#2C353D] rounded-lg p-3.5">
+                          <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-[#2C353D]">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-white">Form #{form.form_index}</span>
+                              <span className="text-[10px] font-mono px-2 py-0.5 bg-[#161B1F] text-sky-400 rounded border border-[#2C353D]">
+                                Method: {form.method}
+                              </span>
+                              <span className="text-[10px] font-mono text-[#8E9BA8] hidden sm:inline">
+                                Action: {form.action}
+                              </span>
+                            </div>
+                            <span className="text-xs font-semibold text-emerald-400">
+                              {form.fields_count} Input Field{form.fields_count !== 1 ? "s" : ""}
+                            </span>
+                          </div>
+
+                          {form.fields.length === 0 ? (
+                            <p className="text-xs text-[#8E9BA8] italic">No input fields found inside this form block.</p>
+                          ) : (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-left text-xs border-collapse">
+                                <thead className="text-[10px] uppercase text-[#8E9BA8] border-b border-[#2C353D]/50 font-semibold">
+                                  <tr>
+                                    <th className="py-1.5 px-2">#</th>
+                                    <th className="py-1.5 px-2">Field Name (`name="..."`)</th>
+                                    <th className="py-1.5 px-2">Detected Label / Title</th>
+                                    <th className="py-1.5 px-2">Type</th>
+                                    <th className="py-1.5 px-2 text-center">Required</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-[#2C353D]/30 font-mono">
+                                  {form.fields.map((field, idx) => (
+                                    <tr key={idx} className="hover:bg-[#161B1F]/50">
+                                      <td className="py-2 px-2 text-[#8E9BA8]">{idx + 1}</td>
+                                      <td className="py-2 px-2">
+                                        {field.name === "(missing name)" ? (
+                                          <span className="text-amber-400 flex items-center gap-1 font-sans">
+                                            <AlertCircle className="w-3 h-3" /> Missing `name`
+                                          </span>
+                                        ) : (
+                                          <span className="text-white font-bold">{field.name}</span>
+                                        )}
+                                      </td>
+                                      <td className="py-2 px-2 text-[#CBD5E1] font-sans">
+                                        {field.label}
+                                      </td>
+                                      <td className="py-2 px-2">
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#161B1F] text-sky-300 border border-sky-800/40">
+                                          {field.type}
+                                        </span>
+                                      </td>
+                                      <td className="py-2 px-2 text-center">
+                                        {field.required ? (
+                                          <span className="text-red-400 font-bold">Yes (*)</span>
+                                        ) : (
+                                          <span className="text-[#8E9BA8]">Optional</span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+
+                          <div className="mt-2.5 pt-2 border-t border-[#2C353D]/50 flex items-center justify-between text-[11px] text-[#8E9BA8]">
+                            <span>Submit Trigger: <strong className="text-white font-sans">{form.submit_button}</strong></span>
+                            <span className="text-emerald-400">Ready for automated submissions</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 {/* Submit button bar */}
                 <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#2C353D]">

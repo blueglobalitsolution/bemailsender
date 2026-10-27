@@ -715,6 +715,43 @@ class CampaignViewSet(viewsets.ModelViewSet):
         total_clicks = campaign.clicks.count()
         intent_sent = campaign.contacts.filter(intent_followup_status="sent").count()
         intent_scheduled = campaign.contacts.filter(intent_followup_status="scheduled").count()
+
+        # Gather contacts that opened
+        opened_contacts = (
+            campaign.contacts.filter(opens_count__gt=0)
+            .values("recipient", "opens_count", "updated_at")
+            .order_by("-opens_count", "-updated_at")
+        )
+        # Also grab latest open timestamps from TrackedOpen
+        latest_opens_map = {}
+        for open_event in campaign.opens.order_by("-opened_at")[:200]:
+            if open_event.recipient not in latest_opens_map:
+                latest_opens_map[open_event.recipient] = open_event.opened_at
+
+        opened_recipients = [
+            {
+                "recipient": c["recipient"],
+                "opens_count": c["opens_count"],
+                "last_opened_at": latest_opens_map.get(c["recipient"]) or c["updated_at"],
+            }
+            for c in opened_contacts
+        ]
+
+        # Gather unsubscribed users from this campaign
+        unsub_qs = campaign.suppressions.filter(is_active=True).values(
+            "email", "reason", "feedback_reason", "feedback_text", "created_at"
+        ).order_by("-created_at")
+        unsubscribed_recipients = [
+            {
+                "recipient": u["email"],
+                "reason": u["reason"],
+                "feedback_reason": u["feedback_reason"],
+                "feedback_text": u["feedback_text"],
+                "unsubscribed_at": u["created_at"],
+            }
+            for u in unsub_qs
+        ]
+
         return Response({
             "logs": serializer.data,
             "stats": {
@@ -724,12 +761,16 @@ class CampaignViewSet(viewsets.ModelViewSet):
                 "duplicate_rows_skipped": campaign.duplicate_rows_skipped,
                 "opens": total_opens,
                 "open_rate": round(total_opens / total_sent * 100, 1) if total_sent > 0 else 0,
+                "unique_openers": len(opened_recipients),
                 "clicks": total_clicks,
                 "click_rate": round(total_clicks / total_sent * 100, 1) if total_sent > 0 else 0,
+                "unsubscribes": len(unsubscribed_recipients),
                 "intent_followups_sent": intent_sent,
                 "intent_followups_scheduled": intent_scheduled,
                 "enable_intent_followup": campaign.enable_intent_followup,
             },
+            "opened_recipients": opened_recipients,
+            "unsubscribed_recipients": unsubscribed_recipients,
         })
 
     @action(
@@ -2545,6 +2586,135 @@ class LandingPageViewSet(viewsets.ModelViewSet):
 
         return response
 
+    @action(detail=False, methods=["post"])
+    def inspect_forms(self, request):
+        """
+        Parses provided raw HTML to automatically detect forms, inputs, field types, labels,
+        and submission mechanisms.
+        """
+        html_content = request.data.get("html", "")
+        if not html_content:
+            return Response({"forms": [], "total_fields": 0})
+
+        # Regex / BeautifulSoup fallback parser
+        forms = []
+        # Find all <form ...> ... </form> blocks
+        form_blocks = re.findall(r"(<form\b[^>]*>)(.*?)(</form>)", html_content, re.IGNORECASE | re.DOTALL)
+
+        # Also check for shortcodes like {{form_xxx}}
+        shortcodes = re.findall(r"\{\{(form_[a-zA-Z0-9_-]+)\}\}", html_content)
+        for sc in shortcodes:
+            cf = CustomForm.objects.filter(shortcode=sc).first()
+            if cf:
+                sc_fields = [
+                    {
+                        "name": f.get("name") or f.get("id") or f.get("label", f"field_{i}"),
+                        "label": f.get("label", "Field"),
+                        "type": f.get("type", "text"),
+                        "required": bool(f.get("required", False)),
+                        "placeholder": f.get("placeholder", ""),
+                    }
+                    for i, f in enumerate(cf.fields_schema or [])
+                ]
+                forms.append({
+                    "form_index": len(forms) + 1,
+                    "action": f"Shortcode: {sc}",
+                    "method": "POST",
+                    "fields_count": len(sc_fields),
+                    "fields": sc_fields,
+                    "submit_button": "Submit (Embedded Form)",
+                    "is_shortcode": True,
+                })
+
+        for idx, (open_tag, inner_content, _) in enumerate(form_blocks, start=1):
+            action_m = re.search(r'action=["\']([^"\']*)["\']', open_tag, re.IGNORECASE)
+            method_m = re.search(r'method=["\']([^"\']*)["\']', open_tag, re.IGNORECASE)
+            action = action_m.group(1) if action_m else ""
+            method = method_m.group(1).upper() if method_m else "POST"
+
+            # Parse inputs, textareas, selects
+            fields = []
+            
+            # Input tags
+            inputs = re.findall(r"<input\b([^>]*)>", inner_content, re.IGNORECASE)
+            for inp in inputs:
+                type_m = re.search(r'type=["\']([^"\']*)["\']', inp, re.IGNORECASE)
+                ftype = (type_m.group(1).lower() if type_m else "text").strip()
+                if ftype in ("hidden", "submit", "reset", "button", "image"):
+                    continue
+
+                name_m = re.search(r'name=["\']([^"\']*)["\']', inp, re.IGNORECASE)
+                name = name_m.group(1) if name_m else ""
+
+                placeholder_m = re.search(r'placeholder=["\']([^"\']*)["\']', inp, re.IGNORECASE)
+                placeholder = placeholder_m.group(1) if placeholder_m else ""
+
+                is_req = bool(re.search(r'\brequired\b', inp, re.IGNORECASE))
+                label = placeholder or name or f"Input ({ftype})"
+
+                fields.append({
+                    "name": name or "(no-name-attribute)",
+                    "label": label,
+                    "type": ftype,
+                    "required": is_req,
+                    "placeholder": placeholder,
+                })
+
+            # Textarea tags
+            textareas = re.findall(r"<textarea\b([^>]*)>", inner_content, re.IGNORECASE)
+            for ta in textareas:
+                name_m = re.search(r'name=["\']([^"\']*)["\']', ta, re.IGNORECASE)
+                name = name_m.group(1) if name_m else ""
+
+                placeholder_m = re.search(r'placeholder=["\']([^"\']*)["\']', ta, re.IGNORECASE)
+                placeholder = placeholder_m.group(1) if placeholder_m else ""
+
+                is_req = bool(re.search(r'\brequired\b', ta, re.IGNORECASE))
+                fields.append({
+                    "name": name or "(no-name-attribute)",
+                    "label": placeholder or name or "Textarea",
+                    "type": "textarea",
+                    "required": is_req,
+                    "placeholder": placeholder,
+                })
+
+            # Select tags
+            selects = re.findall(r"<select\b([^>]*)>", inner_content, re.IGNORECASE)
+            for sel in selects:
+                name_m = re.search(r'name=["\']([^"\']*)["\']', sel, re.IGNORECASE)
+                name = name_m.group(1) if name_m else ""
+                is_req = bool(re.search(r'\brequired\b', sel, re.IGNORECASE))
+                fields.append({
+                    "name": name or "(no-name-attribute)",
+                    "label": name or "Dropdown",
+                    "type": "select",
+                    "required": is_req,
+                    "placeholder": "",
+                })
+
+            # Submit button
+            submit_m = re.search(r'<button\b[^>]*type=["\']submit["\'][^>]*>(.*?)</button>', inner_content, re.IGNORECASE | re.DOTALL)
+            if not submit_m:
+                submit_m = re.search(r'<input\b[^>]*type=["\']submit["\'][^>]*value=["\']([^"\']*)["\']', inner_content, re.IGNORECASE)
+            submit_text = re.sub(r'<[^>]+>', '', submit_m.group(1)).strip() if submit_m else "Submit"
+
+            forms.append({
+                "form_index": idx,
+                "action": action or "Local Landing Page",
+                "method": method,
+                "fields_count": len(fields),
+                "fields": fields,
+                "submit_button": submit_text,
+                "is_shortcode": False,
+            })
+
+        total_fields = sum(f["fields_count"] for f in forms)
+        return Response({
+            "forms": forms,
+            "total_forms": len(forms),
+            "total_fields": total_fields,
+        })
+
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
@@ -2643,9 +2813,64 @@ def public_landing_page_html(request, slug):
             else:
                 rendered_html = rendered_html.replace(f"{{{{{sc}}}}}", "")
 
-        # Inject submission script right before </body>
+        # Inject universal submission interceptor script right before </body>
         injection_script = f'''
         <script>
+        // Automatic Dynamic Form Submissions Interceptor
+        function reInitDynamicFormInterceptor() {{
+            const forms = document.querySelectorAll("form");
+            forms.forEach(function(form) {{
+                if (form.id && form.id.startsWith("form-form_")) return;
+                if (form.dataset.reBound) return;
+                form.dataset.reBound = "true";
+
+                // Use capture phase so we capture values before any custom onsubmit resets or stops it
+                form.addEventListener("submit", async function(event) {{
+                    const formData = new FormData(form);
+                    const dataObj = {{}};
+                    formData.forEach((val, key) => {{ 
+                        if (key) dataObj[key] = val; 
+                    }});
+
+                    // Comprehensive input inspection: supports name, id, and placeholder fallback
+                    form.querySelectorAll("input, textarea, select").forEach(el => {{
+                        const type = (el.getAttribute("type") || "text").toLowerCase();
+                        if (["hidden", "submit", "button", "reset", "image"].includes(type)) return;
+                        
+                        // Priority: name -> id -> placeholder -> tag
+                        const key = el.getAttribute("name") || el.getAttribute("id") || el.getAttribute("placeholder") || el.tagName.toLowerCase();
+                        if (key && !dataObj[key]) {{
+                            dataObj[key] = el.value || "";
+                        }}
+                    }});
+
+                    // Only send if at least one field has non-empty data
+                    const hasData = Object.values(dataObj).some(v => v !== null && String(v).trim() !== "");
+                    if (hasData) {{
+                        try {{
+                            fetch("/api/public/submit/{page.slug}/", {{
+                                method: "POST",
+                                headers: {{ "Content-Type": "application/json" }},
+                                body: JSON.stringify({{ data: dataObj }})
+                            }}).then(res => res.json()).then(resData => {{
+                                console.log("[ReachEngine] Lead captured successfully:", resData);
+                            }}).catch(err => {{
+                                console.warn("[ReachEngine] Lead capture notice:", err);
+                            }});
+                        }} catch (e) {{
+                            console.warn("[ReachEngine] Dispatch error:", e);
+                        }}
+                    }}
+                }}, true);
+            }});
+        }}
+
+        if (document.readyState === "loading") {{
+            document.addEventListener("DOMContentLoaded", reInitDynamicFormInterceptor);
+        }} else {{
+            reInitDynamicFormInterceptor();
+        }}
+
         async function handleEmbedSubmit(event, shortcode, landingPageId) {{
             event.preventDefault();
             const form = event.target;
@@ -3406,6 +3631,70 @@ def public_form_submit(request, shortcode):
         "redirect_url": form.redirect_url or None,
         "submission_id": submission.id,
     }, status=status.HTTP_201_CREATED)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def public_landing_page_submit(request, slug):
+    """
+    Public Endpoint: Captures any dynamic HTML form or standalone fields submitted on a landing page.
+    Saves all key-value field data into FormSubmission and triggers AI lead qualification.
+    """
+    try:
+        landing_page = LandingPage.objects.get(slug=slug)
+    except LandingPage.DoesNotExist:
+        return Response({"error": "Landing page not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    submitted_data = request.data.get("data", {})
+    if not isinstance(submitted_data, dict) or not submitted_data:
+        # Fallback if raw JSON fields sent directly
+        submitted_data = {k: v for k, v in request.data.items() if k not in ("landing_page_id", "slug")}
+
+    # Unpack nested {'data': {...}} if wrapped
+    if isinstance(submitted_data, dict) and "data" in submitted_data and isinstance(submitted_data["data"], dict) and submitted_data["data"]:
+        submitted_data = submitted_data["data"]
+
+    if not submitted_data:
+        return Response({"error": "No form data provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Clean out internal tokens or empty values
+    clean_data = {str(k): v for k, v in submitted_data.items() if not str(k).startswith("_")}
+
+    # Get client IP
+    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(",")[0].strip()
+    else:
+        ip = request.META.get("REMOTE_ADDR")
+
+    user_agent = request.META.get("HTTP_USER_AGENT", "")
+
+    # Run AI Lead Qualification Pipeline (Laya + Llama)
+    eval_res = {}
+    try:
+        eval_res = LayaAIService.evaluate_lead_qualification(clean_data)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Failed to evaluate lead qualification: %s", e)
+
+    submission = FormSubmission.objects.create(
+        landing_page=landing_page,
+        form=None,
+        data=clean_data,
+        ip_address=ip,
+        user_agent=user_agent,
+        qualification_status=eval_res.get("status", "unprocessed"),
+        qualification_score=eval_res.get("score", 70),
+        is_qualified=eval_res.get("is_qualified", False),
+        qualification_reason=eval_res.get("reason", "Lead captured from landing page form."),
+    )
+
+    return Response({
+        "success": True,
+        "message": "Thank you! Your information has been received successfully.",
+        "submission_id": submission.id,
+    }, status=status.HTTP_201_CREATED)
+
 
 
 @api_view(["POST"])

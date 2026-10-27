@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "accounts",
     "campaigns",
+    "gmaps_scraper",
 ]
 
 MIDDLEWARE = [
@@ -143,18 +144,10 @@ REST_FRAMEWORK = {
     ],
 }
 
-CORS_ALLOW_ALL_ORIGINS = False
 if DEBUG:
-    CORS_ALLOWED_ORIGINS = [
-        "http://localhost:3010",
-        "http://127.0.0.1:3010",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:80",
-        "http://mailer.blueglobaltechnology.com",
-        "https://mailer.blueglobaltechnology.com",
-    ]
+    CORS_ALLOW_ALL_ORIGINS = True
 else:
+    CORS_ALLOW_ALL_ORIGINS = False
     cors_origins = os.environ.get("CORS_ALLOWED_ORIGINS", "")
     if cors_origins:
         CORS_ALLOWED_ORIGINS = cors_origins.split(",")
