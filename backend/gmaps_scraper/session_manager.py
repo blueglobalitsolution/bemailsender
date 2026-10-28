@@ -20,9 +20,13 @@ class ScrapingSession:
         self.seen_names: set = set()
 
     def add_leads(self, new_leads: List[Dict[str, Any]]) -> int:
-        """Adds new leads to the session, skipping duplicates."""
+        """Adds new leads to the session, skipping duplicates, capped at target_count (max 50)."""
         added = 0
         for lead in new_leads:
+            if len(self.leads_map) >= self.target_count:
+                self.is_active = False
+                break
+
             name = (lead.get("name") or "").strip()
             place_id = lead.get("placeId") or ""
             key = place_id if place_id else name.lower()

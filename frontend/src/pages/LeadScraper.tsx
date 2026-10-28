@@ -14,7 +14,6 @@ import {
   FolderPlus,
   ShieldCheck,
   XCircle,
-  PlusCircle,
   UserCheck,
   Linkedin,
   Twitter,
@@ -87,13 +86,10 @@ export default function LeadScraper() {
   const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [location, setLocation] = useState("");
   const [searching, setSearching] = useState(false);
-  const [scraperMode, setScraperMode] = useState<"gmaps" | "bing">("gmaps");
-  const [targetCount, setTargetCount] = useState<number>(100);
   const [gmapsSessionId, setGmapsSessionId] = useState<string | null>(null);
   const [gmapsProgress, setGmapsProgress] = useState<{ count: number; target: number } | null>(null);
   const gmapsPopupRef = React.useRef<Window | null>(null);
   const pollIntervalRef = React.useRef<any>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
 
   // Results & Qualification (Step 2: AI Qualification)
   const [leads, setLeads] = useState<ScrapedLead[]>([]);
@@ -146,7 +142,7 @@ export default function LeadScraper() {
     setQualificationDone(false);
     setActiveTab("all");
     setSelectedLeads(new Set());
-    setGmapsProgress({ count: 0, target: targetCount });
+    setGmapsProgress({ count: 0, target: 50 });
 
     try {
       const startRes = await apiFetch("/api/gmaps/start/", {
@@ -154,7 +150,7 @@ export default function LeadScraper() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: `${effectiveQuery} ${location}`.trim(),
-          targetCount: targetCount,
+          targetCount: 50,
         }),
       });
 
@@ -227,7 +223,7 @@ export default function LeadScraper() {
     }
   };
 
-  // Step 1: Initial Search - Always fetches 50 leads first
+  // Step 1: Initial Search - Starts Google Maps Scraper
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const effectiveQuery = getEffectiveQuery();
@@ -236,113 +232,7 @@ export default function LeadScraper() {
       return;
     }
 
-    if (scraperMode === "gmaps") {
-      return handleGmapsSearch(effectiveQuery);
-    }
-
-    setSearching(true);
-    setSearchedOnce(true);
-    setQualificationDone(false);
-    setActiveTab("all");
-    setSelectedLeads(new Set());
-
-    try {
-      const res = await apiFetch("/api/scraper/search/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: effectiveQuery,
-          location: location.trim(),
-          limit: 50,
-          offset: 0,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Search failed");
-      }
-
-      const data = await res.json();
-      const list: ScrapedLead[] = data.leads || [];
-      setLeads(list);
-
-      // By default select all leads that have an email found
-      const initialSelected = new Set<number>();
-      list.forEach((l, idx) => {
-        if (l.email) initialSelected.add(idx);
-      });
-      setSelectedLeads(initialSelected);
-
-      if (list.length > 0) {
-        const withEmails = list.filter((l) => l.email).length;
-        toast.success(`Found ${list.length} leads (${withEmails} with verified emails)!`);
-      } else {
-        toast.info("No business leads found. Try a different location or query.");
-      }
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Failed to scrape leads");
-    } finally {
-      setSearching(false);
-    }
-  };
-
-  // Load More Leads - Fetches the next batch of 50 from the given location
-  const handleLoadMore = async () => {
-    const effectiveQuery = getEffectiveQuery();
-    if (!effectiveQuery || loadingMore) return;
-
-    setLoadingMore(true);
-    try {
-      const existingDomains = leads.map((l) => l.domain).filter(Boolean);
-
-      const res = await apiFetch("/api/scraper/search/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: effectiveQuery,
-          location: location.trim(),
-          limit: 50,
-          offset: leads.length,
-          exclude_domains: existingDomains,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to load more leads");
-      }
-
-      const data = await res.json();
-      const newBatch: ScrapedLead[] = data.leads || [];
-
-      if (newBatch.length === 0) {
-        toast.info("No additional leads found for this location.");
-      } else {
-        setLeads((prev) => {
-          const combined = [...prev, ...newBatch];
-          // Auto select new leads with email
-          setSelectedLeads((prevSelected) => {
-            const next = new Set(prevSelected);
-            newBatch.forEach((lead, idx) => {
-              if (lead.email) {
-                next.add(prev.length + idx);
-              }
-            });
-            return next;
-          });
-          return combined;
-        });
-
-        toast.success(`Loaded ${newBatch.length} more leads from ${location || "search"}!`);
-      }
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Failed to load more leads");
-    } finally {
-      setLoadingMore(false);
-    }
+    return handleGmapsSearch(effectiveQuery);
   };
 
   // Step 2: Separate Mechanism - AI Lead Qualification via Laya Model
@@ -563,50 +453,14 @@ export default function LeadScraper() {
       {/* Top Search Card (Step 1: Scraper) */}
       <div className="bg-[#1C2227] border border-[#2C353D] rounded-2xl p-6 shadow-xl relative overflow-hidden">
         
-        {/* Source Mode Switcher */}
+        {/* Scraper Header */}
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#2C353D]">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setScraperMode("gmaps")}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                scraperMode === "gmaps"
-                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm"
-                  : "bg-[#161B1F] text-[#8E9BA8] border border-[#2C353D] hover:text-white"
-              }`}
-            >
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-sm">
               <Navigation className="w-3.5 h-3.5" />
-              Google Maps Live (High Accuracy)
-            </button>
-            <button
-              type="button"
-              onClick={() => setScraperMode("bing")}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                scraperMode === "bing"
-                  ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 shadow-sm"
-                  : "bg-[#161B1F] text-[#8E9BA8] border border-[#2C353D] hover:text-white"
-              }`}
-            >
-              <Globe className="w-3.5 h-3.5" />
-              Web / Bing Search
-            </button>
-          </div>
-
-          {scraperMode === "gmaps" && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-[#8E9BA8]">Target Leads:</span>
-              <select
-                value={targetCount}
-                onChange={(e) => setTargetCount(Number(e.target.value))}
-                className="bg-[#161B1F] border border-[#2C353D] text-xs text-white rounded-lg px-2 py-1 focus:outline-none"
-              >
-                <option value={20}>20 Leads</option>
-                <option value={50}>50 Leads</option>
-                <option value={100}>100 Leads</option>
-                <option value={200}>200 Leads</option>
-              </select>
+              Google Maps Live Scraper
             </div>
-          )}
+          </div>
         </div>
 
         {/* Live Scraping Progress Banner */}
@@ -1121,31 +975,12 @@ export default function LeadScraper() {
             </table>
           </div>
 
-          {/* Load More Button */}
+          {/* Table Footer */}
           <div className="p-4 border-t border-[#2C353D] bg-[#161B1F]/60 flex flex-col sm:flex-row items-center justify-between gap-3">
             <span className="text-xs text-[#8E9BA8]">
               Showing <strong className="text-white">{leads.length}</strong> leads from{" "}
               <strong className="text-emerald-400">{location || "all locations"}</strong>
             </span>
-
-            <button
-              type="button"
-              onClick={handleLoadMore}
-              disabled={loadingMore}
-              className="bg-[#222930] hover:bg-[#2C353D] border border-[#2C353D] hover:border-emerald-500/50 text-white font-bold text-xs px-5 py-2.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-md disabled:opacity-50"
-            >
-              {loadingMore ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
-                  <span>Finding More Leads...</span>
-                </>
-              ) : (
-                <>
-                  <PlusCircle className="w-4 h-4 text-emerald-400" />
-                  <span>Load More Leads</span>
-                </>
-              )}
-            </button>
           </div>
         </div>
       )}

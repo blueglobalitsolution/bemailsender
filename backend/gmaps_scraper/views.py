@@ -24,7 +24,7 @@ class GmapsStartSessionView(APIView):
 
     def post(self, request):
         query = request.data.get("query", "").strip()
-        target_count = int(request.data.get("targetCount", 50))
+        target_count = 50  # Hardcoded to 50 leads cap for Google Maps scraper
         session = create_session(query=query, target_count=target_count)
         return Response(
             {

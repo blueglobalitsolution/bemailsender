@@ -251,9 +251,9 @@ export default function Templates() {
       setCustomHtml("");
       setUploadedFileName("");
       setEditorMode("drag_drop");
-        setCustomHtml("");
-        setUploadedFileName("");
-        setEditorMode("drag_drop");
+      setCustomHtml("");
+      setUploadedFileName("");
+      setEditorMode("drag_drop");
       setEditingId(null);
       setIsCreating(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -542,11 +542,10 @@ export default function Templates() {
                       <button
                         type="button"
                         onClick={() => setEditorMode("drag_drop")}
-                        className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
-                          editorMode === "drag_drop"
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${editorMode === "drag_drop"
                             ? "bg-white text-[#161B1F] shadow-sm font-bold"
                             : "text-[#8E9BA8] hover:text-white"
-                        }`}
+                          }`}
                       >
                         <Layout className="w-3.5 h-3.5" />
                         <span>Drag & Drop</span>
@@ -555,11 +554,10 @@ export default function Templates() {
                       <button
                         type="button"
                         onClick={() => setEditorMode("custom_html")}
-                        className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
-                          editorMode === "custom_html"
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${editorMode === "custom_html"
                             ? "bg-white text-[#161B1F] shadow-sm font-bold"
                             : "text-[#8E9BA8] hover:text-white"
-                        }`}
+                          }`}
                       >
                         <Code className="w-3.5 h-3.5" />
                         <span>Uploaded HTML & Preview</span>
@@ -600,18 +598,16 @@ export default function Templates() {
                         <button
                           type="button"
                           onClick={() => setPreviewDevice("desktop")}
-                          className={`px-2.5 py-1 rounded text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
-                            previewDevice === "desktop" ? "bg-white text-[#161B1F] font-bold" : "text-[#8E9BA8] hover:text-white"
-                          }`}
+                          className={`px-2.5 py-1 rounded text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${previewDevice === "desktop" ? "bg-white text-[#161B1F] font-bold" : "text-[#8E9BA8] hover:text-white"
+                            }`}
                         >
                           <Monitor className="w-3.5 h-3.5" /> Desktop
                         </button>
                         <button
                           type="button"
                           onClick={() => setPreviewDevice("mobile")}
-                          className={`px-2.5 py-1 rounded text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
-                            previewDevice === "mobile" ? "bg-white text-[#161B1F] font-bold" : "text-[#8E9BA8] hover:text-white"
-                          }`}
+                          className={`px-2.5 py-1 rounded text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${previewDevice === "mobile" ? "bg-white text-[#161B1F] font-bold" : "text-[#8E9BA8] hover:text-white"
+                            }`}
                         >
                           <Smartphone className="w-3.5 h-3.5" /> Mobile
                         </button>
@@ -643,9 +639,8 @@ export default function Templates() {
                         </div>
                         <div className="flex-1 p-4 flex items-center justify-center overflow-auto bg-[#182028]">
                           <div
-                            className={`h-full bg-white transition-all duration-300 shadow-2xl overflow-hidden rounded-md border border-gray-400 ${
-                              previewDevice === "mobile" ? "w-[375px]" : "w-full"
-                            }`}
+                            className={`h-full bg-white transition-all duration-300 shadow-2xl overflow-hidden rounded-md border border-gray-400 ${previewDevice === "mobile" ? "w-[375px]" : "w-full"
+                              }`}
                           >
                             <iframe
                               srcDoc={customHtml || '<div style="font-family: sans-serif; text-align: center; padding: 40px; color: #888;">Upload an HTML file or write code on the left to see live preview.</div>'}
@@ -841,81 +836,81 @@ export default function Templates() {
               return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
             })
             .map((template) => (
-            <div
-              key={template.id}
-              onClick={() => setPreviewTemplate(template)}
-              className="bg-[#1C2227] border border-[#2C353D] hover:border-[#CBD5E1] rounded-xl transition-all p-5 flex flex-col justify-between group cursor-pointer shadow-md relative"
-            >
-              <div>
-                <div className="flex items-start justify-between gap-2 mb-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Mail className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <h3 className="font-sans font-bold text-base text-white line-clamp-1" title={template.name}>
-                      {template.name}
-                    </h3>
+              <div
+                key={template.id}
+                onClick={() => setPreviewTemplate(template)}
+                className="bg-[#1C2227] border border-[#2C353D] hover:border-[#CBD5E1] rounded-xl transition-all p-5 flex flex-col justify-between group cursor-pointer shadow-md relative"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Mail className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <h3 className="font-sans font-bold text-base text-white line-clamp-1" title={template.name}>
+                        {template.name}
+                      </h3>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => handleEdit(template)}
+                        className="p-1.5 bg-[#222930] hover:bg-[#2C353D] text-[#8E9BA8] hover:text-white rounded-lg border border-[#2C353D] transition-colors cursor-pointer"
+                        title="Edit Template"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(template.id)}
+                        className="p-1.5 bg-[#222930] hover:bg-rose-950/40 text-[#8E9BA8] hover:text-rose-400 rounded-lg border border-[#2C353D] transition-colors cursor-pointer"
+                        title="Delete Template"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+
+                  {template.subject && (
+                    <div className="mb-3">
+                      <p className="text-[10px] uppercase font-mono tracking-wider text-[#8E9BA8] mb-0.5">Subject</p>
+                      <p className="text-xs text-[#CBD5E1] font-medium line-clamp-1" title={template.subject}>
+                        {template.subject}
+                      </p>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-[#8E9BA8] line-clamp-4 leading-relaxed mb-4">
+                    {stripHtml(template.body) || "No plain text excerpt available."}
+                  </p>
+                </div>
+
+                <div className="pt-3 border-t border-[#2C353D] flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-mono text-[#8E9BA8] truncate">
+                    {template.created_at ? new Date(template.created_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "Saved"}
+                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
-                      onClick={() => handleEdit(template)}
-                      className="p-1.5 bg-[#222930] hover:bg-[#2C353D] text-[#8E9BA8] hover:text-white rounded-lg border border-[#2C353D] transition-colors cursor-pointer"
-                      title="Edit Template"
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openTestModal(template);
+                      }}
+                      className="text-xs font-semibold text-sky-400 hover:text-sky-300 flex items-center gap-1 px-2 py-1 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 rounded-md transition-all cursor-pointer"
+                      title="Send a live test email"
                     >
-                      <Edit3 className="w-3.5 h-3.5" />
+                      <Send className="w-3 h-3" /> Test
                     </button>
                     <button
-                      onClick={() => handleDelete(template.id)}
-                      className="p-1.5 bg-[#222930] hover:bg-rose-950/40 text-[#8E9BA8] hover:text-rose-400 rounded-lg border border-[#2C353D] transition-colors cursor-pointer"
-                      title="Delete Template"
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPreviewTemplate(template);
+                      }}
+                      className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-md transition-all cursor-pointer"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Eye className="w-3 h-3" /> Preview
                     </button>
                   </div>
                 </div>
-
-                {template.subject && (
-                  <div className="mb-3">
-                    <p className="text-[10px] uppercase font-mono tracking-wider text-[#8E9BA8] mb-0.5">Subject</p>
-                    <p className="text-xs text-[#CBD5E1] font-medium line-clamp-1" title={template.subject}>
-                      {template.subject}
-                    </p>
-                  </div>
-                )}
-
-                <p className="text-xs text-[#8E9BA8] line-clamp-4 leading-relaxed mb-4">
-                  {stripHtml(template.body) || "No plain text excerpt available."}
-                </p>
               </div>
-
-              <div className="pt-3 border-t border-[#2C353D] flex items-center justify-between gap-2">
-                <span className="text-[10px] font-mono text-[#8E9BA8] truncate">
-                  {template.created_at ? new Date(template.created_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "Saved"}
-                </span>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openTestModal(template);
-                    }}
-                    className="text-xs font-semibold text-sky-400 hover:text-sky-300 flex items-center gap-1 px-2 py-1 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 rounded-md transition-all cursor-pointer"
-                    title="Send a live test email"
-                  >
-                    <Send className="w-3 h-3" /> Test
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPreviewTemplate(template);
-                    }}
-                    className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-md transition-all cursor-pointer"
-                  >
-                    <Eye className="w-3 h-3" /> Preview
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+            ))}
           {templates.length === 0 && !isCreating && (
             <div className="col-span-full text-center py-20 text-[#8E9BA8] bg-[#1C2227] border border-[#2C353D] rounded-xl font-mono text-xs">
               No templates found. Click "New Template" above to get started!
@@ -1127,7 +1122,7 @@ export default function Templates() {
         onClose={() => setIsAIModalOpen(false)}
         onApply={(subject, body) => {
           const formattedHtml = `<div style="font-family: Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #333333; padding: 20px;">${body.replace(/\n\n/g, "<br/><br/>").replace(/\n/g, "<br/>")}</div>`;
-          
+
           const newDesign = {
             body: {
               rows: [
